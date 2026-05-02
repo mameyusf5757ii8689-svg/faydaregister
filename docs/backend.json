@@ -1,0 +1,149 @@
+
+{
+  "entities": {
+    "Registration": {
+      "title": "Registration",
+      "type": "object",
+      "description": "A single registration submission.",
+      "properties": {
+        "id": { "type": "string" },
+        "applicantName": { "type": "string" },
+        "submissionDate": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["Processed", "Pending Review", "Rejected", "Processing", "Failed"] },
+        "location": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "content": { "type": "string" },
+        "requiredFieldsFilled": { "type": "boolean" },
+        "attachmentsIncluded": { "type": "boolean" },
+        "officer": { "type": "string" },
+        "remarks": { "type": "string" },
+        "assignedReviewerId": { "type": "string" },
+        "rejectionReason": { "type": "string", "enum": ["Biometric Match", "Rejected by Superveser"] }
+      },
+      "required": ["id", "applicantName", "submissionDate", "status"]
+    },
+    "User": {
+      "title": "User",
+      "type": "object",
+      "description": "Officer or Admin profile.",
+      "properties": {
+        "id": { "type": "string" },
+        "fullName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["admin", "reviewer"] },
+        "region": { "type": "string" },
+        "cluster": { "type": "string" },
+        "profilePhoto": { "type": "string" }
+      },
+      "required": ["id", "fullName", "email", "role"]
+    },
+    "DailyReport": {
+      "title": "DailyReport",
+      "type": "object",
+      "description": "Officer's daily registration counts.",
+      "properties": {
+        "id": { "type": "string" },
+        "officerId": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "ethioCount": { "type": "number" },
+        "safaricomCount": { "type": "number" },
+        "total": { "type": "number" },
+        "remarks": { "type": "string" },
+        "timestamp": { "type": "object" }
+      },
+      "required": ["officerId", "date", "ethioCount", "safaricomCount", "total"]
+    },
+    "MonthlySummary": {
+      "title": "MonthlySummary",
+      "type": "object",
+      "description": "Historical monthly data.",
+      "properties": {
+        "id": { "type": "string" },
+        "officerId": { "type": "string" },
+        "month": { "type": "string" },
+        "year": { "type": "string" },
+        "ethio": { "type": "number" },
+        "safaricom": { "type": "number" },
+        "total": { "type": "number" },
+        "processed": { "type": "number" },
+        "processing": { "type": "number" },
+        "rejected": { "type": "number" },
+        "failed": { "type": "number" },
+        "pendingReview": { "type": "number" }
+      },
+      "required": ["officerId", "month", "year", "total"]
+    },
+    "Announcement": {
+      "title": "Announcement",
+      "type": "object",
+      "description": "Bureau-wide message.",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "type": { "type": "string", "enum": ["info", "alert", "update"] },
+        "date": { "type": "string", "format": "date" },
+        "timestamp": { "type": "object" }
+      },
+      "required": ["title", "content", "type", "date"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["info", "success", "warning", "error"] },
+        "isRead": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Message": {
+      "title": "Message",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "conversationId": { "type": "string" },
+        "text": { "type": "string" },
+        "audioUrl": { "type": "string", "description": "Base64 encoded audio or storage URL." },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderEmail": { "type": "string" },
+        "timestamp": { "type": "object" },
+        "isEdited": { "type": "boolean" },
+        "deletedFor": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "Conversation": {
+      "title": "Conversation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string", "enum": ["dm", "group"] },
+        "members": { "type": "array", "items": { "type": "string" } },
+        "name": { "type": "string" },
+        "lastMessage": { "type": "string" },
+        "lastTimestamp": { "type": "object" },
+        "createdBy": { "type": "string" }
+      }
+    }
+  },
+  "auth": {
+    "providers": ["password"]
+  },
+  "firestore": {
+    "structure": [
+      { "path": "/users/{userId}", "definition": { "schema": { "$ref": "#/backend/entities/User" }, "description": "User profiles." } },
+      { "path": "/users/{userId}/notifications/{notificationId}", "definition": { "schema": { "$ref": "#/backend/entities/Notification" }, "description": "User personal alerts." } },
+      { "path": "/registrations/{registrationId}", "definition": { "schema": { "$ref": "#/backend/entities/Registration" }, "description": "Registration submissions." } },
+      { "path": "/daily_reports/{reportId}", "definition": { "schema": { "$ref": "#/backend/entities/DailyReport" }, "description": "Officer daily logs." } },
+      { "path": "/monthly_summaries/{summaryId}", "definition": { "schema": { "$ref": "#/backend/entities/MonthlySummary" }, "description": "Historical archives." } },
+      { "path": "/announcements/{announcementId}", "definition": { "schema": { "$ref": "#/backend/entities/Announcement" }, "description": "System broadcasts." } },
+      { "path": "/conversations/{conversationId}", "definition": { "schema": { "$ref": "#/backend/entities/Conversation" }, "description": "Chat channels." } },
+      { "path": "/messages/{messageId}", "definition": { "schema": { "$ref": "#/backend/entities/Message" }, "description": "Chat messages." } },
+      { "path": "/admin_users/{userId}", "definition": { "schema": { "type": "object" }, "description": "Admin RBAC lookup." } }
+    ]
+  }
+}

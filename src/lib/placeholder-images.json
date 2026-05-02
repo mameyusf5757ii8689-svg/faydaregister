@@ -1,0 +1,10 @@
+{
+  "placeholderImages": [
+    {
+      "id": "landing-hero",
+      "description": "A modern government office building interior representing a professional bureau.",
+      "imageUrl": "https://picsum.photos/seed/bureau-hero/1200/800",
+      "imageHint": "government office"
+    }
+  ]
+}

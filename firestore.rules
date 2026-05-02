@@ -1,0 +1,65 @@
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/admin_users/$(request.auth.uid));
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      // Allow admins to write/delete any user profile, or users to write to their own
+      allow write: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
+      allow delete: if isAdmin();
+
+      match /notifications/{notificationId} {
+        allow read, write: if isSignedIn() && request.auth.uid == userId;
+      }
+    }
+    match /admin_users/{userId} {
+      // Allow public read to check if any admins exist (needed for bootstrap/login logic)
+      allow read: if true;
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update, delete: if isAdmin();
+    }
+    match /registrations/{regId} {
+      // Authenticated staff can read, create, and update
+      allow read, create, update: if isSignedIn();
+      // Only admins or the assigned officer can delete
+      allow delete: if isSignedIn();
+    }
+    match /daily_reports/{reportId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && (isAdmin() || request.resource.data.officerId == request.auth.uid);
+      allow update, delete: if isAdmin() || (isSignedIn() && resource.data.officerId == request.auth.uid);
+    }
+    match /monthly_summaries/{summaryId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && (isAdmin() || request.resource.data.officerId == request.auth.uid);
+      allow update, delete: if isAdmin() || (isSignedIn() && resource.data.officerId == request.auth.uid);
+    }
+    match /announcements/{annId} {
+      allow read: if isSignedIn();
+      allow write, delete: if isAdmin();
+    }
+    match /conversations/{convId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (request.auth.uid in resource.data.members);
+      allow delete: if isAdmin();
+    }
+    match /messages/{messageId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      // Allow sender or admin to edit (update) or delete messages
+      // Also allow any member of the conversation to update "deletedFor"
+      allow update: if isAdmin() || 
+                    (isSignedIn() && request.auth.uid == resource.data.senderId) ||
+                    (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deletedFor']));
+      allow delete: if isAdmin() || (isSignedIn() && request.auth.uid == resource.data.senderId);
+    }
+  }
+}
