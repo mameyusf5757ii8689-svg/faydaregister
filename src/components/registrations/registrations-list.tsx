@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useMemo } from 'react';
@@ -149,6 +150,7 @@ export function RegistrationsList({ initialRegistrations }: RegistrationsListPro
       direction = 'desc';
     }
     setSortConfig({ key, direction });
+    setCurrentPage(1);
   };
 
   const getSortIcon = (key: SortKey) => {
@@ -252,7 +254,7 @@ export function RegistrationsList({ initialRegistrations }: RegistrationsListPro
                 placeholder="Search ID, name, or phone..." 
                 className="pl-10 h-11 bg-background border-border"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
               />
             </div>
           </div>
@@ -263,7 +265,7 @@ export function RegistrationsList({ initialRegistrations }: RegistrationsListPro
             <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
               <Filter className="h-3 w-3" /> Status
             </label>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <Select value={statusFilter} onValueChange={(val) => { setStatusFilter(val); setCurrentPage(1); }}>
               <SelectTrigger className="h-10 bg-background border-border">
                 <SelectValue placeholder="All Records" />
               </SelectTrigger>
@@ -285,7 +287,7 @@ export function RegistrationsList({ initialRegistrations }: RegistrationsListPro
             <Input 
               type="date" 
               value={startDate} 
-              onChange={(e) => setStartDate(e.target.value)}
+              onChange={(e) => { setStartDate(e.target.value); setCurrentPage(1); }}
               className="h-10 bg-background border-border"
             />
           </div>
@@ -297,7 +299,7 @@ export function RegistrationsList({ initialRegistrations }: RegistrationsListPro
             <Input 
               type="date" 
               value={endDate} 
-              onChange={(e) => setEndDate(e.target.value)}
+              onChange={(e) => { setEndDate(e.target.value); setCurrentPage(1); }}
               className="h-10 bg-background border-border"
             />
           </div>
@@ -359,6 +361,36 @@ export function RegistrationsList({ initialRegistrations }: RegistrationsListPro
               )}
             </TableBody>
           </Table>
+        </div>
+
+        {/* Pagination Controls */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-border">
+          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest order-2 sm:order-1">
+            Showing {Math.min((currentPage - 1) * itemsPerPage + 1, sortedRegistrations.length)} to {Math.min(currentPage * itemsPerPage, sortedRegistrations.length)} of {sortedRegistrations.length} records
+          </div>
+          <div className="flex items-center gap-2 order-1 sm:order-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 w-9 p-0 rounded-xl border-border bg-background hover:bg-muted"
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <div className="flex items-center justify-center min-w-[100px] h-9 text-[10px] font-black text-foreground bg-muted/50 border border-border rounded-xl uppercase tracking-widest px-3">
+              Page {currentPage} of {totalPages || 1}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 w-9 p-0 rounded-xl border-border bg-background hover:bg-muted"
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages || totalPages === 0}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
 
