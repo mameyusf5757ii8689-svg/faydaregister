@@ -351,7 +351,7 @@ export function RegistrationsList({ initialRegistrations }: RegistrationsListPro
                       <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Button variant="ghost" size="sm" className="h-8 font-bold text-xs text-muted-foreground hover:text-primary" onClick={() => setViewingRegistration(reg)}><Eye className="mr-1.5 h-3.5 w-3.5" /> View</Button>
                         <RegistrationFormModal registration={reg} mode="edit" trigger={<Button variant="ghost" size="sm" className="h-8 font-bold text-xs text-muted-foreground hover:text-primary">Edit</Button>} />
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground/30 hover:text-red-500 hover:bg-red-500/10" onClick={() => { setRegistrationToDelete({id: reg.id, name: reg.applicantName}); setIsDeleteDialogOpen(true); }}><Trash2 className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground/30 hover:text-red-50 hover:bg-red-500/10" onClick={() => { setRegistrationToDelete({id: reg.id, name: reg.applicantName}); setIsDeleteDialogOpen(true); }}><Trash2 className="h-4 w-4" /></Button>
                       </div>
                     </TableCell>
                   </TableRow>
