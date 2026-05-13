@@ -20,7 +20,8 @@ import {
   ChevronRight,
   Sun,
   Moon,
-  Settings
+  Settings,
+  HardDrive
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -152,6 +153,8 @@ export function Navbar() {
     router.push(isAdminSection ? '/dashboard' : '/admin');
   };
 
+  const photoUrl = profile?.profilePhoto || user?.photoURL || "";
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-xl transition-all duration-300">
       <div className="container mx-auto flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
@@ -207,19 +210,27 @@ export function Navbar() {
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-8 w-8 p-0 rounded-full border-none ring-offset-background hover:ring-2 hover:ring-primary/20 transition-all overflow-hidden bg-muted/30">
-                  <Avatar className="h-8 w-8 border-none">
-                    <AvatarImage src={profile?.profilePhoto} alt={profile?.fullName || "Official"} />
+                <Button variant="ghost" className="h-9 w-9 p-0 rounded-full border border-border/50 ring-offset-background hover:ring-2 hover:ring-primary/20 transition-all overflow-hidden">
+                  <Avatar className="h-full w-full">
+                    <AvatarImage src={photoUrl} alt={profile?.fullName || "Official"} />
                     <AvatarFallback className="text-[10px] font-black bg-muted/30 uppercase">
-                      {profile?.fullName?.substring(0, 2) || user.email?.substring(0, 2)}
+                      {profile?.fullName?.substring(0, 2) || user.email?.substring(0, 2) || "OFF"}
                     </AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 p-1 rounded-xl shadow-2xl border-border bg-popover">
-                <DropdownMenuLabel className="flex flex-col p-3">
-                  <span className="text-xs font-black text-foreground uppercase tracking-tight truncate">{profile?.fullName || 'Official'}</span>
-                  <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest truncate">{profile?.role || 'Guest'}</span>
+              <DropdownMenuContent align="end" className="w-64 p-1 rounded-xl shadow-2xl border-border bg-popover">
+                <DropdownMenuLabel className="flex items-center gap-3 p-3">
+                  <Avatar className="h-10 w-10 border border-border/50">
+                    <AvatarImage src={photoUrl} />
+                    <AvatarFallback className="text-xs font-black bg-muted">
+                      {profile?.fullName?.substring(0, 2) || "OFF"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-xs font-black text-foreground uppercase tracking-tight truncate">{profile?.fullName || 'Official'}</span>
+                    <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest truncate">{profile?.role || 'Authorized Personnel'}</span>
+                  </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {profile?.role === 'admin' && (
@@ -251,17 +262,29 @@ export function Navbar() {
                 <Menu className="h-4 w-4" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-[240px] p-0 border-none bg-background shadow-2xl">
-              <SheetHeader className="p-6 border-b text-left">
-                <SheetTitle className="text-xs font-black uppercase tracking-widest">Navigation</SheetTitle>
+            <SheetContent side="right" className="w-[280px] p-0 border-none bg-background shadow-2xl">
+              <SheetHeader className="p-6 border-b text-left bg-muted/20">
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-10 w-10 border border-border/50">
+                    <AvatarImage src={photoUrl} />
+                    <AvatarFallback className="text-xs font-black">
+                       {profile?.fullName?.substring(0, 2) || "OFF"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <SheetTitle className="text-sm font-black uppercase tracking-tight">{profile?.fullName || 'Official'}</SheetTitle>
+                    <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">{profile?.role}</p>
+                  </div>
+                </div>
               </SheetHeader>
               <div className="p-2 space-y-1">
+                <p className="text-[9px] font-black text-muted-foreground uppercase px-4 py-3 tracking-widest">Navigation</p>
                 {user && navItems.map((item: any) => (
                   <Link
                     key={item.href}
                     href={item.href}
                     className={cn(
-                      "flex items-center justify-between px-4 py-2 text-[10px] font-bold uppercase tracking-widest rounded-md transition-all",
+                      "flex items-center justify-between px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest rounded-md transition-all",
                       pathname === item.href
                         ? "bg-primary/10 text-primary"
                         : "text-muted-foreground hover:bg-muted"
@@ -274,10 +297,11 @@ export function Navbar() {
                     <ChevronRight className="h-3 w-3 opacity-30" />
                   </Link>
                 ))}
+                <div className="my-2 border-t border-border/50" />
                 <Link
                   href="/profile"
                   className={cn(
-                    "flex items-center justify-between px-4 py-2 text-[10px] font-bold uppercase tracking-widest rounded-md transition-all",
+                    "flex items-center justify-between px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest rounded-md transition-all",
                     pathname === '/profile'
                       ? "bg-primary/10 text-primary"
                       : "text-muted-foreground hover:bg-muted"
@@ -285,10 +309,19 @@ export function Navbar() {
                 >
                   <div className="flex items-center gap-3">
                     <Settings className="h-4 w-4" />
-                    Profile Settings
+                    Identity Settings
                   </div>
                   <ChevronRight className="h-3 w-3 opacity-30" />
                 </Link>
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center justify-between px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-destructive hover:bg-destructive/5 rounded-md transition-all"
+                >
+                  <div className="flex items-center gap-3">
+                    <LogOut className="h-4 w-4" />
+                    Terminate Session
+                  </div>
+                </button>
               </div>
             </SheetContent>
           </Sheet>
