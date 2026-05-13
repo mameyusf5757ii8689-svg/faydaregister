@@ -363,7 +363,6 @@ export function RegistrationsList({ initialRegistrations }: RegistrationsListPro
           </Table>
         </div>
 
-        {/* Pagination Controls */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-border">
           <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest order-2 sm:order-1">
             Showing {Math.min((currentPage - 1) * itemsPerPage + 1, sortedRegistrations.length)} to {Math.min(currentPage * itemsPerPage, sortedRegistrations.length)} of {sortedRegistrations.length} records

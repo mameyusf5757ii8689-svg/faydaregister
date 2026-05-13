@@ -2,19 +2,20 @@
 
 A professional Next.js 15 application for bureau registration tracking, real-time coordination, and AI-assisted status management.
 
-## 🚀 Publication Roadmap
+## 🚀 Deployment & Update Roadmap
 
-### 1. Initialize Git & Push to GitHub
-Run these commands in your terminal to synchronize this terminal with your repository:
+### 1. Synchronize Changes with GitHub
+If you have already initialized your repository, run these commands to push the latest updates:
 
 ```bash
-git init
+# Stage all changes (Pagination, Rejection Reasons, Hardened Config)
 git add .
-git commit -m "Initialize professional bureau terminal"
-# Replace with your actual repository URL:
-git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git
-git branch -M main
-git push -u origin main
+
+# Commit with a professional message
+git commit -m "Update: Pagination, rejection audit logic, and cloud hardening"
+
+# Push to your existing main branch
+git push origin main
 ```
 
 ### 2. Connect to Vercel
