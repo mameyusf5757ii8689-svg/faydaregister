@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useMemo } from 'react';
@@ -30,7 +29,8 @@ import {
   ArrowUp,
   ArrowDown,
   FileSpreadsheet,
-  FileText
+  FileText,
+  ShieldAlert
 } from 'lucide-react';
 import { StatusBadge } from '@/components/dashboard/status-badge';
 import { format, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
@@ -403,6 +403,16 @@ export function RegistrationsList({ initialRegistrations }: RegistrationsListPro
             </div>
           </DialogHeader>
           <div className="p-8 space-y-8 bg-card">
+            {viewingRegistration?.status === 'Rejected' && viewingRegistration.rejectionReason && (
+              <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl animate-in fade-in zoom-in duration-300">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <ShieldAlert className="h-4 w-4 text-rose-500" />
+                  <p className="text-[10px] font-black uppercase text-rose-600 tracking-widest">Rejection Protocol Triggered</p>
+                </div>
+                <p className="text-sm font-bold text-rose-700">Reason: {viewingRegistration.rejectionReason}</p>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-8">
               <DetailItem label="Applicant Name" value={viewingRegistration?.applicantName} icon={User} />
               <DetailItem label="Submission Date" value={viewingRegistration?.submissionDate ? format(new Date(viewingRegistration.submissionDate), 'MMMM dd, yyyy') : 'N/A'} icon={Calendar} />
