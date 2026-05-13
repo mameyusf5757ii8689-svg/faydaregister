@@ -39,6 +39,7 @@ import { doc, collection, query, where } from 'firebase/firestore';
 import { UserProfile, Notification, Announcement, Conversation } from '@/lib/types';
 import { useMemo, useEffect, useState } from 'react';
 import { useTheme } from 'next-themes';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const OFFICER_NAV_ITEMS = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -206,10 +207,13 @@ export function Navbar() {
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-8 w-8 p-0 rounded-full border overflow-hidden hover:ring-2 hover:ring-primary/20 bg-muted/30">
-                   <div className="h-full w-full flex items-center justify-center text-[10px] font-bold uppercase">
-                    {profile?.fullName?.substring(0, 2) || user.email?.substring(0, 2)}
-                   </div>
+                <Button variant="ghost" className="h-8 w-8 p-0 rounded-full border-none ring-offset-background hover:ring-2 hover:ring-primary/20 transition-all overflow-hidden bg-muted/30">
+                  <Avatar className="h-8 w-8 border-none">
+                    <AvatarImage src={profile?.profilePhoto} alt={profile?.fullName || "Official"} />
+                    <AvatarFallback className="text-[10px] font-black bg-muted/30 uppercase">
+                      {profile?.fullName?.substring(0, 2) || user.email?.substring(0, 2)}
+                    </AvatarFallback>
+                  </Avatar>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56 p-1 rounded-xl shadow-2xl border-border bg-popover">
