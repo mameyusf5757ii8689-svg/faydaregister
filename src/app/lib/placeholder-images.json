@@ -1,0 +1,17 @@
+
+{
+  "placeholderImages": [
+    {
+      "id": "landing-hero",
+      "description": "A modern government office building interior representing a professional bureau.",
+      "imageUrl": "https://picsum.photos/seed/bureau-hero/1200/800",
+      "imageHint": "government office"
+    },
+    {
+      "id": "accuracy-hero",
+      "description": "Official Fayda logo representing system accuracy and bureau standards.",
+      "imageUrl": "https://imgs.search.brave.com/tZx6g-b1C4fqdgZoDC8WMm5PrcF-HIcDYw3OzUHY7d0/rs:fit:0:180:1:0/g:ce/aHR0cHM6Ly91cGxv/YWQud2lraW1lZGlh/Lm9yZy93aWtpcGVk/aWEvY29tbW9ucy8x/LzExL0ZpbmFsX0Zh/eWRhX0xvZ29fZW5n/bGlzaC0wMS5wbmc",
+      "imageHint": "bureau logo"
+    }
+  ]
+}

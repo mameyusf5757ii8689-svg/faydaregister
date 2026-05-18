@@ -16,9 +16,11 @@ import {
 } from 'lucide-react';
 import { useUser } from '@/firebase';
 import Image from 'next/image';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 export default function LandingPage() {
   const { user } = useUser();
+  const accuracyImage = PlaceHolderImages.find(img => img.id === 'accuracy-hero')?.imageUrl || '';
 
   return (
     <div className="flex flex-col min-h-screen -mt-8 -mx-4 sm:-mx-6 lg:-mx-8 bg-background">
@@ -113,15 +115,15 @@ export default function LandingPage() {
                     </div>
                  </div>
               </div>
-              <div className="relative aspect-video rounded-[32px] overflow-hidden border border-border shadow-2xl bg-muted group">
+              <div className="relative aspect-video rounded-[32px] overflow-hidden border border-border shadow-2xl bg-muted group p-12 flex items-center justify-center">
                  <Image 
-                    src="https://picsum.photos/seed/bureau-hero/1200/800"
-                    alt="Bureau Framework"
+                    src={accuracyImage}
+                    alt="Fayda Accuracy Logo"
                     fill
-                    className="object-cover transition-transform duration-700 group-hover:scale-105 opacity-80 grayscale hover:grayscale-0"
-                    data-ai-hint="government office"
+                    className="object-contain p-12 transition-transform duration-700 group-hover:scale-105"
+                    data-ai-hint="bureau logo"
                  />
-                 <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
+                 <div className="absolute inset-0 bg-gradient-to-t from-background/10 via-transparent to-transparent" />
               </div>
            </div>
         </div>
