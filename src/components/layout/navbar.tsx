@@ -235,6 +235,7 @@ export function Navbar() {
                     <AvatarFallback className="text-xs font-black bg-muted">
                       {profile?.fullName?.substring(0, 2) || "OFF"}
                     </AvatarFallback>
+                  </Avatar>
                   <div className="flex flex-col min-w-0">
                     <span className="text-xs font-black text-foreground uppercase tracking-tight truncate">{profile?.fullName || 'Official'}</span>
                     <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest truncate">{profile?.role || 'Authorized Personnel'}</span>
