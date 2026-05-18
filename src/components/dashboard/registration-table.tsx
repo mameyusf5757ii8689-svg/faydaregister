@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState } from 'react';
@@ -32,7 +31,7 @@ interface RegistrationTableProps {
 
 export function RegistrationTable({ registrations, isDashboardView = false }: RegistrationTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = isDashboardView ? 5 : 10;
+  const itemsPerPage = 10;
   
   const totalPages = Math.ceil(registrations.length / itemsPerPage);
   const currentItems = registrations.slice(
@@ -101,7 +100,7 @@ export function RegistrationTable({ registrations, isDashboardView = false }: Re
       {totalPages > 1 && (
         <div className="flex items-center justify-between px-4 py-3 border-t bg-muted/10">
           <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-            Page {currentPage} of {totalPages}
+            Showing {currentItems.length} of {registrations.length} records • Page {currentPage} of {totalPages}
           </p>
           <div className="flex items-center gap-2">
             <Button

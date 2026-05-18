@@ -18,7 +18,7 @@ export default function OfficerDashboard() {
     return query(
       collection(db, 'registrations'),
       where('assignedReviewerId', '==', user.uid),
-      limit(100)
+      limit(10000)
     );
   }, [db, user]);
 
@@ -106,7 +106,7 @@ export default function OfficerDashboard() {
         <section className="xl:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
-              <FileText className="h-3.5 w-3.5 text-primary" /> Recent Worklist Assignments
+              <FileText className="h-3.5 w-3.5 text-primary" /> Bureau Activity Ledger
             </h2>
           </div>
           <Card className="border-none shadow-sm rounded-2xl overflow-hidden bg-card">
@@ -117,7 +117,7 @@ export default function OfficerDashboard() {
                 <div className="flex flex-col items-center justify-center py-24 text-center">
                   <div className="p-4 bg-muted rounded-full mb-4"><FileText className="h-10 w-10 text-muted-foreground/20" /></div>
                   <h3 className="text-sm font-bold text-foreground mb-1">Queue Empty</h3>
-                  <p className="text-xs text-muted-foreground max-w-[200px]">No specific applicant records are assigned to your unit.</p>
+                  <p className="text-xs text-muted-foreground max-w-[200px]">No applicant records found in the bureau database.</p>
                 </div>
               )}
             </CardContent>

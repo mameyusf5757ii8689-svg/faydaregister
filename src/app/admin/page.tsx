@@ -20,7 +20,7 @@ export default function AdminDashboard() {
 
   const registrationsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, 'registrations'), limit(100));
+    return query(collection(db, 'registrations'), limit(10000));
   }, [db, user]);
 
   const reportsQuery = useMemoFirebase(() => {
@@ -154,7 +154,7 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent className="p-0">
             {registrations && registrations.length > 0 ? (
-              <RegistrationTable registrations={registrations.slice(0, 10)} isDashboardView={true} />
+              <RegistrationTable registrations={registrations} isDashboardView={true} />
             ) : (
               <div className="py-20 text-center text-muted-foreground/30">
                 <FileText className="h-12 w-12 mx-auto mb-4 opacity-10" />
