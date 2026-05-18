@@ -153,7 +153,7 @@ export function Navbar() {
     router.push(isAdminSection ? '/dashboard' : '/admin');
   };
 
-  const photoUrl = profile?.profilePhoto || user?.photoURL || "";
+  const photoUrl = profile?.profilePhoto || user?.photoURL || undefined;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-xl transition-all duration-300">
@@ -304,7 +304,7 @@ export function Navbar() {
                     "flex items-center justify-between px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest rounded-md transition-all",
                     pathname === '/profile'
                       ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:bg-muted"
+                      : "text-muted-foreground hover:text-muted"
                   )}
                 >
                   <div className="flex items-center gap-3">
