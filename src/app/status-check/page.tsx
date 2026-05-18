@@ -88,6 +88,11 @@ export default function StatusCheckPage() {
     });
   }, [registrations, searchTerm, statusFilter, selectedDate]);
 
+  const activeRegistration = useMemo(() => {
+    if (!activeRid || !registrations) return null;
+    return registrations.find(r => r.id === activeRid);
+  }, [activeRid, registrations]);
+
   const handleInsertRid = (rid: string) => {
     setActiveRid(rid);
     // Copy to clipboard for easy manual paste if auto-fill is blocked by iframe security
@@ -162,6 +167,7 @@ export default function StatusCheckPage() {
                     <SelectItem value="Processing" className="text-[10px] font-bold uppercase">Processing</SelectItem>
                     <SelectItem value="Pending Review" className="text-[10px] font-bold uppercase">Pending</SelectItem>
                     <SelectItem value="Rejected" className="text-[10px] font-bold uppercase">Rejected</SelectItem>
+                    <SelectItem value="Failed" className="text-[10px] font-bold uppercase">Failed</SelectItem>
                   </SelectContent>
                 </Select>
                 <div className="relative">
@@ -252,8 +258,16 @@ export default function StatusCheckPage() {
                 <CardTitle className="text-sm font-black text-foreground uppercase tracking-[0.2em]">Official Portal</CardTitle>
               </div>
               {activeRid && (
-                <div className="flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-full border border-primary/20">
-                  <span className="text-[9px] font-black text-primary uppercase tracking-tighter">Active RID: {activeRid}</span>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-full border border-primary/20">
+                    <span className="text-[9px] font-black text-primary uppercase tracking-tighter">Active RID: {activeRid}</span>
+                  </div>
+                  {activeRegistration && (
+                    <div className="flex items-center gap-2 px-3 py-1 bg-muted rounded-full border border-border">
+                      <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-tighter">Registry Status:</span>
+                      <StatusBadge status={activeRegistration.status} className="scale-75 origin-left" />
+                    </div>
+                  )}
                 </div>
               )}
             </CardHeader>
