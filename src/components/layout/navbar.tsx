@@ -23,7 +23,8 @@ import {
   Moon,
   Settings,
   Search,
-  HardDrive
+  HardDrive,
+  Activity
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -46,6 +47,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const OFFICER_NAV_ITEMS = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Full Registry', href: '/full-registration', icon: Activity },
   { name: 'Status', href: '/status-check', icon: Search },
   { name: 'Comm', href: '/communication', icon: MessageSquare },
   { name: 'Reporting', href: '/daily-registrations', icon: CalendarPlus },
@@ -57,6 +59,7 @@ const OFFICER_NAV_ITEMS = [
 
 const ADMIN_NAV_ITEMS = [
   { name: 'Overview', href: '/admin', icon: LayoutDashboard },
+  { name: 'Full Registry', href: '/full-registration', icon: Activity },
   { name: 'Status', href: '/status-check', icon: Search },
   { name: 'Comm', href: '/communication', icon: MessageSquare },
   { name: 'Personnel', href: '/admin/officers', icon: Users },
