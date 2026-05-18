@@ -27,7 +27,13 @@ git commit -m "Operational Update: Integrated Full Registration Terminal, Analys
 git push origin main
 ```
 
-### 2. Configure Cloud Environment
+### 2. Troubleshooting "Authentication Failed"
+If you see `Missing or invalid credentials` or `Authentication failed`, follow these steps:
+1. **Generate a PAT**: Go to GitHub > Settings > Developer Settings > Personal Access Tokens (classic) and create a token with `repo` permissions.
+2. **Push Again**: Run `git push origin main`.
+3. **Password Prompt**: When prompted for your password, **paste the Token** you generated.
+
+### 3. Configure Cloud Environment
 Ensure the following variables are active in your deployment environment (Vercel/Firebase):
 
 | Variable | Purpose |
