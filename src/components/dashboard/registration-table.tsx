@@ -1,5 +1,7 @@
+
 "use client"
 
+import { useState } from 'react';
 import { Registration } from '@/lib/types';
 import { 
   Table, 
@@ -18,7 +20,7 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, ExternalLink } from 'lucide-react';
+import { MoreHorizontal, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
 import { StatusBadge } from './status-badge';
 import { AiSuggestionModal } from './ai-suggestion-modal';
 import { format } from 'date-fns';
@@ -29,6 +31,15 @@ interface RegistrationTableProps {
 }
 
 export function RegistrationTable({ registrations, isDashboardView = false }: RegistrationTableProps) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = isDashboardView ? 5 : 10;
+  
+  const totalPages = Math.ceil(registrations.length / itemsPerPage);
+  const currentItems = registrations.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
   return (
     <div className={isDashboardView ? "" : "rounded-xl border border-border bg-card shadow-sm overflow-hidden"}>
       <Table>
@@ -42,7 +53,7 @@ export function RegistrationTable({ registrations, isDashboardView = false }: Re
           </TableRow>
         </TableHeader>
         <TableBody>
-          {registrations.map((reg) => (
+          {currentItems.map((reg) => (
             <TableRow key={reg.id} className="hover:bg-muted/30 transition-colors border-border">
               <TableCell className="py-4 font-medium text-foreground text-sm">
                 {reg.applicantName}
@@ -86,6 +97,34 @@ export function RegistrationTable({ registrations, isDashboardView = false }: Re
           ))}
         </TableBody>
       </Table>
+      
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-4 py-3 border-t bg-muted/10">
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+            Page {currentPage} of {totalPages}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8 rounded-lg border-border"
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8 rounded-lg border-border"
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
