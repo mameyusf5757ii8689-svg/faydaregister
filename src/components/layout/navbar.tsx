@@ -3,6 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { 
   LayoutDashboard, 
   FileCheck, 
@@ -160,10 +161,15 @@ export function Navbar() {
       <div className="container mx-auto flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-6">
           <Link href="/" className="flex items-center space-x-2 group">
-            <div className="bg-primary/10 p-1.5 rounded-md transition-all group-hover:bg-primary/20">
-              <FileCheck className="h-4 w-4 text-primary" />
+            <div className="relative h-8 w-8 overflow-hidden rounded-md transition-all group-hover:scale-105">
+              <Image 
+                src="https://imgs.search.brave.com/hbAJSw_uYBZxF3ww4Xys7njKWsrlOTeqfxCjk7DHf0A/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9wbGF5/LWxoLmdvb2dsZXVz/ZXJjb250ZW50LmNv/bS90eDFxcnBHZTBi/NnVCVGFkSnFMcUY2/NF9IVy1laHFuSF8w/MEo1TDVDeGp0RFB1/ODRlRGduRHZTRDVk/OU9USGUzU3V3PXcy/NDAtaDQ4MC1ydw"
+                alt="FaydaTrack Logo"
+                fill
+                className="object-cover"
+              />
             </div>
-            <span className="text-xs font-black tracking-widest text-foreground uppercase">Registra<span className="text-primary italic">Track</span></span>
+            <span className="text-xs font-black tracking-widest text-foreground uppercase">Fayda<span className="text-primary italic">Track</span></span>
           </Link>
 
           <nav className="hidden xl:flex items-center space-x-1">
@@ -212,7 +218,7 @@ export function Navbar() {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="h-9 w-9 p-0 rounded-full border border-border/50 ring-offset-background hover:ring-2 hover:ring-primary/20 transition-all overflow-hidden">
                   <Avatar className="h-full w-full">
-                    <AvatarImage src={photoUrl} alt={profile?.fullName || "Official"} />
+                    <AvatarImage src={photoUrl || undefined} alt={profile?.fullName || "Official"} />
                     <AvatarFallback className="text-[10px] font-black bg-muted/30 uppercase">
                       {profile?.fullName?.substring(0, 2) || user.email?.substring(0, 2) || "OFF"}
                     </AvatarFallback>
@@ -222,7 +228,7 @@ export function Navbar() {
               <DropdownMenuContent align="end" className="w-64 p-1 rounded-xl shadow-2xl border-border bg-popover">
                 <DropdownMenuLabel className="flex items-center gap-3 p-3">
                   <Avatar className="h-10 w-10 border border-border/50">
-                    <AvatarImage src={photoUrl} />
+                    <AvatarImage src={photoUrl || undefined} />
                     <AvatarFallback className="text-xs font-black bg-muted">
                       {profile?.fullName?.substring(0, 2) || "OFF"}
                     </AvatarFallback>
@@ -266,7 +272,7 @@ export function Navbar() {
               <SheetHeader className="p-6 border-b text-left bg-muted/20">
                 <div className="flex items-center gap-3">
                   <Avatar className="h-10 w-10 border border-border/50">
-                    <AvatarImage src={photoUrl} />
+                    <AvatarImage src={photoUrl || undefined} />
                     <AvatarFallback className="text-xs font-black">
                        {profile?.fullName?.substring(0, 2) || "OFF"}
                     </AvatarFallback>

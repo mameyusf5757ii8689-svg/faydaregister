@@ -1,4 +1,5 @@
-# RegistraTrack Bureau Terminal
+
+# FaydaTrack Bureau Terminal
 
 A professional Next.js 15 application for bureau registration tracking, real-time coordination, and AI-assisted status management.
 
@@ -8,11 +9,11 @@ A professional Next.js 15 application for bureau registration tracking, real-tim
 If you have already initialized your repository, run these commands to push the latest updates:
 
 ```bash
-# Stage all changes (Pagination, Rejection Reasons, Hardened Config)
+# Stage all changes
 git add .
 
 # Commit with a professional message
-git commit -m "Update: Pagination, rejection audit logic, and cloud hardening"
+git commit -m "Branding Update: Rebranded to FaydaTrack and updated official logo"
 
 # Push to your existing main branch
 git push origin main

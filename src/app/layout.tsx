@@ -7,7 +7,7 @@ import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { ThemeProvider } from '@/components/theme-provider';
 
 export const metadata: Metadata = {
-  title: 'RegistraTrack | Professional Registration Tracking',
+  title: 'FaydaTrack | Professional Registration Tracking',
   description: 'Real-time summary of registration statistics and AI-assisted status management.',
 };
 

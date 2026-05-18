@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useAuth, useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
 import { initiateEmailSignIn } from '@/firebase/non-blocking-login';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -152,12 +153,17 @@ export default function LoginPage() {
         <div className="h-2 bg-primary" />
         
         <CardHeader className="space-y-6 pt-10 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary shadow-xl shadow-primary/10">
-            <FileCheck className="h-8 w-8 text-white" />
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary shadow-xl shadow-primary/10 relative overflow-hidden">
+            <Image 
+              src="https://imgs.search.brave.com/hbAJSw_uYBZxF3ww4Xys7njKWsrlOTeqfxCjk7DHf0A/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9wbGF5/LWxoLmdvb2dsZXVz/ZXJjb250ZW50LmNv/bS90eDFxcnBHZTBi/NnVCVGFkSnFMcUY2/NF9IVy1laHFuSF8w/MEo1TDVDeGp0RFB1/ODRlRGduRHZTRDVk/OU9USGUzU3V3PXcy/NDAtaDQ4MC1ydw"
+              alt="FaydaTrack Logo"
+              fill
+              className="object-cover p-2"
+            />
           </div>
           
           <div className="space-y-2">
-            <CardTitle className="text-3xl font-black tracking-tight text-foreground font-headline">Bureau Portal</CardTitle>
+            <CardTitle className="text-3xl font-black tracking-tight text-foreground font-headline">Fayda Portal</CardTitle>
             <CardDescription className="text-muted-foreground font-bold uppercase text-[10px] tracking-[0.2em]">
               {isStuck ? "Profile Required" : "Internal Access Control"}
             </CardDescription>

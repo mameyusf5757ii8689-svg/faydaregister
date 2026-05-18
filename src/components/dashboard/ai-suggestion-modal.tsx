@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState } from 'react';
@@ -101,7 +102,7 @@ export function AiSuggestionModal({ registration }: AiSuggestionModalProps) {
             AI Status Recommendation
           </DialogTitle>
           <DialogDescription className="text-muted-foreground">
-            RegistraTrack AI analyzes the submission content and metadata to recommend an initial status.
+            FaydaTrack AI analyzes the submission content and metadata to recommend an initial status.
           </DialogDescription>
         </DialogHeader>
 

@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview A Genkit flow for suggesting an initial processing status for registration details.
@@ -38,7 +39,7 @@ const aiAssistedStatusSuggestionPrompt = ai.definePrompt({
   name: 'aiAssistedStatusSuggestionPrompt',
   input: { schema: AiAssistedStatusSuggestionInputSchema },
   output: { schema: AiAssistedStatusSuggestionOutputSchema },
-  prompt: `You are an AI assistant for a registration tracking system called RegistraTrack. Your task is to analyze incoming registration details and suggest an initial processing status.
+  prompt: `You are an AI assistant for a registration tracking system called FaydaTrack. Your task is to analyze incoming registration details and suggest an initial processing status.
 The possible statuses are:
 - 'pending review': Use this if the registration seems to require manual human intervention, such as complex content, potential issues, or if attachments are present and need checking.
 - 'processing': Use this if the registration appears complete, straightforward, and can proceed with automated or standard internal processing.

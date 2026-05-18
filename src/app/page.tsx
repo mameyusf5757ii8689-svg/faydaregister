@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -15,7 +16,7 @@ import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebas
 import { collection, query, limit } from 'firebase/firestore';
 import { Registration, UserProfile } from '@/lib/types';
 import { isToday } from 'date-fns';
-import { cn } from '@/lib/utils';
+import Image from 'next/image';
 
 export default function LandingPage() {
   const { user, isUserLoading } = useUser();
@@ -61,7 +62,7 @@ export default function LandingPage() {
             </div>
             
             <h1 className="text-4xl lg:text-7xl font-black tracking-tighter leading-tight text-foreground animate-in fade-in slide-in-from-bottom-4 duration-700">
-              Field Intelligence. <br/>
+              Fayda Intelligence. <br/>
               <span className="text-muted-foreground font-normal italic">Precisely Synced.</span>
             </h1>
             
@@ -100,8 +101,15 @@ export default function LandingPage() {
       <footer className="w-full py-16 border-t mt-auto">
         <div className="container mx-auto px-4 flex flex-col items-center text-center">
           <div className="flex items-center gap-2 mb-6">
-            <FileCheck className="h-4 w-4 text-primary" />
-            <span className="text-xs font-black tracking-widest uppercase text-foreground">RegistraTrack</span>
+            <div className="relative h-8 w-8 overflow-hidden rounded-md">
+              <Image 
+                src="https://imgs.search.brave.com/hbAJSw_uYBZxF3ww4Xys7njKWsrlOTeqfxCjk7DHf0A/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9wbGF5/LWxoLmdvb2dsZXVz/ZXJjb250ZW50LmNv/bS90eDFxcnBHZTBi/NnVCVGFkSnFMcUY2/NF9IVy1laHFuSF8w/MEo1TDVDeGp0RFB1/ODRlRGduRHZTRDVk/OU9USGUzU3V3PXcy/NDAtaDQ4MC1ydw"
+                alt="FaydaTrack Logo"
+                fill
+                className="object-cover"
+              />
+            </div>
+            <span className="text-xs font-black tracking-widest uppercase text-foreground">FaydaTrack</span>
           </div>
           <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest max-w-sm leading-relaxed">
             © 2026 Bureau Operations Group. <br/> Access restricted to authorized official personnel only.
