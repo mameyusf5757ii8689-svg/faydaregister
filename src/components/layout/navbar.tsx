@@ -22,6 +22,7 @@ import {
   Sun,
   Moon,
   Settings,
+  Search,
   HardDrive
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -45,6 +46,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const OFFICER_NAV_ITEMS = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Status', href: '/status-check', icon: Search },
   { name: 'Comm', href: '/communication', icon: MessageSquare },
   { name: 'Reporting', href: '/daily-registrations', icon: CalendarPlus },
   { name: 'Records', href: '/registrations', icon: FileCheck },
@@ -55,6 +57,7 @@ const OFFICER_NAV_ITEMS = [
 
 const ADMIN_NAV_ITEMS = [
   { name: 'Overview', href: '/admin', icon: LayoutDashboard },
+  { name: 'Status', href: '/status-check', icon: Search },
   { name: 'Comm', href: '/communication', icon: MessageSquare },
   { name: 'Personnel', href: '/admin/officers', icon: Users },
   { name: 'Proxy', href: '/admin/reports-entry', icon: ClipboardEdit },
@@ -232,7 +235,6 @@ export function Navbar() {
                     <AvatarFallback className="text-xs font-black bg-muted">
                       {profile?.fullName?.substring(0, 2) || "OFF"}
                     </AvatarFallback>
-                  </Avatar>
                   <div className="flex flex-col min-w-0">
                     <span className="text-xs font-black text-foreground uppercase tracking-tight truncate">{profile?.fullName || 'Official'}</span>
                     <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest truncate">{profile?.role || 'Authorized Personnel'}</span>
