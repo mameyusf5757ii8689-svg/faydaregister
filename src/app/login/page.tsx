@@ -136,11 +136,8 @@ export default function LoginPage() {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-6">
-          <div className="relative h-12 w-12">
-            <div className="absolute inset-0 rounded-full border-2 border-primary/20" />
-            <div className="absolute inset-0 rounded-full border-t-2 border-primary animate-spin" />
-          </div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-muted-foreground animate-pulse">Initializing Secure Session</p>
+          <Loader2 className="h-8 w-8 animate-spin text-primary opacity-20" />
+          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground">Gateway Authentication</p>
         </div>
       </div>
     );
@@ -149,73 +146,63 @@ export default function LoginPage() {
   const isStuck = user && !profile && !isProfileLoading && !isAdminCheckLoading;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
-      {/* Minimal technical background */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full max-w-7xl">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-[120px] opacity-60" />
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-primary/5 rounded-full blur-[100px] opacity-40" />
-        </div>
-      </div>
-
-      <Card className="w-full max-w-sm border border-border/40 bg-card/40 backdrop-blur-md shadow-2xl rounded-[32px] overflow-hidden z-10 transition-all duration-500">
-        <CardHeader className="space-y-6 pt-12 text-center pb-8">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-background border border-border/50 shadow-sm p-3 hover:scale-105 transition-transform duration-300">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      <Card className="w-full max-w-sm border-none shadow-none bg-transparent">
+        <CardHeader className="space-y-6 text-center pb-8">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-muted/30 p-3">
             <Image 
               src="https://imgs.search.brave.com/hbAJSw_uYBZxF3ww4Xys7njKWsrlOTeqfxCjk7DHf0A/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9wbGF5/LWxoLmdvb2dsZXVz/ZXJjb250ZW50LmNv/bS90eDFxcnBHZTBi/NnVCVGFkSnFMcUY2/NF9IVy1laHFuSF8w/MEo1TDVDeGp0RFB1/ODRlRGduRHZTRDVk/OU9USGUzU3V3PXcy/NDAtaDQ4MC1ydw"
               alt="FaydaTrack Logo"
-              width={64}
-              height={64}
+              width={40}
+              height={40}
               className="object-contain"
               priority
             />
           </div>
           
-          <div className="space-y-2">
-            <CardTitle className="text-3xl font-bold tracking-tight text-foreground font-headline">
+          <div className="space-y-1">
+            <CardTitle className="text-2xl font-black tracking-tighter text-foreground uppercase">
               Fayda<span className="text-primary italic">Track</span>
             </CardTitle>
-            <CardDescription className="text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60 flex items-center justify-center gap-1.5">
-              <Fingerprint className="h-3 w-3" />
-              Authorized Access Protocol
+            <CardDescription className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">
+              Authorized Personnel Terminal
             </CardDescription>
           </div>
           
           {!isStuck && adminsExist === false && (
-            <Tabs value={mode} onValueChange={(v: any) => setMode(v)} className="w-full pt-2">
-              <TabsList className="grid grid-cols-2 w-full h-10 p-1 bg-muted/30 rounded-xl border border-border/30">
-                <TabsTrigger value="login" className="text-[10px] font-bold uppercase rounded-lg">Sign In</TabsTrigger>
-                <TabsTrigger value="register" className="text-[10px] font-bold uppercase rounded-lg">Bootstrap</TabsTrigger>
+            <Tabs value={mode} onValueChange={(v: any) => setMode(v)} className="w-full">
+              <TabsList className="grid grid-cols-2 w-full h-10 bg-muted/50 rounded-xl p-1">
+                <TabsTrigger value="login" className="text-[9px] font-black uppercase">Sign In</TabsTrigger>
+                <TabsTrigger value="register" className="text-[9px] font-black uppercase">Bootstrap</TabsTrigger>
               </TabsList>
             </Tabs>
           )}
         </CardHeader>
         
-        <CardContent className="px-8 pb-10">
+        <CardContent className="px-4">
           {isStuck ? (
-            <div className="space-y-6">
-              <div className="p-5 bg-amber-500/5 rounded-2xl border border-amber-500/10">
-                <p className="text-[10px] text-amber-600/80 font-bold leading-relaxed uppercase tracking-wide text-center">
-                  Terminal identified as <span className="text-amber-700 underline decoration-dotted">{user.email}</span>. <br/> Profile is currently pending activation.
+            <div className="space-y-4">
+              <div className="p-4 bg-amber-500/5 rounded-xl border border-amber-500/10 text-center">
+                <p className="text-[10px] text-amber-600/80 font-black uppercase tracking-widest leading-relaxed">
+                  Terminal Identified: {user.email} <br/> Profile Pending Clearance.
                 </p>
               </div>
               <div className="flex flex-col gap-2">
-                <Button className="w-full h-12 rounded-xl font-bold uppercase text-[10px] tracking-widest bg-primary hover:bg-primary/90" onClick={() => window.location.reload()}>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sync Gateway
+                <Button className="w-full h-11 rounded-xl font-black uppercase text-[10px] tracking-widest" onClick={() => window.location.reload()}>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Retry Connection
                 </Button>
-                <Button variant="ghost" className="w-full h-11 rounded-xl font-bold uppercase text-[10px] tracking-widest text-muted-foreground" onClick={handleLogout}>
-                  <LogOut className="mr-2 h-4 w-4" /> Reset Portal
+                <Button variant="ghost" className="w-full h-11 rounded-xl font-black uppercase text-[10px] tracking-widest text-muted-foreground" onClick={handleLogout}>
+                  Reset Session
                 </Button>
               </div>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-4">
               {mode === 'register' && (
-                <div className="space-y-1.5">
-                  <Label className="text-[9px] font-bold uppercase text-muted-foreground/60 ml-1">Official Full Name</Label>
+                <div className="space-y-1">
                   <Input 
-                    placeholder="E.g. Official Name" 
-                    className="h-11 bg-background border-border/40 focus:border-primary/40 rounded-xl transition-all"
+                    placeholder="Official Name" 
+                    className="h-11 bg-muted/20 border-none rounded-xl text-xs font-bold"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     required
@@ -223,29 +210,22 @@ export default function LoginPage() {
                 </div>
               )}
               
-              <div className="space-y-1.5">
-                <Label htmlFor="email" className="text-[9px] font-bold uppercase text-muted-foreground/60 ml-1">Bureau Email</Label>
+              <div className="space-y-1">
                 <Input 
-                  id="email"
                   type="email" 
-                  placeholder="official@faydatrack.gov" 
-                  className="h-11 bg-background border-border/40 focus:border-primary/40 rounded-xl transition-all"
+                  placeholder="Official Email" 
+                  className="h-11 bg-muted/20 border-none rounded-xl text-xs font-bold"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
                 />
               </div>
               
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between ml-1">
-                  <Label htmlFor="password" className="text-[9px] font-bold uppercase text-muted-foreground/60">Access Key</Label>
-                  {mode === 'login' && <button type="button" className="text-[9px] font-bold uppercase text-primary/60 hover:text-primary transition-colors">Recover</button>}
-                </div>
+              <div className="space-y-1">
                 <Input 
-                  id="password"
                   type="password" 
-                  placeholder="••••••••" 
-                  className="h-11 bg-background border-border/40 focus:border-primary/40 rounded-xl transition-all"
+                  placeholder="Access Key" 
+                  className="h-11 bg-muted/20 border-none rounded-xl text-xs font-bold"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -254,13 +234,13 @@ export default function LoginPage() {
               
               <Button 
                 type="submit" 
-                className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-bold uppercase tracking-widest rounded-xl transition-all mt-4"
+                className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-black uppercase tracking-[0.2em] rounded-xl transition-all mt-2 text-[10px]"
                 disabled={isSubmitting}
               >
                 {isSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : mode === 'login' ? (
-                  <>Initiate Session <ChevronRight className="ml-1.5 h-3 w-3" /></>
+                  "Initiate Session"
                 ) : (
                   "Initialize Admin"
                 )}
@@ -269,13 +249,12 @@ export default function LoginPage() {
           )}
         </CardContent>
         
-        <CardFooter className="flex flex-col border-t border-border/30 bg-muted/5 p-8 text-center">
-          <p className="text-[9px] text-muted-foreground/40 font-bold uppercase tracking-widest leading-relaxed">
-            Secure Bureau Terminal v4.2.0 <br/> Operational Monitoring Active
+        <CardFooter className="pt-10 flex flex-col text-center opacity-30">
+          <p className="text-[8px] font-black uppercase tracking-[0.3em]">
+            Security Audit: Active • v4.2.0
           </p>
         </CardFooter>
       </Card>
     </div>
   );
 }
-
