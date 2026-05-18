@@ -5,10 +5,34 @@ import { useState, useMemo, useEffect } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Activity, ShieldCheck, Loader2, TrendingUp, Phone, Smartphone, Calendar, AlertCircle } from 'lucide-react';
+import { 
+  Activity, 
+  ShieldCheck, 
+  Loader2, 
+  TrendingUp, 
+  Phone, 
+  Smartphone, 
+  Calendar, 
+  AlertCircle,
+  BarChart3,
+  ArrowUpRight,
+  ArrowDownRight,
+  Minus
+} from 'lucide-react';
 import { DailyReport, MonthlySummary } from '@/lib/types';
-import { format, subMonths, startOfMonth, endOfMonth, isSameMonth } from 'date-fns';
+import { format, startOfMonth, subMonths, isSameMonth } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { 
+  LineChart, 
+  Line, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  AreaChart,
+  Area
+} from 'recharts';
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June", 
@@ -42,11 +66,8 @@ export default function FullRegistrationPage() {
 
     const autoArchive = async () => {
       const now = new Date();
-      const currentMonth = MONTHS[now.getMonth()];
-      const currentYear = now.getFullYear().toString();
-
-      // Look back at all months from START_DATE up to the previous month
       let checkDate = new Date(START_DATE);
+      
       while (checkDate < startOfMonth(now)) {
         const monthLabel = MONTHS[checkDate.getMonth()];
         const yearLabel = checkDate.getFullYear().toString();
@@ -55,7 +76,6 @@ export default function FullRegistrationPage() {
         const alreadyExists = summaries.some(s => s.month === monthLabel && s.year === yearLabel);
         
         if (!alreadyExists) {
-          // Identify reports for this month
           const monthReports = reports.filter(r => {
             const rDate = new Date(r.date);
             return rDate.getMonth() === checkDate.getMonth() && rDate.getFullYear() === checkDate.getFullYear();
@@ -66,7 +86,6 @@ export default function FullRegistrationPage() {
             const safaricom = monthReports.reduce((acc, curr) => acc + (curr.safaricomCount || 0), 0);
             const total = ethio + safaricom;
 
-            // Archive the month
             await setDoc(doc(db, 'monthly_summaries', summaryId), {
               id: summaryId,
               officerId: user.uid,
@@ -75,7 +94,7 @@ export default function FullRegistrationPage() {
               ethio,
               safaricom,
               total,
-              processed: 0, // Placeholder
+              processed: 0,
               timestamp: serverTimestamp(),
             }, { merge: true });
           }
@@ -94,7 +113,6 @@ export default function FullRegistrationPage() {
     const currentMonthIdx = now.getMonth();
     const currentYear = now.getFullYear();
 
-    // 1. Sum up all historical summaries (ignoring current month if it accidentally exists there)
     const historicalEthio = summaries?.reduce((acc, curr) => {
       if (curr.month === MONTHS[currentMonthIdx] && curr.year === currentYear.toString()) return acc;
       return acc + (curr.ethio || 0);
@@ -105,7 +123,6 @@ export default function FullRegistrationPage() {
       return acc + (curr.safaricom || 0);
     }, 0) || 0;
 
-    // 2. Sum up ONLY the current month's daily reports
     const currentMonthReports = reports?.filter(r => {
       const rDate = new Date(r.date);
       return rDate.getMonth() === currentMonthIdx && rDate.getFullYear() === currentYear;
@@ -114,13 +131,10 @@ export default function FullRegistrationPage() {
     const currentEthio = currentMonthReports.reduce((acc, curr) => acc + (curr.ethioCount || 0), 0);
     const currentSafaricom = currentMonthReports.reduce((acc, curr) => acc + (curr.safaricomCount || 0), 0);
 
-    const totalEthio = historicalEthio + currentEthio;
-    const totalSafaricom = historicalSafaricom + currentSafaricom;
-
     return {
-      ethio: totalEthio,
-      safaricom: totalSafaricom,
-      total: totalEthio + totalSafaricom
+      ethio: historicalEthio + currentEthio,
+      safaricom: historicalSafaricom + currentSafaricom,
+      total: (historicalEthio + currentEthio) + (historicalSafaricom + currentSafaricom)
     };
   }, [summaries, reports]);
 
@@ -128,7 +142,6 @@ export default function FullRegistrationPage() {
     const list: any[] = [];
     const now = new Date();
 
-    // Add historical summaries
     summaries?.forEach(s => {
       list.push({
         id: s.id,
@@ -141,7 +154,6 @@ export default function FullRegistrationPage() {
       });
     });
 
-    // Add current month dynamic entry
     const currentMonthReports = reports?.filter(r => {
       const rDate = new Date(r.date);
       return rDate.getMonth() === now.getMonth() && rDate.getFullYear() === now.getFullYear();
@@ -163,6 +175,31 @@ export default function FullRegistrationPage() {
 
     return list.sort((a, b) => b.date.getTime() - a.date.getTime());
   }, [summaries, reports]);
+
+  const analysis = useMemo(() => {
+    if (ledger.length < 1) return null;
+
+    const sortedLedger = [...ledger].sort((a, b) => a.date.getTime() - b.date.getTime());
+    const chartData = sortedLedger.map(item => ({
+      name: item.label.split(' ')[0].substring(0, 3),
+      total: item.total,
+      ethio: item.ethio,
+      safaricom: item.safaricom
+    }));
+
+    const current = sortedLedger[sortedLedger.length - 1];
+    const previous = sortedLedger[sortedLedger.length - 2];
+    
+    let growth = 0;
+    if (previous && previous.total > 0) {
+      growth = ((current.total - previous.total) / previous.total) * 100;
+    }
+
+    const ethioPct = aggregates.total > 0 ? (aggregates.ethio / aggregates.total) * 100 : 0;
+    const safaricomPct = aggregates.total > 0 ? (aggregates.safaricom / aggregates.total) * 100 : 0;
+
+    return { chartData, growth, ethioPct, safaricomPct };
+  }, [ledger, aggregates]);
 
   if (isUserLoading || isSummariesLoading || isReportsLoading) {
     return (
@@ -206,6 +243,110 @@ export default function FullRegistrationPage() {
         <StatsCard label="Total Ethio Line" value={aggregates.ethio} icon={Phone} color="text-emerald-500" />
         <StatsCard label="Total Safaricom Line" value={aggregates.safaricom} icon={Smartphone} color="text-orange-500" />
       </div>
+
+      {analysis && (
+        <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Card className="lg:col-span-2 border border-border bg-card overflow-hidden rounded-3xl shadow-sm">
+            <CardHeader className="bg-muted/30 border-b border-border py-4 px-6 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-xs font-black text-foreground uppercase tracking-[0.2em]">Operational Trend Analysis</CardTitle>
+                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">Registration throughput over time</p>
+              </div>
+              <BarChart3 className="h-4 w-4 text-muted-foreground opacity-20" />
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="h-[240px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={analysis.chartData}>
+                    <defs>
+                      <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.1}/>
+                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                    <XAxis 
+                      dataKey="name" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fontSize: 9, fontWeight: 900, fill: 'hsl(var(--muted-foreground))' }} 
+                    />
+                    <YAxis 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fontSize: 9, fontWeight: 900, fill: 'hsl(var(--muted-foreground))' }} 
+                    />
+                    <Tooltip 
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="bg-card border border-border shadow-2xl p-3 rounded-xl">
+                              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">{payload[0].payload.name}</p>
+                              <div className="space-y-1">
+                                <p className="text-sm font-black text-foreground tracking-tighter">Total: {payload[0].value}</p>
+                                <p className="text-[9px] font-bold text-emerald-600 uppercase">Ethio: {payload[0].payload.ethio}</p>
+                                <p className="text-[9px] font-bold text-orange-600 uppercase">Safaricom: {payload[0].payload.safaricom}</p>
+                              </div>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Area type="monotone" dataKey="total" stroke="hsl(var(--primary))" strokeWidth={2} fillOpacity={1} fill="url(#colorTotal)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="space-y-6">
+            <Card className="border border-border bg-card overflow-hidden rounded-3xl shadow-sm">
+              <CardContent className="p-6">
+                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-4">MoM Performance Growth</p>
+                <div className="flex items-end gap-3">
+                  <span className="text-4xl font-black text-foreground tracking-tighter">
+                    {Math.abs(analysis.growth).toFixed(1)}%
+                  </span>
+                  <div className={`flex items-center gap-1 mb-1.5 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-tighter ${
+                    analysis.growth >= 0 ? 'bg-emerald-500/10 text-emerald-600' : 'bg-rose-500/10 text-rose-600'
+                  }`}>
+                    {analysis.growth >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+                    {analysis.growth >= 0 ? 'Increase' : 'Decline'}
+                  </div>
+                </div>
+                <p className="text-[10px] text-muted-foreground font-bold uppercase mt-2">vs. previous operational period</p>
+              </CardContent>
+            </Card>
+
+            <Card className="border border-border bg-card overflow-hidden rounded-3xl shadow-sm">
+              <CardContent className="p-6 space-y-4">
+                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Bureau Distribution Share</p>
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest">
+                      <span className="text-emerald-600">Ethio Intake</span>
+                      <span className="text-foreground">{analysis.ethioPct.toFixed(1)}%</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                      <div className="h-full bg-emerald-500 transition-all duration-1000" style={{ width: `${analysis.ethioPct}%` }} />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest">
+                      <span className="text-orange-600">Safaricom Intake</span>
+                      <span className="text-foreground">{analysis.safaricomPct.toFixed(1)}%</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                      <div className="h-full bg-orange-500 transition-all duration-1000" style={{ width: `${analysis.safaricomPct}%` }} />
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+      )}
 
       <Card className="border border-border bg-card overflow-hidden rounded-3xl shadow-sm">
         <CardHeader className="bg-muted/30 border-b border-border py-6">
