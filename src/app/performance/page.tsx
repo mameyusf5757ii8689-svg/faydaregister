@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useMemoFirebase, useCollection, useUser, useFirestore } from '@/firebase';
 import { collection, query, where, limit } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -16,13 +16,15 @@ import {
   User,
   Search,
   ArrowUpRight,
-  ShieldAlert
+  ShieldAlert,
+  Calendar,
+  Filter
 } from 'lucide-react';
 import { Registration } from '@/lib/types';
 import { StatusBadge } from '@/components/dashboard/status-badge';
-import { format } from 'date-fns';
+import { format, addMonths, startOfMonth, isSameMonth } from 'date-fns';
 import { Input } from '@/components/ui/input';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { 
   Table, 
   TableBody, 
@@ -31,44 +33,80 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/select';
+
+const START_DATE = new Date(2025, 6, 1); // July 1, 2025
 
 export default function PerformancePage() {
   const { user } = useUser();
   const db = useFirestore();
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedMonth, setSelectedMonth] = useState('');
+
+  // Initialize selected month on client
+  useEffect(() => {
+    setSelectedMonth(format(new Date(), 'yyyy-MM'));
+  }, []);
 
   const registrationsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(
       collection(db, 'registrations'),
       where('assignedReviewerId', '==', user.uid),
-      limit(5000)
+      limit(10000)
     );
   }, [db, user]);
 
   const { data: registrations, isLoading } = useCollection<Registration>(registrationsQuery);
 
+  const monthsList = useMemo(() => {
+    const list = [];
+    let curr = new Date(START_DATE);
+    const now = new Date();
+    
+    while (curr <= now) {
+      list.push({
+        value: format(curr, 'yyyy-MM'),
+        label: format(curr, 'MMMM yyyy')
+      });
+      curr = addMonths(curr, 1);
+    }
+    return list.reverse();
+  }, []);
+
+  const filteredByMonth = useMemo(() => {
+    if (!registrations || !selectedMonth) return [];
+    return registrations.filter(r => {
+      const date = new Date(r.submissionDate);
+      return format(date, 'yyyy-MM') === selectedMonth;
+    });
+  }, [registrations, selectedMonth]);
+
   const stats = useMemo(() => {
-    if (!registrations || registrations.length === 0) return {
+    if (!filteredByMonth || filteredByMonth.length === 0) return {
       total: 0,
       processed: 0,
       rejected: 0,
-      successRate: 0,
-      rejectionRate: 0,
+      successRate: "0.0",
+      rejectionRate: "0.0",
       chartData: []
     };
 
-    const total = registrations.length;
-    const processed = registrations.filter(r => r.status === 'Processed').length;
-    const rejected = registrations.filter(r => r.status === 'Rejected').length;
-    const processing = registrations.filter(r => r.status === 'Processing').length;
-    const pending = registrations.filter(r => r.status === 'Pending Review').length;
-    const failed = registrations.filter(r => r.status === 'Failed').length;
+    const total = filteredByMonth.length;
+    const processed = filteredByMonth.filter(r => r.status === 'Processed').length;
+    const rejected = filteredByMonth.filter(r => r.status === 'Rejected').length;
+    const other = total - (processed + rejected);
 
     const chartData = [
       { name: 'Success', value: processed, color: 'hsl(var(--primary))' },
       { name: 'Rejected', value: rejected, color: 'hsl(var(--destructive))' },
-      { name: 'Other', value: processing + pending + failed, color: 'hsl(var(--muted-foreground))' },
+      { name: 'Other', value: other, color: 'hsl(var(--muted-foreground))' },
     ];
 
     return {
@@ -79,20 +117,20 @@ export default function PerformancePage() {
       rejectionRate: ((rejected / total) * 100).toFixed(1),
       chartData
     };
-  }, [registrations]);
+  }, [filteredByMonth]);
 
   const rejectedRegistrations = useMemo(() => {
-    if (!registrations) return [];
-    return registrations
+    if (!filteredByMonth) return [];
+    return filteredByMonth
       .filter(r => r.status === 'Rejected')
       .filter(r => 
         r.applicantName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         r.id.includes(searchTerm)
       )
       .sort((a, b) => new Date(b.submissionDate).getTime() - new Date(a.submissionDate).getTime());
-  }, [registrations, searchTerm]);
+  }, [filteredByMonth, searchTerm]);
 
-  if (isLoading) {
+  if (isLoading || !selectedMonth) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary opacity-20" />
@@ -102,15 +140,34 @@ export default function PerformancePage() {
 
   return (
     <div className="space-y-10 animate-in fade-in duration-700 pb-20">
-      <div className="space-y-1.5">
-        <div className="flex items-center gap-3">
-          <div className="bg-primary/10 p-2.5 rounded-xl border border-primary/20">
-            <TrendingUp className="h-7 w-7 text-primary" />
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-3">
+            <div className="bg-primary/10 p-2.5 rounded-xl border border-primary/20">
+              <TrendingUp className="h-7 w-7 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-4xl font-black tracking-tight text-foreground font-headline uppercase leading-none">Bureau Performance</h1>
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Official Quality & Accuracy Metrics</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-4xl font-black tracking-tight text-foreground font-headline uppercase leading-none">Bureau Performance</h1>
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Official Quality & Accuracy Metrics</p>
+        </div>
+
+        <div className="flex items-center gap-4 bg-card p-2 rounded-2xl border shadow-sm">
+          <div className="flex items-center gap-2 pl-3">
+            <Calendar className="h-4 w-4 text-primary" />
+            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Period:</span>
           </div>
+          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+            <SelectTrigger className="w-[180px] h-10 border-none bg-transparent font-bold text-sm">
+              <SelectValue placeholder="Select period" />
+            </SelectTrigger>
+            <SelectContent>
+              {monthsList.map(m => (
+                <SelectItem key={m.value} value={m.value} className="font-bold">{m.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -168,7 +225,7 @@ export default function PerformancePage() {
                   paddingAngle={8}
                   dataKey="value"
                 >
-                  {stats.chartData.map((entry, index) => (
+                  {stats.chartData.map((entry: any, index: number) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
@@ -188,7 +245,7 @@ export default function PerformancePage() {
             <h2 className="text-xl font-black text-foreground uppercase tracking-tight flex items-center gap-2">
               <ShieldAlert className="h-5 w-5 text-destructive" /> Rejection Audit Registry
             </h2>
-            <p className="text-xs font-medium text-muted-foreground">List of registration submissions flagged for rejection with recorded justification.</p>
+            <p className="text-xs font-medium text-muted-foreground">Protocol failures for {monthsList.find(m => m.value === selectedMonth)?.label}.</p>
           </div>
           <div className="relative w-full max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/30" />
@@ -249,7 +306,7 @@ export default function PerformancePage() {
                   <TableCell colSpan={5} className="h-60 text-center">
                     <div className="flex flex-col items-center justify-center gap-3 opacity-20">
                       <CheckCircle2 className="h-12 w-12 text-primary" />
-                      <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Zero Protocol Failures Detected in Scope</p>
+                      <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Zero Protocol Failures Detected in {selectedMonth}</p>
                     </div>
                   </TableCell>
                 </TableRow>
