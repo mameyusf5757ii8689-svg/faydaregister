@@ -24,7 +24,8 @@ import {
   Settings,
   Search,
   HardDrive,
-  Activity
+  Activity,
+  TrendingUp
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -48,6 +49,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 const OFFICER_NAV_ITEMS = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Full Registry', href: '/full-registration', icon: Activity },
+  { name: 'Performance', href: '/performance', icon: TrendingUp },
   { name: 'Status', href: '/status-check', icon: Search },
   { name: 'Comm', href: '/communication', icon: MessageSquare },
   { name: 'Reporting', href: '/daily-registrations', icon: CalendarPlus },
@@ -60,6 +62,7 @@ const OFFICER_NAV_ITEMS = [
 const ADMIN_NAV_ITEMS = [
   { name: 'Overview', href: '/admin', icon: LayoutDashboard },
   { name: 'Full Registry', href: '/full-registration', icon: Activity },
+  { name: 'Performance', href: '/performance', icon: TrendingUp },
   { name: 'Status', href: '/status-check', icon: Search },
   { name: 'Comm', href: '/communication', icon: MessageSquare },
   { name: 'Personnel', href: '/admin/officers', icon: Users },
@@ -148,8 +151,10 @@ export function Navbar() {
 
   if (pathname === '/login') return null;
 
-  const isAdminSection = pathname.startsWith('/admin');
-  const navItems = isAdminSection ? ADMIN_NAV_ITEMS : OFFICER_NAV_ITEMS;
+  const isAdminSection = pathname.startsWith('/admin') && !pathname.includes('full-registration') && !pathname.includes('performance') && !pathname.includes('status-check') && !pathname.includes('communication');
+  
+  // Refine logic to determine which nav set to use
+  const navItems = profile?.role === 'admin' ? ADMIN_NAV_ITEMS : OFFICER_NAV_ITEMS;
 
   const handleLogout = async () => {
     await signOut(auth);
