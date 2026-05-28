@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -15,12 +14,13 @@ import {
   Loader2,
   FileDigit,
   Phone,
-  User
+  User,
+  CheckCircle2
 } from 'lucide-react';
 import Link from 'next/link';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, limit } from 'firebase/firestore';
-import { Registration } from '@/lib/types';
+import { collection, query, limit, doc } from 'firebase/firestore';
+import { Registration, RegistrationStatus } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { 
@@ -41,6 +41,7 @@ import {
 import { StatusBadge } from '@/components/dashboard/status-badge';
 import { format, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 export default function StatusCheckPage() {
   const { user } = useUser();
@@ -51,6 +52,7 @@ export default function StatusCheckPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedDate, setSelectedDate] = useState('');
   const [activeRid, setActiveRid] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
 
   // Fetch registrations (limit 10,000 as per previous instructions)
   const registrationsQuery = useMemoFirebase(() => {
@@ -102,6 +104,39 @@ export default function StatusCheckPage() {
       title: "RID Synchronized",
       description: `ID ${rid} copied to terminal clipboard. Paste into verification form.`,
     });
+  };
+
+  const handleStatusUpdate = async (newStatus: RegistrationStatus) => {
+    if (!db || !activeRegistration) return;
+    
+    setIsUpdating(true);
+    try {
+      const updateData: any = {
+        status: newStatus,
+        updatedAt: new Date().toISOString(),
+        remarks: `${activeRegistration.remarks || ''}\n[VERIFICATION TERMINAL]: Status updated to ${newStatus} on ${format(new Date(), 'MMM dd, HH:mm')}`
+      };
+
+      // If status is Processing/Processed, we clear any previous rejection reasons
+      if (newStatus === 'Processed' || newStatus === 'Processing') {
+        updateData.rejectionReason = '';
+      }
+
+      await updateDocumentNonBlocking(doc(db, 'registrations', activeRegistration.id), updateData);
+      
+      toast({
+        title: "Registry Synchronized",
+        description: `Status for ${activeRegistration.applicantName} updated to ${newStatus}.`,
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Update Failed",
+        description: "Could not sync status change with the bureau database.",
+      });
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   const iframeSrc = activeRid 
@@ -244,7 +279,7 @@ export default function StatusCheckPage() {
                 <span className="text-[10px] font-black text-primary uppercase tracking-widest">Operational Protocol</span>
              </div>
              <p className="text-[10px] text-muted-foreground font-bold leading-relaxed uppercase tracking-widest">
-               Click 'Insert' to copy the RID and reload the verification terminal. Due to security rules, you must manually paste (Ctrl+V) the RID into the portal's input field.
+               Click 'Insert' to copy the RID and reload the verification terminal. After checking the official status, use the "Update Registry" selector in the header to synchronize our database.
              </p>
           </div>
         </div>
@@ -252,22 +287,43 @@ export default function StatusCheckPage() {
         {/* Right Side: External Status Iframe */}
         <div className="xl:col-span-7">
           <Card className="border border-border shadow-2xl bg-card overflow-hidden rounded-[32px] h-full flex flex-col min-h-[700px]">
-            <CardHeader className="bg-muted/30 border-b border-border py-4 flex flex-row items-center justify-between">
+            <CardHeader className="bg-muted/30 border-b border-border py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-2">
                 <Search className="h-4 w-4 text-primary" />
                 <CardTitle className="text-sm font-black text-foreground uppercase tracking-[0.2em]">Official Portal</CardTitle>
               </div>
-              {activeRid && (
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-full border border-primary/20">
-                    <span className="text-[9px] font-black text-primary uppercase tracking-tighter">Active RID: {activeRid}</span>
+              
+              {activeRid && activeRegistration && (
+                <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+                   <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-full border border-primary/20">
+                    <span className="text-[9px] font-black text-primary uppercase tracking-tighter">RID: {activeRid}</span>
                   </div>
-                  {activeRegistration && (
-                    <div className="flex items-center gap-2 px-3 py-1 bg-muted rounded-full border border-border">
-                      <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-tighter">Registry Status:</span>
-                      <StatusBadge status={activeRegistration.status} className="scale-75 origin-left" />
-                    </div>
-                  )}
+                  
+                  <div className="flex items-center gap-2 bg-background border border-border px-3 py-1.5 rounded-xl shadow-sm">
+                    <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Update Registry:</span>
+                    <Select 
+                      disabled={isUpdating} 
+                      value={activeRegistration.status} 
+                      onValueChange={(val: any) => handleStatusUpdate(val)}
+                    >
+                      <SelectTrigger className="h-7 w-[130px] border-none bg-transparent p-0 focus:ring-0">
+                        <div className="flex items-center justify-end w-full">
+                           {isUpdating ? (
+                             <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                           ) : (
+                             <StatusBadge status={activeRegistration.status} className="scale-75 origin-right" />
+                           )}
+                        </div>
+                      </SelectTrigger>
+                      <SelectContent align="end" className="bg-popover border-border p-1 rounded-xl">
+                        <SelectItem value="Pending Review" className="text-[10px] font-bold uppercase">Pending</SelectItem>
+                        <SelectItem value="Processing" className="text-[10px] font-bold uppercase">Processing</SelectItem>
+                        <SelectItem value="Processed" className="text-[10px] font-bold uppercase">Processed</SelectItem>
+                        <SelectItem value="Rejected" className="text-[10px] font-bold uppercase">Rejected</SelectItem>
+                        <SelectItem value="Failed" className="text-[10px] font-bold uppercase">Failed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               )}
             </CardHeader>
