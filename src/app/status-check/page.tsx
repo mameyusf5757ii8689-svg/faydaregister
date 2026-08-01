@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
   ShieldCheck, 
@@ -15,11 +16,12 @@ import {
   FileDigit,
   Phone,
   User,
-  CheckCircle2
+  CheckCircle2,
+  Lock
 } from 'lucide-react';
 import Link from 'next/link';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, limit, doc } from 'firebase/firestore';
+import { collection, query, limit, doc, where } from 'firebase/firestore';
 import { Registration, RegistrationStatus } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -44,9 +46,10 @@ import { useToast } from '@/hooks/use-toast';
 import { updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 export default function StatusCheckPage() {
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const db = useFirestore();
   const { toast } = useToast();
+  const router = useRouter();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -54,10 +57,21 @@ export default function StatusCheckPage() {
   const [activeRid, setActiveRid] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
 
-  // Fetch registrations (limit 10,000 as per previous instructions)
+  // Security: Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isUserLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, isUserLoading, router]);
+
+  // Fetch only this officer's registrations (limit 10,000)
   const registrationsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, 'registrations'), limit(10000));
+    return query(
+      collection(db, 'registrations'), 
+      where('assignedReviewerId', '==', user.uid),
+      limit(10000)
+    );
   }, [db, user]);
 
   const { data: registrations, isLoading } = useCollection<Registration>(registrationsQuery);
@@ -97,7 +111,7 @@ export default function StatusCheckPage() {
 
   const handleInsertRid = (rid: string) => {
     setActiveRid(rid);
-    // Copy to clipboard for easy manual paste if auto-fill is blocked by iframe security
+    // Copy to clipboard for easy manual paste
     navigator.clipboard.writeText(rid);
     
     toast({
@@ -117,7 +131,6 @@ export default function StatusCheckPage() {
         remarks: `${activeRegistration.remarks || ''}\n[VERIFICATION TERMINAL]: Status updated to ${newStatus} on ${format(new Date(), 'MMM dd, HH:mm')}`
       };
 
-      // If status is Processing/Processed, we clear any previous rejection reasons
       if (newStatus === 'Processed' || newStatus === 'Processing') {
         updateData.rejectionReason = '';
       }
@@ -139,6 +152,17 @@ export default function StatusCheckPage() {
     }
   };
 
+  if (isUserLoading || !user) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">Verifying Terminal Clearance...</p>
+        </div>
+      </div>
+    );
+  }
+
   const iframeSrc = activeRid 
     ? `https://resident.fayda.et/status?rid=${activeRid}` 
     : 'https://resident.fayda.et/status';
@@ -156,28 +180,30 @@ export default function StatusCheckPage() {
             </div>
             <div>
               <h1 className="text-4xl font-black tracking-tight text-foreground font-headline uppercase leading-none">Verification Terminal</h1>
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Cross-Reference Registry with Official Portal</p>
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Authorized Verification Gateway</p>
             </div>
           </div>
         </div>
         
-        <div className="flex items-center gap-2 px-4 py-2 bg-emerald-500/5 rounded-2xl border border-emerald-500/10">
-          <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Secure External Link Active</span>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 px-4 py-2 bg-primary/5 rounded-2xl border border-primary/10">
+            <User className="h-3.5 w-3.5 text-primary opacity-40" />
+            <span className="text-[10px] font-black text-foreground uppercase tracking-widest">Local Session Active</span>
+          </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
         {/* Left Side: Registry Table & Filters */}
-        <div className="xl:col-span-5 space-y-6">
+        <div className="xl:col-span-4 space-y-6">
           <Card className="border border-border shadow-sm bg-card overflow-hidden rounded-2xl">
             <CardHeader className="bg-muted/30 border-b border-border py-4">
               <div className="flex items-center justify-between">
                 <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
-                  <Filter className="h-3 w-3" /> Registry Triage
+                  <Filter className="h-3 w-3" /> Your Registry
                 </p>
                 <span className="text-[10px] font-bold px-2 py-0.5 bg-background rounded-full text-muted-foreground border border-border">
-                  {filteredRegistrations.length} Records
+                  {filteredRegistrations.length} Assigned
                 </span>
               </div>
             </CardHeader>
@@ -185,7 +211,7 @@ export default function StatusCheckPage() {
               <div className="relative group">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/30 group-focus-within:text-primary transition-colors" />
                 <Input 
-                  placeholder="Search Name, RID, or Phone..." 
+                  placeholder="Search Name or RID..." 
                   className="pl-10 h-11 bg-background border-border rounded-xl text-xs font-medium"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -221,14 +247,13 @@ export default function StatusCheckPage() {
                   <TableHeader className="bg-muted/50 sticky top-0 z-10">
                     <TableRow className="hover:bg-transparent border-border">
                       <TableHead className="text-[9px] font-black uppercase tracking-widest py-3">Applicant</TableHead>
-                      <TableHead className="text-[9px] font-black uppercase tracking-widest py-3">RID</TableHead>
                       <TableHead className="text-right text-[9px] font-black uppercase tracking-widest py-3 pr-4">Action</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {isLoading ? (
                       <TableRow>
-                        <TableCell colSpan={3} className="h-40 text-center">
+                        <TableCell colSpan={2} className="h-40 text-center">
                           <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary opacity-20" />
                         </TableCell>
                       </TableRow>
@@ -237,15 +262,8 @@ export default function StatusCheckPage() {
                         <TableRow key={reg.id} className="hover:bg-muted/30 transition-colors border-border group">
                           <TableCell className="py-3">
                             <div className="space-y-0.5">
-                              <p className="text-xs font-bold text-foreground truncate max-w-[120px]">{reg.applicantName}</p>
-                              <p className="text-[9px] font-medium text-muted-foreground flex items-center gap-1">
-                                <Phone className="h-2 w-2" /> {reg.phone}
-                              </p>
-                            </div>
-                          </TableCell>
-                          <TableCell className="py-3">
-                            <div className="flex items-center gap-1 text-[10px] font-mono font-bold text-muted-foreground/60">
-                              {reg.id.substring(0, 8)}...
+                              <p className="text-xs font-bold text-foreground truncate max-w-[150px]">{reg.applicantName}</p>
+                              <p className="text-[9px] font-mono font-bold text-muted-foreground/40">{reg.id.substring(0, 15)}...</p>
                             </div>
                           </TableCell>
                           <TableCell className="text-right py-3 pr-4">
@@ -255,14 +273,14 @@ export default function StatusCheckPage() {
                               className="h-8 px-3 rounded-lg text-[9px] font-black uppercase tracking-widest border-primary/20 text-primary hover:bg-primary hover:text-white transition-all group-hover:shadow-md"
                               onClick={() => handleInsertRid(reg.id)}
                             >
-                              Insert <ArrowRight className="ml-1.5 h-3 w-3" />
+                              Verify <ArrowRight className="ml-1.5 h-3 w-3" />
                             </Button>
                           </TableCell>
                         </TableRow>
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={3} className="h-40 text-center">
+                        <TableCell colSpan={2} className="h-40 text-center">
                           <p className="text-[10px] font-bold text-muted-foreground uppercase opacity-40">No Matching Records</p>
                         </TableCell>
                       </TableRow>
@@ -272,46 +290,41 @@ export default function StatusCheckPage() {
               </div>
             </CardContent>
           </Card>
-
-          <div className="p-5 bg-primary/[0.03] border border-primary/10 rounded-2xl space-y-3">
-             <div className="flex items-center gap-2">
-                <Info className="h-4 w-4 text-primary" />
-                <span className="text-[10px] font-black text-primary uppercase tracking-widest">Operational Protocol</span>
-             </div>
-             <p className="text-[10px] text-muted-foreground font-bold leading-relaxed uppercase tracking-widest">
-               Click 'Insert' to copy the RID and reload the verification terminal. After checking the official status, use the "Update Registry" selector in the header to synchronize our database.
-             </p>
-          </div>
         </div>
 
         {/* Right Side: External Status Iframe */}
-        <div className="xl:col-span-7">
+        <div className="xl:col-span-8">
           <Card className="border border-border shadow-2xl bg-card overflow-hidden rounded-[32px] h-full flex flex-col min-h-[700px]">
             <CardHeader className="bg-muted/30 border-b border-border py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-2">
                 <Search className="h-4 w-4 text-primary" />
-                <CardTitle className="text-sm font-black text-foreground uppercase tracking-[0.2em]">Official Portal</CardTitle>
+                <CardTitle className="text-sm font-black text-foreground uppercase tracking-[0.2em]">Official Portal Gateway</CardTitle>
               </div>
               
               {activeRid && activeRegistration && (
-                <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-                   <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-full border border-primary/20">
+                <div className="flex items-center gap-3 w-full sm:w-auto justify-end animate-in fade-in zoom-in duration-300">
+                   <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-xl border border-primary/20">
                     <span className="text-[9px] font-black text-primary uppercase tracking-tighter">RID: {activeRid}</span>
+                    <div className="h-3 w-px bg-primary/20 mx-1" />
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[8px] font-bold text-muted-foreground uppercase">Registry:</span>
+                      <StatusBadge status={activeRegistration.status} className="scale-75 origin-left" />
+                    </div>
                   </div>
                   
                   <div className="flex items-center gap-2 bg-background border border-border px-3 py-1.5 rounded-xl shadow-sm">
-                    <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Update Registry:</span>
+                    <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Sync:</span>
                     <Select 
                       disabled={isUpdating} 
                       value={activeRegistration.status} 
                       onValueChange={(val: any) => handleStatusUpdate(val)}
                     >
-                      <SelectTrigger className="h-7 w-[130px] border-none bg-transparent p-0 focus:ring-0">
+                      <SelectTrigger className="h-7 w-[120px] border-none bg-transparent p-0 focus:ring-0">
                         <div className="flex items-center justify-end w-full">
                            {isUpdating ? (
                              <Loader2 className="h-3 w-3 animate-spin text-primary" />
                            ) : (
-                             <StatusBadge status={activeRegistration.status} className="scale-75 origin-right" />
+                             <span className="text-[10px] font-black text-primary uppercase">Update Result</span>
                            )}
                         </div>
                       </SelectTrigger>

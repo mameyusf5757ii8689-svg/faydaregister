@@ -1,7 +1,7 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -44,14 +44,22 @@ const START_DATE = new Date(2025, 6, 1); // July 1, 2025
 export default function FullRegistrationPage() {
   const { user, isUserLoading } = useUser();
   const db = useFirestore();
+  const router = useRouter();
 
-  // 1. Fetch ALL Monthly Summaries (Historical)
+  // Security: Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isUserLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, isUserLoading, router]);
+
+  // Fetch summaries for this officer (Historical)
   const summariesQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, 'monthly_summaries'), where('officerId', '==', user.uid));
   }, [db, user]);
 
-  // 2. Fetch ALL Daily Reports (Operational)
+  // Fetch daily reports for this officer (Operational)
   const reportsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, 'daily_reports'), where('officerId', '==', user.uid));
@@ -60,7 +68,7 @@ export default function FullRegistrationPage() {
   const { data: summaries, isLoading: isSummariesLoading } = useCollection<MonthlySummary>(summariesQuery);
   const { data: reports, isLoading: isReportsLoading } = useCollection<DailyReport>(reportsQuery);
 
-  // Auto-Archival Logic: Check for completed months that aren't summarized
+  // Auto-Archival Logic
   useEffect(() => {
     if (!db || !user || !summaries || !reports) return;
 
@@ -201,7 +209,7 @@ export default function FullRegistrationPage() {
     return { chartData, growth, ethioPct, safaricomPct };
   }, [ledger, aggregates]);
 
-  if (isUserLoading || isSummariesLoading || isReportsLoading) {
+  if (isUserLoading || isSummariesLoading || isReportsLoading || !user) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary opacity-20" />
@@ -249,7 +257,7 @@ export default function FullRegistrationPage() {
           <Card className="lg:col-span-2 border border-border bg-card overflow-hidden rounded-3xl shadow-sm">
             <CardHeader className="bg-muted/30 border-b border-border py-4 px-6 flex flex-row items-center justify-between">
               <div>
-                <CardTitle className="text-xs font-black text-foreground uppercase tracking-[0.2em]">Operational Trend Analysis</CardTitle>
+                <CardTitle className="text-xs font-black text-foreground uppercase tracking-[0.2em]">Operational Analysis</CardTitle>
                 <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">Registration throughput over time</p>
               </div>
               <BarChart3 className="h-4 w-4 text-muted-foreground opacity-20" />
@@ -269,12 +277,12 @@ export default function FullRegistrationPage() {
                       dataKey="name" 
                       axisLine={false} 
                       tickLine={false} 
-                      tick={{ fontSize: 9, fontWeight: 900, fill: 'hsl(var(--muted-foreground))' }} 
+                      tick={{ fontSize: 9, fontBold: true, fill: 'hsl(var(--muted-foreground))' }} 
                     />
                     <YAxis 
                       axisLine={false} 
                       tickLine={false} 
-                      tick={{ fontSize: 9, fontWeight: 900, fill: 'hsl(var(--muted-foreground))' }} 
+                      tick={{ fontSize: 9, fontBold: true, fill: 'hsl(var(--muted-foreground))' }} 
                     />
                     <Tooltip 
                       content={({ active, payload }) => {
@@ -284,8 +292,6 @@ export default function FullRegistrationPage() {
                               <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">{payload[0].payload.name}</p>
                               <div className="space-y-1">
                                 <p className="text-sm font-black text-foreground tracking-tighter">Total: {payload[0].value}</p>
-                                <p className="text-[9px] font-bold text-emerald-600 uppercase">Ethio: {payload[0].payload.ethio}</p>
-                                <p className="text-[9px] font-bold text-orange-600 uppercase">Safaricom: {payload[0].payload.safaricom}</p>
                               </div>
                             </div>
                           );
@@ -303,7 +309,7 @@ export default function FullRegistrationPage() {
           <div className="space-y-6">
             <Card className="border border-border bg-card overflow-hidden rounded-3xl shadow-sm">
               <CardContent className="p-6">
-                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-4">MoM Performance Growth</p>
+                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-4">MoM Efficiency Growth</p>
                 <div className="flex items-end gap-3">
                   <span className="text-4xl font-black text-foreground tracking-tighter">
                     {Math.abs(analysis.growth).toFixed(1)}%
@@ -315,13 +321,13 @@ export default function FullRegistrationPage() {
                     {analysis.growth >= 0 ? 'Increase' : 'Decline'}
                   </div>
                 </div>
-                <p className="text-[10px] text-muted-foreground font-bold uppercase mt-2">vs. previous operational period</p>
+                <p className="text-[10px] text-muted-foreground font-bold uppercase mt-2">vs. previous period</p>
               </CardContent>
             </Card>
 
             <Card className="border border-border bg-card overflow-hidden rounded-3xl shadow-sm">
               <CardContent className="p-6 space-y-4">
-                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Bureau Distribution Share</p>
+                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Intake Distribution</p>
                 <div className="space-y-4">
                   <div className="space-y-1.5">
                     <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest">
@@ -365,7 +371,7 @@ export default function FullRegistrationPage() {
           <Table>
             <TableHeader className="bg-muted/10">
               <TableRow className="border-border hover:bg-transparent">
-                <TableHead className="text-[10px] font-black uppercase tracking-widest h-14 pl-8">Reporting Month</TableHead>
+                <TableHead className="text-[10px] font-black uppercase tracking-widest h-14 pl-8">Reporting Period</TableHead>
                 <TableHead className="text-[10px] font-black uppercase tracking-widest h-14 text-center">Ethio Intake</TableHead>
                 <TableHead className="text-[10px] font-black uppercase tracking-widest h-14 text-center">Safaricom Intake</TableHead>
                 <TableHead className="text-[10px] font-black uppercase tracking-widest h-14 text-center">Grand Total</TableHead>
@@ -405,7 +411,7 @@ export default function FullRegistrationPage() {
                   <TableCell colSpan={5} className="h-60 text-center">
                     <div className="flex flex-col items-center justify-center gap-3">
                       <Activity className="h-10 w-10 text-muted-foreground/20" />
-                      <p className="text-xs font-black uppercase tracking-widest text-muted-foreground/40">Terminal Scan Complete: Zero Matches Since July '25</p>
+                      <p className="text-xs font-black uppercase tracking-widest text-muted-foreground/40">Zero Matches Found Since July '25</p>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -418,7 +424,7 @@ export default function FullRegistrationPage() {
       <div className="flex items-center gap-2 p-5 bg-amber-500/5 border border-amber-500/10 rounded-2xl">
         <AlertCircle className="h-5 w-5 text-amber-500 shrink-0" />
         <p className="text-[10px] text-amber-600 font-bold uppercase leading-relaxed tracking-widest">
-          Operational Security: This terminal reflects finalized bureau throughput. Monthly summaries are generated automatically upon the conclusion of each operational period. Manual corrections require administrative clearance.
+          Operational Security: This terminal reflects your individual finalized bureau throughput. Monthly summaries are generated automatically upon the conclusion of each operational period. Data is strictly isolated to your assigned official signature.
         </p>
       </div>
     </div>

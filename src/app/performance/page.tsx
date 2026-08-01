@@ -1,7 +1,7 @@
-
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useMemoFirebase, useCollection, useUser, useFirestore } from '@/firebase';
 import { collection, query, where, limit } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -44,10 +44,19 @@ import {
 const START_DATE = new Date(2025, 6, 1); // July 1, 2025
 
 export default function PerformancePage() {
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const db = useFirestore();
+  const router = useRouter();
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMonth, setSelectedMonth] = useState('');
+
+  // Security: Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isUserLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, isUserLoading, router]);
 
   // Initialize selected month on client
   useEffect(() => {
@@ -130,7 +139,7 @@ export default function PerformancePage() {
       .sort((a, b) => new Date(b.submissionDate).getTime() - new Date(a.submissionDate).getTime());
   }, [filteredByMonth, searchTerm]);
 
-  if (isLoading || !selectedMonth) {
+  if (isUserLoading || isLoading || !selectedMonth || !user) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary opacity-20" />
@@ -231,7 +240,7 @@ export default function PerformancePage() {
                 </Pie>
                 <Tooltip 
                   contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '12px', border: '1px solid hsl(var(--border))' }}
-                  itemStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }}
+                  itemStyle={{ fontSize: '10px', fontBold: true, textTransform: 'uppercase' }}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -319,7 +328,7 @@ export default function PerformancePage() {
       <div className="p-6 bg-amber-500/5 border border-amber-500/10 rounded-2xl flex items-center gap-4">
         <ShieldAlert className="h-6 w-6 text-amber-500 shrink-0" />
         <p className="text-[10px] text-amber-700 font-bold uppercase leading-relaxed tracking-widest">
-          Operational Security: This terminal reflects localized field performance metrics. Rejection rates exceeding 15% across a 30-day operational period will trigger an automatic administrative performance review. Data is synchronized with headquarters every 60 seconds.
+          Operational Security: This terminal reflects your individual field performance metrics. Rejection rates exceeding 15% across a 30-day period will trigger an automatic administrative review. Data is isolated to your official signature.
         </p>
       </div>
     </div>
