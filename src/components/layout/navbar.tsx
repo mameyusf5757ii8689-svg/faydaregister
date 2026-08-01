@@ -153,7 +153,6 @@ export function Navbar() {
 
   const isAdminSection = pathname.startsWith('/admin') && !pathname.includes('full-registration') && !pathname.includes('performance') && !pathname.includes('status-check') && !pathname.includes('communication');
   
-  // Refine logic to determine which nav set to use
   const navItems = profile?.role === 'admin' ? ADMIN_NAV_ITEMS : OFFICER_NAV_ITEMS;
 
   const handleLogout = async () => {

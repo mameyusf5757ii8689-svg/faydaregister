@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -57,14 +58,12 @@ export default function StatusCheckPage() {
   const [activeRid, setActiveRid] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
 
-  // Security: Redirect to login if not authenticated
   useEffect(() => {
     if (!isUserLoading && !user) {
       router.push('/login');
     }
   }, [user, isUserLoading, router]);
 
-  // Fetch only this officer's registrations (limit 10,000)
   const registrationsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(
@@ -111,7 +110,6 @@ export default function StatusCheckPage() {
 
   const handleInsertRid = (rid: string) => {
     setActiveRid(rid);
-    // Copy to clipboard for easy manual paste
     navigator.clipboard.writeText(rid);
     
     toast({
@@ -194,7 +192,6 @@ export default function StatusCheckPage() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
-        {/* Left Side: Registry Table & Filters */}
         <div className="xl:col-span-4 space-y-6">
           <Card className="border border-border shadow-sm bg-card overflow-hidden rounded-2xl">
             <CardHeader className="bg-muted/30 border-b border-border py-4">
@@ -292,7 +289,6 @@ export default function StatusCheckPage() {
           </Card>
         </div>
 
-        {/* Right Side: External Status Iframe */}
         <div className="xl:col-span-8">
           <Card className="border border-border shadow-2xl bg-card overflow-hidden rounded-[32px] h-full flex flex-col min-h-[700px]">
             <CardHeader className="bg-muted/30 border-b border-border py-4 flex flex-col sm:flex-row items-center justify-between gap-4">

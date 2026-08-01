@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -46,20 +47,17 @@ export default function FullRegistrationPage() {
   const db = useFirestore();
   const router = useRouter();
 
-  // Security: Redirect to login if not authenticated
   useEffect(() => {
     if (!isUserLoading && !user) {
       router.push('/login');
     }
   }, [user, isUserLoading, router]);
 
-  // Fetch summaries for this officer (Historical)
   const summariesQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, 'monthly_summaries'), where('officerId', '==', user.uid));
   }, [db, user]);
 
-  // Fetch daily reports for this officer (Operational)
   const reportsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, 'daily_reports'), where('officerId', '==', user.uid));
@@ -68,7 +66,6 @@ export default function FullRegistrationPage() {
   const { data: summaries, isLoading: isSummariesLoading } = useCollection<MonthlySummary>(summariesQuery);
   const { data: reports, isLoading: isReportsLoading } = useCollection<DailyReport>(reportsQuery);
 
-  // Auto-Archival Logic
   useEffect(() => {
     if (!db || !user || !summaries || !reports) return;
 

@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -29,11 +30,9 @@ export default function LandingPage() {
     <div className="flex flex-col min-h-screen -mt-8 -mx-4 sm:-mx-6 lg:-mx-8 bg-background selection:bg-primary/20">
       {/* Cinematic Bureau Hero */}
       <section className="relative w-full py-32 lg:py-64 overflow-hidden border-b bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent">
-        {/* Ambient Technical Accents */}
         <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-primary/[0.03] rounded-full blur-[160px] -mr-96 -mt-96 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-primary/[0.02] rounded-full blur-[140px] -ml-64 -mb-64 pointer-events-none" />
         
-        {/* Subtle Grid Pattern */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
 
         <div className="container relative z-20 mx-auto px-4 sm:px-6 lg:px-8">
@@ -160,7 +159,6 @@ export default function LandingPage() {
                      </div>
                    )}
                    
-                   {/* Decorative Corner Accents */}
                    <div className="absolute top-8 left-8 h-4 w-4 border-t-2 border-l-2 border-primary/20" />
                    <div className="absolute bottom-8 right-8 h-4 w-4 border-b-2 border-r-2 border-primary/20" />
                 </div>
