@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, orderBy, limit } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,10 +22,11 @@ import {
   Search, 
   FileDigit,
   Eye,
-  Info,
   Fingerprint,
   History,
-  ArrowRight
+  ChevronLeft,
+  ChevronRight,
+  Filter
 } from 'lucide-react';
 import { AuditLog } from '@/lib/types';
 import { format } from 'date-fns';
@@ -45,10 +46,15 @@ export default function AuditLedgerPage() {
   const db = useFirestore();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
+  
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
 
   const auditQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, 'audit_logs'), orderBy('timestamp', 'desc'), limit(200));
+    // Fetch a healthy buffer of logs for smooth client-side filtering/paging
+    return query(collection(db, 'audit_logs'), orderBy('timestamp', 'desc'), limit(500));
   }, [db, user]);
 
   const { data: logs, isLoading } = useCollection<AuditLog>(auditQuery);
@@ -58,14 +64,29 @@ export default function AuditLedgerPage() {
     return logs.filter(log => 
       log.officerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       log.action?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.targetId?.toLowerCase().includes(searchTerm.toLowerCase())
+      log.targetId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      log.details?.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [logs, searchTerm]);
+
+  // Recalculate pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
+  const paginatedLogs = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredLogs.slice(start, start + itemsPerPage);
+  }, [filteredLogs, currentPage]);
 
   if (isLoading) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary opacity-20" />
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
+          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground">Accessing Forensic Vault</p>
+        </div>
       </div>
     );
   }
@@ -101,7 +122,7 @@ export default function AuditLedgerPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredLogs.length > 0 ? filteredLogs.map((log) => (
+            {paginatedLogs.length > 0 ? paginatedLogs.map((log) => (
               <TableRow key={log.id} className="hover:bg-muted/30 transition-colors border-border h-16 group">
                 <TableCell className="pl-8">
                   <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase">
@@ -117,7 +138,7 @@ export default function AuditLedgerPage() {
                 </TableCell>
                 <TableCell>
                   <span className="text-[9px] font-black uppercase px-2 py-0.5 bg-primary/10 text-primary rounded border border-primary/20 tracking-tighter">
-                    {log.action.replace('_', ' ')}
+                    {log.action.replace(/_/g, ' ')}
                   </span>
                 </TableCell>
                 <TableCell>
@@ -149,6 +170,38 @@ export default function AuditLedgerPage() {
             )}
           </TableBody>
         </Table>
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-8 py-4 bg-muted/10 border-t border-border">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+              Showing {paginatedLogs.length} of {filteredLogs.length} Forensic Records
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 w-9 p-0 rounded-xl border-border bg-background hover:bg-muted"
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <div className="flex items-center justify-center min-w-[100px] h-9 text-[10px] font-black text-foreground bg-muted/50 border border-border rounded-xl uppercase tracking-widest px-3">
+                Page {currentPage} of {totalPages}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 w-9 p-0 rounded-xl border-border bg-background hover:bg-muted"
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* Forensic Detail Dialog */}
@@ -167,7 +220,7 @@ export default function AuditLedgerPage() {
               </div>
               {selectedLog && (
                 <span className="text-[9px] font-black uppercase px-2 py-1 bg-primary text-primary-foreground rounded-lg tracking-widest">
-                  {selectedLog.action.replace('_', ' ')}
+                  {selectedLog.action.replace(/_/g, ' ')}
                 </span>
               )}
             </div>
