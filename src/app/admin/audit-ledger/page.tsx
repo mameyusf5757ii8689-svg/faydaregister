@@ -13,15 +13,38 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
-import { ShieldCheck, Loader2, User, Clock, Activity, Search, FileDigit } from 'lucide-react';
+import { 
+  ShieldCheck, 
+  Loader2, 
+  User, 
+  Clock, 
+  Activity, 
+  Search, 
+  FileDigit,
+  Eye,
+  Info,
+  Fingerprint,
+  History,
+  ArrowRight
+} from 'lucide-react';
 import { AuditLog } from '@/lib/types';
 import { format } from 'date-fns';
 import { Input } from '@/components/ui/input';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle,
+  DialogDescription
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 export default function AuditLedgerPage() {
   const { user } = useUser();
   const db = useFirestore();
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
 
   const auditQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -73,17 +96,17 @@ export default function AuditLedgerPage() {
               <TableHead className="text-[9px] font-black uppercase tracking-widest py-5 pl-8">Timestamp</TableHead>
               <TableHead className="text-[9px] font-black uppercase tracking-widest py-5">Official Signature</TableHead>
               <TableHead className="text-[9px] font-black uppercase tracking-widest py-5">Action Protocol</TableHead>
-              <TableHead className="text-[9px] font-black uppercase tracking-widest py-5">Target ID</TableHead>
-              <TableHead className="text-[9px] font-black uppercase tracking-widest py-5 pr-8">Operational Details</TableHead>
+              <TableHead className="text-[9px] font-black uppercase tracking-widest py-5">Target Reference</TableHead>
+              <TableHead className="text-[9px] font-black uppercase tracking-widest py-5 pr-8 text-right">Detail</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredLogs.length > 0 ? filteredLogs.map((log) => (
-              <TableRow key={log.id} className="hover:bg-muted/30 transition-colors border-border h-16">
+              <TableRow key={log.id} className="hover:bg-muted/30 transition-colors border-border h-16 group">
                 <TableCell className="pl-8">
                   <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase">
                     <Clock className="h-3 w-3 opacity-30" />
-                    {log.timestamp?.toDate ? format(log.timestamp.toDate(), 'MMM dd, HH:mm:ss') : 'Just now'}
+                    {log.timestamp?.toDate ? format(log.timestamp.toDate(), 'MMM dd, HH:mm') : 'Just now'}
                   </div>
                 </TableCell>
                 <TableCell>
@@ -98,15 +121,20 @@ export default function AuditLedgerPage() {
                   </span>
                 </TableCell>
                 <TableCell>
-                  <div className="flex items-center gap-1.5 text-[9px] font-mono font-bold text-muted-foreground">
-                    <FileDigit className="h-3 w-3 opacity-20" />
+                  <div className="flex items-center gap-1.5 text-[9px] font-mono font-bold text-muted-foreground/40">
+                    <FileDigit className="h-3 w-3" />
                     {log.targetId?.substring(0, 15)}...
                   </div>
                 </TableCell>
-                <TableCell className="pr-8">
-                  <p className="text-[10px] font-medium text-foreground/80 leading-relaxed italic truncate max-w-xs">
-                    {log.details}
-                  </p>
+                <TableCell className="pr-8 text-right">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-8 px-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-all opacity-0 group-hover:opacity-100"
+                    onClick={() => setSelectedLog(log)}
+                  >
+                    <Eye className="mr-1.5 h-3.5 w-3.5" /> View
+                  </Button>
                 </TableCell>
               </TableRow>
             )) : (
@@ -122,6 +150,89 @@ export default function AuditLedgerPage() {
           </TableBody>
         </Table>
       </Card>
+
+      {/* Forensic Detail Dialog */}
+      <Dialog open={!!selectedLog} onOpenChange={(open) => !open && setSelectedLog(null)}>
+        <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden rounded-[32px] border-none shadow-2xl bg-popover">
+          <DialogHeader className="p-8 border-b border-border bg-muted/30">
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-primary/10 rounded-xl">
+                   <ShieldCheck className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                   <DialogTitle className="text-lg font-black text-foreground uppercase tracking-tight">Audit Signature Details</DialogTitle>
+                   <DialogDescription className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Bureau Internal Security Record</DialogDescription>
+                </div>
+              </div>
+              {selectedLog && (
+                <span className="text-[9px] font-black uppercase px-2 py-1 bg-primary text-primary-foreground rounded-lg tracking-widest">
+                  {selectedLog.action.replace('_', ' ')}
+                </span>
+              )}
+            </div>
+          </DialogHeader>
+
+          <div className="p-8 space-y-8 bg-card">
+            <div className="grid grid-cols-2 gap-8">
+              <div className="space-y-1.5">
+                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                  <User className="h-3 w-3" /> Official Identity
+                </p>
+                <p className="text-sm font-black text-foreground">{selectedLog?.officerName}</p>
+                <p className="text-[9px] font-mono text-muted-foreground font-bold">UID: {selectedLog?.officerId}</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                  <Clock className="h-3 w-3" /> Precise Timestamp
+                </p>
+                <p className="text-sm font-black text-foreground">
+                  {selectedLog?.timestamp?.toDate ? format(selectedLog.timestamp.toDate(), 'MMMM dd, yyyy') : '...'}
+                </p>
+                <p className="text-[9px] font-mono text-muted-foreground font-bold">
+                  {selectedLog?.timestamp?.toDate ? format(selectedLog.timestamp.toDate(), 'HH:mm:ss.SSS') : '...'}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+               <div className="p-4 bg-muted/30 rounded-2xl border border-border space-y-3 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-4 opacity-5">
+                    <History className="h-16 w-16" />
+                  </div>
+                  <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                    <Activity className="h-3 w-3" /> Operational Payload
+                  </p>
+                  <p className="text-sm font-medium text-foreground leading-relaxed italic relative z-10">
+                    "{selectedLog?.details}"
+                  </p>
+               </div>
+
+               <div className="flex items-center justify-between p-4 bg-primary/[0.03] border border-primary/10 rounded-2xl">
+                  <div className="space-y-0.5">
+                    <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                      <FileDigit className="h-3 w-3" /> Target Reference ID
+                    </p>
+                    <p className="text-[11px] font-mono font-bold text-primary">{selectedLog?.targetId}</p>
+                  </div>
+                  <div className="h-10 w-10 rounded-xl bg-background border border-border flex items-center justify-center">
+                    <Fingerprint className="h-5 w-5 text-muted-foreground/30" />
+                  </div>
+               </div>
+            </div>
+          </div>
+
+          <div className="p-4 border-t border-border bg-muted/30 flex justify-end">
+            <Button 
+              onClick={() => setSelectedLog(null)} 
+              className="font-black text-[10px] uppercase tracking-widest h-10 px-8 rounded-xl"
+            >
+              Close Ledger Entry
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
