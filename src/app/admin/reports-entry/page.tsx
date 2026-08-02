@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,11 +9,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { useCollection, useMemoFirebase, useFirestore, useUser } from '@/firebase';
+import { useCollection, useMemoFirebase, useFirestore, useUser, useDoc } from '@/firebase';
 import { collection, query, limit, doc, serverTimestamp } from 'firebase/firestore';
 import { UserProfile } from '@/lib/types';
 import { addDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { ClipboardEdit, History, Loader2, Save, CheckCircle2 } from 'lucide-react';
+import { logAuditAction } from '@/lib/audit';
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June", 
@@ -29,19 +30,33 @@ export default function AdminReportsEntryPage() {
   
   // Daily Report Proxy State
   const [dailyOfficerId, setDailyOfficerId] = useState('');
-  const [dailyDate, setDailyDate] = useState(new Date().toISOString().split('T')[0]);
+  const [dailyDate, setDailyDate] = useState('');
   const [dailyEthio, setDailyEthio] = useState('0');
   const [dailySafaricom, setDailySafaricom] = useState('0');
   const [dailyRemarks, setDailyRemarks] = useState('');
 
   // Historical Proxy State
   const [histOfficerId, setHistOfficerId] = useState('');
-  const [histMonth, setHistMonth] = useState(MONTHS[new Date().getMonth()]);
-  const [histYear, setHistYear] = useState(new Date().getFullYear().toString());
+  const [histMonth, setHistMonth] = useState('');
+  const [histYear, setHistYear] = useState('');
   const [histEthio, setHistEthio] = useState('0');
   const [histSafaricom, setHistSafaricom] = useState('0');
   const [histProcessed, setHistProcessed] = useState('0');
   const [histRejected, setHistRejected] = useState('0');
+
+  // Defer initialization to useEffect to prevent hydration mismatch
+  useEffect(() => {
+    const now = new Date();
+    setDailyDate(now.toISOString().split('T')[0]);
+    setHistMonth(MONTHS[now.getMonth()]);
+    setHistYear(now.getFullYear().toString());
+  }, []);
+
+  const userProfileRef = useMemoFirebase(() => {
+    if (!db || !user?.uid) return null;
+    return doc(db, 'users', user.uid);
+  }, [db, user?.uid]);
+  const { data: profile } = useDoc<UserProfile>(userProfileRef);
 
   const officersQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -52,10 +67,11 @@ export default function AdminReportsEntryPage() {
 
   const handleDailySubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!dailyOfficerId || !db) return;
+    if (!dailyOfficerId || !db || !user || !profile) return;
 
     const ethio = parseInt(dailyEthio) || 0;
     const safaricom = parseInt(dailySafaricom) || 0;
+    const targetOfficer = officers?.find(o => o.id === dailyOfficerId);
 
     const reportData = {
       officerId: dailyOfficerId,
@@ -69,9 +85,18 @@ export default function AdminReportsEntryPage() {
 
     addDocumentNonBlocking(collection(db, 'daily_reports'), reportData);
 
+    logAuditAction(
+      db, 
+      user, 
+      profile.fullName,
+      'STATUS_UPDATE', 
+      dailyOfficerId, 
+      `Logged proxy daily report for ${targetOfficer?.fullName} on ${dailyDate}. Total: ${ethio + safaricom}.`
+    );
+
     toast({
       title: "Proxy Report Logged",
-      description: `Daily counts successfully archived.`,
+      description: `Daily counts successfully archived for ${targetOfficer?.fullName}.`,
     });
     
     setDailyEthio('0');
@@ -81,10 +106,11 @@ export default function AdminReportsEntryPage() {
 
   const handleHistSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!histOfficerId || !db) return;
+    if (!histOfficerId || !db || !user || !profile) return;
 
     const ethio = parseInt(histEthio) || 0;
     const safaricom = parseInt(histSafaricom) || 0;
+    const targetOfficer = officers?.find(o => o.id === histOfficerId);
 
     const summaryData = {
       officerId: histOfficerId,
@@ -101,13 +127,22 @@ export default function AdminReportsEntryPage() {
     const summaryId = `${histOfficerId}_${histMonth}_${histYear}`;
     setDocumentNonBlocking(doc(db, 'monthly_summaries', summaryId), summaryData, { merge: true });
 
+    logAuditAction(
+      db, 
+      user, 
+      profile.fullName,
+      'STATUS_UPDATE', 
+      summaryId, 
+      `Archived historical proxy data for ${targetOfficer?.fullName} (${histMonth} ${histYear}). Total Intake: ${ethio + safaricom}.`
+    );
+
     toast({
       title: "Monthly Data Archived",
-      description: `Summary for ${histMonth} ${histYear} recorded.`,
+      description: `Summary for ${targetOfficer?.fullName} (${histMonth} ${histYear}) recorded.`,
     });
   };
 
-  if (isOfficersLoading) {
+  if (isOfficersLoading || !dailyDate) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary opacity-20" />

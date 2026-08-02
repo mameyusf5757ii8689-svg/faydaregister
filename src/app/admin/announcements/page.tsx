@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Megaphone, Send, Trash2, Loader2 } from 'lucide-react';
+import { Megaphone, Send, Trash2, Loader2, ShieldAlert } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -15,6 +15,16 @@ import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebas
 import { collection, query, serverTimestamp, doc } from 'firebase/firestore';
 import { deleteDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Announcement } from '@/lib/types';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function AdminAnnouncementsPage() {
   const db = useFirestore();
@@ -23,6 +33,10 @@ export default function AdminAnnouncementsPage() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [type, setType] = useState<'info' | 'alert' | 'update'>('info');
+  
+  // Deletion state
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [annToDelete, setAnnToDelete] = useState<{id: string, title: string} | null>(null);
 
   const announcementsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -60,13 +74,15 @@ export default function AdminAnnouncementsPage() {
     });
   };
 
-  const handleDelete = (id: string) => {
-    if (!db) return;
-    deleteDocumentNonBlocking(doc(db, 'announcements', id));
+  const confirmDelete = () => {
+    if (!db || !annToDelete) return;
+    deleteDocumentNonBlocking(doc(db, 'announcements', annToDelete.id));
     toast({
       title: "Announcement Removed",
       description: "The broadcast has been deleted.",
     });
+    setIsDeleteDialogOpen(false);
+    setAnnToDelete(null);
   };
 
   return (
@@ -169,7 +185,10 @@ export default function AdminAnnouncementsPage() {
                         variant="ghost" 
                         size="icon" 
                         className="text-muted-foreground/30 hover:text-red-500 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100"
-                        onClick={() => handleDelete(ann.id)}
+                        onClick={() => {
+                          setAnnToDelete({ id: ann.id, title: ann.title });
+                          setIsDeleteDialogOpen(true);
+                        }}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -189,6 +208,35 @@ export default function AdminAnnouncementsPage() {
           </div>
         </section>
       </div>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent className="rounded-3xl border-none shadow-2xl bg-popover max-w-md p-0 overflow-hidden">
+          <div className="p-10 text-center space-y-6">
+            <div className="mx-auto bg-destructive/10 p-5 rounded-2xl w-fit">
+              <ShieldAlert className="h-10 w-10 text-destructive" />
+            </div>
+            <div className="space-y-2">
+              <AlertDialogTitle className="text-2xl font-black text-foreground tracking-tighter uppercase">
+                Purge Broadcast?
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-sm text-muted-foreground leading-relaxed font-medium">
+                You are about to delete the announcement: <span className="text-foreground font-bold">"{annToDelete?.title}"</span>. This action will remove the broadcast from all officer intelligence feeds immediately.
+              </AlertDialogDescription>
+            </div>
+          </div>
+          <AlertDialogFooter className="bg-muted/30 p-6 flex-col sm:flex-col gap-3">
+            <AlertDialogAction 
+              onClick={confirmDelete}
+              className="w-full h-14 bg-destructive hover:bg-destructive/90 text-white font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-destructive/10"
+            >
+              Confirm Purge
+            </AlertDialogAction>
+            <AlertDialogCancel className="w-full h-12 rounded-2xl font-bold uppercase text-[10px] tracking-widest border-none bg-transparent hover:bg-card">
+              Keep Broadcast
+            </AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
