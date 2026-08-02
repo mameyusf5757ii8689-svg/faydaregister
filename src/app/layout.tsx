@@ -11,7 +11,12 @@ export const metadata: Metadata = {
   title: 'FaydaTrack | Professional Registration Tracking',
   description: 'Real-time summary of registration statistics and AI-assisted status management.',
   icons: {
-    icon: INSTITUTIONAL_ICON,
+    icon: [
+      {
+        url: INSTITUTIONAL_ICON,
+        href: INSTITUTIONAL_ICON,
+      }
+    ],
     shortcut: INSTITUTIONAL_ICON,
     apple: INSTITUTIONAL_ICON,
   },
@@ -28,6 +33,7 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+        <link rel="icon" href={INSTITUTIONAL_ICON} sizes="any" />
       </head>
       <body className="font-body antialiased bg-background text-foreground min-h-screen flex flex-col transition-colors duration-300">
         <ThemeProvider

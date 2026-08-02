@@ -16,7 +16,8 @@ import {
   Phone, 
   MapPin,
   Activity,
-  Timer
+  Timer,
+  Clock
 } from 'lucide-react';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import Image from 'next/image';
