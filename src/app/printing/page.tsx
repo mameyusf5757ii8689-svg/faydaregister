@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -6,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc, limit } from 'firebase/firestore';
 import { updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
@@ -30,7 +29,9 @@ import {
   Clock,
   PrinterCheck,
   History,
-  LayoutGrid
+  LayoutGrid,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import Link from 'next/link';
 import { format, isSameMonth } from 'date-fns';
@@ -48,6 +49,10 @@ export default function PrintingPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPrinted, setFilterPrinted] = useState<'all' | 'pending' | 'printed'>('pending');
   const [periodFilter, setPeriodFilter] = useState<'current' | 'all'>('current');
+  
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     if (!isUserLoading && !user) {
@@ -73,25 +78,40 @@ export default function PrintingPage() {
     const now = new Date();
     
     return registrations.filter(reg => {
-      // 1. Period Filter (This month vs All months)
+      // 1. STRCT REQUIREMENT: Only show Processed records for printing
+      if (reg.status !== 'Processed') return false;
+
+      // 2. Period Filter (This month vs All months)
       if (periodFilter === 'current') {
         const regDate = new Date(reg.submissionDate);
         if (!isSameMonth(regDate, now)) return false;
       }
 
-      // 2. Search Filter
+      // 3. Search Filter
       const matchesSearch = 
         reg.applicantName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         reg.id.includes(searchTerm);
       if (!matchesSearch) return false;
 
-      // 3. Printing Status Filter
+      // 4. Printing Status Filter
       if (filterPrinted === 'pending' && reg.isPrinted) return false;
       if (filterPrinted === 'printed' && !reg.isPrinted) return false;
 
       return true;
     }).sort((a, b) => new Date(b.submissionDate).getTime() - new Date(a.submissionDate).getTime());
   }, [registrations, searchTerm, filterPrinted, periodFilter]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterPrinted, periodFilter]);
+
+  const paginatedItems = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredItems.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredItems, currentPage]);
+
+  const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
 
   const handleMarkPrinted = async (reg: Registration) => {
     if (!db) return;
@@ -140,7 +160,7 @@ export default function PrintingPage() {
             </div>
             <div>
               <h1 className="text-4xl font-black tracking-tight text-foreground font-headline uppercase leading-none">Printing Terminal</h1>
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Physical ID Production & Issuance</p>
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Processed ID Production & Issuance</p>
             </div>
           </div>
         </div>
@@ -244,7 +264,7 @@ export default function PrintingPage() {
           </Card>
         </div>
 
-        <div className="lg:col-span-3">
+        <div className="lg:col-span-3 space-y-4">
           <Card className="border border-border shadow-sm bg-card overflow-hidden rounded-3xl">
             <Table>
               <TableHeader className="bg-muted/30">
@@ -257,7 +277,7 @@ export default function PrintingPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredItems.length > 0 ? filteredItems.map((reg) => (
+                {paginatedItems.length > 0 ? paginatedItems.map((reg) => (
                   <TableRow key={reg.id} className="hover:bg-muted/30 transition-colors border-border h-20">
                     <TableCell className="pl-8">
                       <div className="flex items-center gap-2 text-[10px] font-mono font-bold text-muted-foreground/30 uppercase">
@@ -313,7 +333,7 @@ export default function PrintingPage() {
                     <TableCell colSpan={5} className="h-60 text-center">
                       <div className="flex flex-col items-center justify-center gap-3 opacity-20">
                         <Printer className="h-12 w-12 text-muted-foreground" />
-                        <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">No records found for current period queue</p>
+                        <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">No processed records found for current queue</p>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -321,6 +341,38 @@ export default function PrintingPage() {
               </TableBody>
             </Table>
           </Card>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-6 py-4 bg-card border border-border rounded-2xl shadow-sm">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                Showing {paginatedItems.length} of {filteredItems.length} Processed Items
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 w-9 p-0 rounded-xl border-border bg-background hover:bg-muted"
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div className="flex items-center justify-center min-w-[80px] h-9 text-[10px] font-black text-foreground bg-muted/50 border border-border rounded-xl uppercase tracking-widest px-3">
+                  Page {currentPage} of {totalPages}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 w-9 p-0 rounded-xl border-border bg-background hover:bg-muted"
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
