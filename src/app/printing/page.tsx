@@ -28,10 +28,12 @@ import {
   FileDigit,
   User,
   Clock,
-  PrinterCheck
+  PrinterCheck,
+  History,
+  LayoutGrid
 } from 'lucide-react';
 import Link from 'next/link';
-import { format, isSameMonth, startOfMonth, endOfMonth } from 'date-fns';
+import { format, isSameMonth } from 'date-fns';
 import { Registration } from '@/lib/types';
 import { StatusBadge } from '@/components/dashboard/status-badge';
 import { useToast } from '@/hooks/use-toast';
@@ -45,6 +47,7 @@ export default function PrintingPage() {
   
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPrinted, setFilterPrinted] = useState<'all' | 'pending' | 'printed'>('pending');
+  const [periodFilter, setPeriodFilter] = useState<'current' | 'all'>('current');
 
   useEffect(() => {
     if (!isUserLoading && !user) {
@@ -58,7 +61,7 @@ export default function PrintingPage() {
     return query(
       collection(db, 'registrations'),
       where('assignedReviewerId', '==', user.uid),
-      limit(1000)
+      limit(2000)
     );
   }, [db, user]);
 
@@ -70,9 +73,11 @@ export default function PrintingPage() {
     const now = new Date();
     
     return registrations.filter(reg => {
-      // 1. Current Month Filter
-      const regDate = new Date(reg.submissionDate);
-      if (!isSameMonth(regDate, now)) return false;
+      // 1. Period Filter (This month vs All months)
+      if (periodFilter === 'current') {
+        const regDate = new Date(reg.submissionDate);
+        if (!isSameMonth(regDate, now)) return false;
+      }
 
       // 2. Search Filter
       const matchesSearch = 
@@ -86,7 +91,7 @@ export default function PrintingPage() {
 
       return true;
     }).sort((a, b) => new Date(b.submissionDate).getTime() - new Date(a.submissionDate).getTime());
-  }, [registrations, searchTerm, filterPrinted]);
+  }, [registrations, searchTerm, filterPrinted, periodFilter]);
 
   const handleMarkPrinted = async (reg: Registration) => {
     if (!db) return;
@@ -142,10 +147,14 @@ export default function PrintingPage() {
         
         <div className="flex items-center gap-4 bg-card p-4 rounded-2xl border shadow-sm">
           <div className="flex items-center gap-3 px-2">
-            <div className="p-2 bg-emerald-500/10 rounded-xl"><Calendar className="h-5 w-5 text-emerald-500" /></div>
+            <div className="p-2 bg-emerald-500/10 rounded-xl">
+              {periodFilter === 'current' ? <Calendar className="h-5 w-5 text-emerald-500" /> : <History className="h-5 w-5 text-amber-500" />}
+            </div>
             <div className="flex flex-col">
-              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-tighter">Current Intake</span>
-              <span className="text-sm font-black text-foreground">{format(new Date(), 'MMMM yyyy')}</span>
+              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-tighter">Operational Intake</span>
+              <span className="text-sm font-black text-foreground">
+                {periodFilter === 'current' ? format(new Date(), 'MMMM yyyy') : 'Full Registry Ledger'}
+              </span>
             </div>
           </div>
         </div>
@@ -160,6 +169,28 @@ export default function PrintingPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6 space-y-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Duty Period</label>
+                <div className="flex flex-col gap-2">
+                  <Button 
+                    variant={periodFilter === 'current' ? 'default' : 'outline'} 
+                    size="sm" 
+                    className="justify-start font-bold text-[10px] uppercase tracking-widest h-10 rounded-xl"
+                    onClick={() => setPeriodFilter('current')}
+                  >
+                    <Calendar className="mr-2 h-3.5 w-3.5" /> Current Month
+                  </Button>
+                  <Button 
+                    variant={periodFilter === 'all' ? 'default' : 'outline'} 
+                    size="sm" 
+                    className="justify-start font-bold text-[10px] uppercase tracking-widest h-10 rounded-xl"
+                    onClick={() => setPeriodFilter('all')}
+                  >
+                    <LayoutGrid className="mr-2 h-3.5 w-3.5" /> All Records
+                  </Button>
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Search Registry</label>
                 <div className="relative">
@@ -198,7 +229,7 @@ export default function PrintingPage() {
                     className="justify-start font-bold text-[10px] uppercase tracking-widest h-10 rounded-xl"
                     onClick={() => setFilterPrinted('all')}
                   >
-                    <Filter className="mr-2 h-3.5 w-3.5" /> All Month Intake
+                    <Filter className="mr-2 h-3.5 w-3.5" /> All Status
                   </Button>
                 </div>
               </div>
@@ -239,7 +270,12 @@ export default function PrintingPage() {
                         <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center border border-border">
                           <User className="h-4 w-4 text-muted-foreground/50" />
                         </div>
-                        <span className="text-sm font-black text-foreground tracking-tight">{reg.applicantName}</span>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-black text-foreground tracking-tight">{reg.applicantName}</span>
+                          <span className="text-[9px] font-bold text-muted-foreground/40 uppercase tracking-tighter">
+                            Inbound: {format(new Date(reg.submissionDate), 'MMM dd, yyyy')}
+                          </span>
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell className="text-center">
