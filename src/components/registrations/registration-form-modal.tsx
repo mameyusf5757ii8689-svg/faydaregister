@@ -36,6 +36,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { logAuditAction } from '@/lib/audit';
 
 const formSchema = z.object({
   applicantName: z.string().min(2, "Name must be at least 2 characters"),
@@ -120,12 +121,26 @@ export function RegistrationFormModal({ registration, mode, trigger }: Registrat
 
     if (mode === 'edit' && registration) {
       setDocumentNonBlocking(doc(db, 'registrations', registration.id), data, { merge: true });
+      logAuditAction(
+        db, 
+        user, 
+        'STATUS_UPDATE', 
+        registration.id, 
+        `Registry: Modified record for ${values.applicantName}. New Status: ${values.status}.`
+      );
       toast({
         title: "Registration Updated",
         description: `Successfully modified record for ${values.applicantName}.`,
       });
     } else {
       setDocumentNonBlocking(doc(db, 'registrations', values.id), data, { merge: true });
+      logAuditAction(
+        db, 
+        user, 
+        'RECORD_CREATED', 
+        values.id, 
+        `Registry: Created new registration for ${values.applicantName}.`
+      );
       toast({
         title: "Registration Created",
         description: `Success: New record for ${values.applicantName} saved.`,

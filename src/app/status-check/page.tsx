@@ -45,6 +45,7 @@ import { StatusBadge } from '@/components/dashboard/status-badge';
 import { format, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { logAuditAction } from '@/lib/audit';
 
 export default function StatusCheckPage() {
   const { user, isUserLoading } = useUser();
@@ -119,7 +120,7 @@ export default function StatusCheckPage() {
   };
 
   const handleStatusUpdate = async (newStatus: RegistrationStatus) => {
-    if (!db || !activeRegistration) return;
+    if (!db || !activeRegistration || !user) return;
     
     setIsUpdating(true);
     try {
@@ -135,6 +136,14 @@ export default function StatusCheckPage() {
 
       await updateDocumentNonBlocking(doc(db, 'registrations', activeRegistration.id), updateData);
       
+      logAuditAction(
+        db, 
+        user, 
+        'STATUS_UPDATE', 
+        activeRegistration.id, 
+        `Verification Terminal: Changed status for ${activeRegistration.applicantName} to ${newStatus}.`
+      );
+
       toast({
         title: "Registry Synchronized",
         description: `Status for ${activeRegistration.applicantName} updated to ${newStatus}.`,

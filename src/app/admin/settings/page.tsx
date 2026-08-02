@@ -32,12 +32,6 @@ export default function AdminSettingsPage() {
   }, [db]);
   const { data: branding, isLoading } = useDoc<SystemSettings>(brandingRef);
 
-  const userProfileRef = useMemoFirebase(() => {
-    if (!db || !user?.uid) return null;
-    return doc(db, 'users', user.uid);
-  }, [db, user?.uid]);
-  const { data: profile } = useDoc<UserProfile>(userProfileRef);
-
   useEffect(() => {
     if (branding) {
       setBureauName(branding.bureauName || 'FaydaTrack');
