@@ -16,7 +16,10 @@ import {
   Activity,
   Cpu,
   ShieldCheck,
-  LayoutGrid
+  LayoutGrid,
+  Mail,
+  Phone,
+  MapPin
 } from 'lucide-react';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import Image from 'next/image';
@@ -39,6 +42,7 @@ export default function LandingPage() {
 
   const bureauName = branding?.bureauName || 'FaydaTrack';
   const logoUrl = branding?.logoUrl || DEFAULT_LOGO;
+  const systemProtocol = branding?.systemProtocol || 'Protocol v4.2';
 
   return (
     <div className="flex flex-col min-h-screen -mt-8 -mx-4 sm:-mx-6 lg:-mx-8 bg-background selection:bg-primary/20">
@@ -54,7 +58,7 @@ export default function LandingPage() {
             <div className="inline-flex items-center gap-2.5 px-5 py-2 rounded-full bg-background border border-border shadow-xl shadow-primary/5 animate-in fade-in zoom-in duration-1000">
               <div className="flex items-center gap-1.5">
                  <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-                 <span className="text-[10px] font-black uppercase tracking-[0.3em] text-foreground">Protocol v4.2 Active</span>
+                 <span className="text-[10px] font-black uppercase tracking-[0.3em] text-foreground">{systemProtocol} Active</span>
               </div>
               <div className="h-4 w-px bg-border mx-1" />
               <div className="flex items-center gap-1.5 text-muted-foreground">
@@ -163,6 +167,7 @@ export default function LandingPage() {
                         fill
                         className="object-contain p-12 transition-all duration-1000 group-hover:scale-110 group-hover:rotate-2"
                         data-ai-hint="bureau logo"
+                        unoptimized
                      />
                    </div>
                    
@@ -181,7 +186,7 @@ export default function LandingPage() {
               <h2 className="text-4xl md:text-6xl font-black tracking-tighter">Ready for Field Deployment?</h2>
               <p className="text-muted-foreground max-w-xl mx-auto font-medium">Initialize your official terminal session and begin secure operations.</p>
            </div>
-           <Button size="lg" variant="secondary" className="h-16 px-12 text-[12px] font-black uppercase tracking-[0.3em] rounded-2xl bg-background text-foreground hover:bg-background/90" asChild>
+           <Button size="lg" variant="secondary" className="h-16 px-12 text-[12px] font-black uppercase tracking-0.3em rounded-2xl bg-background text-foreground hover:bg-background/90" asChild>
               <Link href={user ? "/dashboard" : "/login"}>Enter Terminal Hub</Link>
            </Button>
         </div>
@@ -189,30 +194,64 @@ export default function LandingPage() {
 
       {/* Professional Footer */}
       <footer className="w-full py-24 border-t mt-auto bg-card">
-        <div className="container mx-auto px-4 flex flex-col items-center text-center space-y-10">
-          <div className="flex items-center gap-4">
-            <div className="relative h-12 w-12 overflow-hidden rounded-2xl border border-border shadow-xl">
-              <Image 
-                src={logoUrl}
-                alt={`${bureauName} Logo`}
-                fill
-                className="object-contain"
-              />
+        <div className="container mx-auto px-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-12 items-start mb-16">
+            <div className="space-y-6 flex flex-col items-center md:items-start text-center md:text-left">
+              <div className="flex items-center gap-4">
+                <div className="relative h-12 w-12 overflow-hidden rounded-2xl border border-border shadow-xl">
+                  <Image 
+                    src={logoUrl}
+                    alt={`${bureauName} Logo`}
+                    fill
+                    className="object-contain"
+                    unoptimized
+                  />
+                </div>
+                <span className="text-lg font-black tracking-0.4em uppercase text-foreground">
+                  {bureauName.split('Track')[0]}<span className="text-primary italic">{bureauName.includes('Track') ? 'Track' : ''}</span>
+                </span>
+              </div>
+              <p className="text-[11px] text-muted-foreground font-black uppercase tracking-[0.2em] max-w-xs leading-relaxed">
+                Official {bureauName} Operations Group. Secure and accountability-driven registration management.
+              </p>
             </div>
-            <span className="text-lg font-black tracking-[0.4em] uppercase text-foreground">
-              {bureauName.split('Track')[0]}<span className="text-primary italic">{bureauName.includes('Track') ? 'Track' : ''}</span>
-            </span>
+
+            <div className="space-y-4 flex flex-col items-center text-center">
+              <p className="text-[10px] font-black uppercase tracking-widest text-foreground">Operational Hub</p>
+              <div className="space-y-3">
+                 <div className="flex items-center gap-3 text-[11px] text-muted-foreground font-bold">
+                    <MapPin className="h-3.5 w-3.5 text-primary/40" />
+                    {branding?.officeAddress || 'Regional Headquarters'}
+                 </div>
+                 <div className="flex items-center gap-3 text-[11px] text-muted-foreground font-bold">
+                    <Clock className="h-3.5 w-3.5 text-primary/40" />
+                    {branding?.operationalHours || 'Operational 24/7 (Sync Mode)'}
+                 </div>
+              </div>
+            </div>
+
+            <div className="space-y-4 flex flex-col items-center md:items-end text-center md:text-right">
+              <p className="text-[10px] font-black uppercase tracking-widest text-foreground">Support Protocols</p>
+              <div className="space-y-3">
+                 <div className="flex items-center gap-3 text-[11px] text-muted-foreground font-bold justify-center md:justify-end">
+                    <Mail className="h-3.5 w-3.5 text-primary/40" />
+                    {branding?.contactEmail || 'support@bureau.gov'}
+                 </div>
+                 <div className="flex items-center gap-3 text-[11px] text-muted-foreground font-bold justify-center md:justify-end">
+                    <Phone className="h-3.5 w-3.5 text-primary/40" />
+                    {branding?.contactPhone || '+251 ...'}
+                 </div>
+              </div>
+            </div>
           </div>
           
-          <div className="space-y-6">
-             <p className="text-[11px] text-muted-foreground font-black uppercase tracking-[0.3em] max-w-md leading-relaxed mx-auto">
-               Official Bureau Operations Group <br/> Security Audit: <span className="text-emerald-500">ACTIVE</span>
+          <div className="pt-8 border-t border-border/40 flex flex-col md:flex-row items-center justify-between gap-6">
+             <p className="text-[9px] text-muted-foreground font-black uppercase tracking-[0.3em]">
+               Security Audit: <span className="text-emerald-500">ACTIVE</span> • System {systemProtocol}
              </p>
              
              <div className="flex flex-wrap items-center justify-center gap-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground/40">
                 <a href="#" className="hover:text-primary transition-colors">Terms of Access</a>
-                <span className="h-1 w-1 bg-border rounded-full" />
-                <a href="#" className="hover:text-primary transition-colors">Protocol v4.2</a>
                 <span className="h-1 w-1 bg-border rounded-full" />
                 <a href="#" className="hover:text-primary transition-colors">Audit Ledger</a>
                 <span className="h-1 w-1 bg-border rounded-full" />

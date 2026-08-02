@@ -119,6 +119,11 @@ export interface SystemSettings {
   id: string;
   bureauName: string;
   logoUrl: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  officeAddress?: string;
+  operationalHours?: string;
+  systemProtocol?: string;
   updatedAt: string;
 }
 
