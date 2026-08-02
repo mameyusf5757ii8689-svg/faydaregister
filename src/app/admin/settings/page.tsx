@@ -53,7 +53,7 @@ export default function AdminSettingsPage() {
     try {
       await setDocumentNonBlocking(doc(db, 'system_settings', 'branding'), {
         bureauName,
-        logoUrl,
+        logoUrl: logoUrl || DEFAULT_LOGO,
         updatedAt: serverTimestamp(),
       }, { merge: true });
 
@@ -63,17 +63,17 @@ export default function AdminSettingsPage() {
         profile.fullName,
         'BRANDING_UPDATE', 
         'branding', 
-        `Updated bureau name to ${bureauName} and modified logo source.`
+        `Updated bureau name to "${bureauName}" and modified institutional logo source.`
       );
 
       toast({
-        title: "Settings Updated",
-        description: "Institutional branding has been synchronized across all terminals.",
+        title: "Settings Synchronized",
+        description: "Institutional branding has been updated across all bureau terminals.",
       });
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Operation Failed",
+        title: "Sync Failed",
         description: "Could not establish a secure connection to save settings.",
       });
     } finally {
@@ -84,6 +84,7 @@ export default function AdminSettingsPage() {
   const handleReset = () => {
     setBureauName('FaydaTrack');
     setLogoUrl(DEFAULT_LOGO);
+    toast({ title: "Defaults Restored", description: "Values reset to factory protocols." });
   };
 
   if (isLoading) {
@@ -104,7 +105,7 @@ export default function AdminSettingsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
-          <Card className="border border-border shadow-sm bg-card overflow-hidden rounded-2xl">
+          <Card className="border border-border shadow-sm bg-card overflow-hidden rounded-3xl">
             <CardHeader className="bg-muted/30 border-b border-border">
               <CardTitle className="text-sm font-black text-foreground uppercase tracking-widest flex items-center gap-2">
                 <Settings className="h-4 w-4 text-primary" /> Identity Configuration
@@ -133,7 +134,6 @@ export default function AdminSettingsPage() {
                         onChange={(e) => setLogoUrl(e.target.value)}
                         placeholder="https://..."
                         className="h-12 pl-10 bg-background border-border rounded-xl text-xs font-medium"
-                        required
                       />
                     </div>
                   </div>
@@ -153,7 +153,7 @@ export default function AdminSettingsPage() {
         </div>
 
         <div className="lg:col-span-1 space-y-6">
-          <Card className="border border-border shadow-sm bg-card overflow-hidden rounded-2xl">
+          <Card className="border border-border shadow-sm bg-card overflow-hidden rounded-3xl">
             <CardHeader className="bg-muted/30 border-b border-border py-4">
               <CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] flex items-center gap-2">
                 <Layout className="h-3 w-3" /> Live Preview
@@ -166,6 +166,7 @@ export default function AdminSettingsPage() {
                   alt="Logo Preview" 
                   fill 
                   className="object-contain p-2"
+                  unoptimized
                 />
               </div>
               <div className="space-y-1">
@@ -174,7 +175,7 @@ export default function AdminSettingsPage() {
               </div>
               <div className="w-full h-px bg-border border-dashed" />
               <p className="text-[9px] text-muted-foreground leading-relaxed italic">
-                Changes will be reflected on the Landing Page, Login Portal, Navigation Terminal, and Footer immediately after commit.
+                Changes will be reflected on the Landing Page, Login Portal, Navigation Terminal, and Browser Tab immediately after commit.
               </p>
             </CardContent>
           </Card>

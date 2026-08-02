@@ -48,7 +48,6 @@ import { useToast } from '@/hooks/use-toast';
 import { logAuditAction } from '@/lib/audit';
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
