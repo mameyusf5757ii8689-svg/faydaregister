@@ -1,16 +1,19 @@
+
 "use client"
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, Shield, Loader2, MapPin, Mail, BadgeCheck, Trash2, Edit2, ShieldAlert } from 'lucide-react';
+import { Users, Shield, Loader2, MapPin, Mail, BadgeCheck, Trash2, Edit2, ShieldAlert, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { OfficerFormModal } from '@/components/admin/officer-form-modal';
-import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collection, query, limit, doc } from 'firebase/firestore';
 import { UserProfile } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { logAuditAction } from '@/lib/audit';
 import {
   Table,
   TableBody,
@@ -35,25 +38,55 @@ export default function OfficerManagementPage() {
   const db = useFirestore();
   const { toast } = useToast();
   
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+  
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [officerToDelete, setOfficerToDelete] = useState<UserProfile | null>(null);
 
+  const userProfileRef = useMemoFirebase(() => {
+    if (!db || !currentUser?.uid) return null;
+    return doc(db, 'users', currentUser.uid);
+  }, [db, currentUser?.uid]);
+  const { data: profile } = useDoc<UserProfile>(userProfileRef);
+
   const usersQuery = useMemoFirebase(() => {
     if (!db || !currentUser) return null;
-    return query(collection(db, 'users'), limit(100));
+    return query(collection(db, 'users'), limit(500));
   }, [db, currentUser]);
 
-  const { data: officers, isLoading } = useCollection<UserProfile>(usersQuery);
+  const { data: allOfficers, isLoading } = useCollection<UserProfile>(usersQuery);
+
+  const filteredOfficers = useMemo(() => {
+    if (!allOfficers) return [];
+    return allOfficers.filter(o => 
+      o.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      o.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      o.id.includes(searchTerm)
+    );
+  }, [allOfficers, searchTerm]);
+
+  // Pagination Logic
+  const totalPages = Math.ceil(filteredOfficers.length / itemsPerPage);
+  const paginatedOfficers = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredOfficers.slice(start, start + itemsPerPage);
+  }, [filteredOfficers, currentPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const stats = useMemo(() => {
-    if (!officers) return { total: 0, admins: 0, reviewers: 0 };
+    if (!allOfficers) return { total: 0, admins: 0, reviewers: 0 };
     return {
-      total: officers.length,
-      admins: officers.filter(o => o.role === 'admin').length,
-      reviewers: officers.filter(o => o.role === 'reviewer').length,
+      total: allOfficers.length,
+      admins: allOfficers.filter(o => o.role === 'admin').length,
+      reviewers: allOfficers.filter(o => o.role === 'reviewer').length,
     };
-  }, [officers]);
+  }, [allOfficers]);
 
   const initiateDelete = (officer: UserProfile) => {
     if (officer.id === currentUser?.uid) {
@@ -69,7 +102,7 @@ export default function OfficerManagementPage() {
   };
 
   const confirmDelete = async () => {
-    if (!db || !officerToDelete) return;
+    if (!db || !officerToDelete || !currentUser || !profile) return;
     
     setIsDeleting(true);
     try {
@@ -78,6 +111,15 @@ export default function OfficerManagementPage() {
         await deleteDocumentNonBlocking(doc(db, 'admin_users', officerToDelete.id));
       }
       
+      logAuditAction(
+        db,
+        currentUser,
+        profile.fullName,
+        'PERSONNEL_MODIFIED',
+        officerToDelete.id,
+        `Revoked bureau access for ${officerToDelete.fullName} (${officerToDelete.email}).`
+      );
+
       toast({
         title: "Officer Purged",
         description: `${officerToDelete.fullName} has been removed from the bureau framework.`,
@@ -116,92 +158,132 @@ export default function OfficerManagementPage() {
       </div>
 
       <Card className="border border-border shadow-sm overflow-hidden bg-card rounded-3xl">
-        <CardHeader className="bg-muted/10 border-b border-border py-6 flex flex-row items-center justify-between">
+        <CardHeader className="bg-muted/10 border-b border-border py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <CardTitle className="text-sm font-black text-foreground uppercase tracking-widest">Authorized Personnel Ledger</CardTitle>
-          <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+          <div className="relative w-full max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/30" />
+            <Input 
+              placeholder="Search signature or email..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 h-10 border-border bg-background rounded-xl text-xs font-bold"
+            />
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           {isLoading ? (
             <div className="flex justify-center py-32"><Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" /></div>
-          ) : officers && officers.length > 0 ? (
-            <Table>
-              <TableHeader className="bg-muted/30">
-                <TableRow className="border-border hover:bg-transparent">
-                  <TableHead className="text-[9px] font-black uppercase h-14 pl-8 text-muted-foreground tracking-widest">Official Signature</TableHead>
-                  <TableHead className="text-[9px] font-black uppercase h-14 text-muted-foreground tracking-widest">Terminal</TableHead>
-                  <TableHead className="text-[9px] font-black uppercase h-14 text-muted-foreground tracking-widest">Clearance</TableHead>
-                  <TableHead className="text-[9px] font-black uppercase h-14 text-muted-foreground tracking-widest">Sector</TableHead>
-                  <TableHead className="text-[9px] font-black uppercase h-14 pr-8 text-right text-muted-foreground tracking-widest">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {officers.map((officer) => (
-                  <TableRow key={officer.id} className="hover:bg-muted/30 transition-colors group border-border h-20">
-                    <TableCell className="pl-8">
-                      <div className="flex items-center gap-4">
-                        <Avatar className="h-11 w-11 border-2 border-background shadow-md">
-                          <AvatarImage src={officer.profilePhoto} />
-                          <AvatarFallback className="font-black text-[10px]">{officer.fullName.substring(0, 2).toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="text-sm font-black text-foreground tracking-tight">{officer.fullName}</p>
-                          <p className="text-[9px] font-mono text-muted-foreground/40 uppercase tracking-tighter">UID: {officer.id.substring(0, 12)}...</p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2 text-muted-foreground text-[11px] font-bold">
-                        <Mail className="h-3.5 w-3.5 opacity-30" />
-                        {officer.email}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <span className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-lg tracking-tighter ${
-                        officer.role === 'admin' ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20' : 'bg-primary/10 text-primary border border-primary/20'
-                      }`}>
-                        {officer.role}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <div className="flex items-center gap-1.5 text-[11px] font-black text-foreground/80 uppercase">
-                          <MapPin className="h-3 w-3 text-muted-foreground/30" />
-                          {officer.region}
-                        </div>
-                        <p className="text-[9px] text-muted-foreground/50 font-bold uppercase ml-4.5">{officer.cluster}</p>
-                      </div>
-                    </TableCell>
-                    <TableCell className="pr-8 text-right">
-                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                        <OfficerFormModal 
-                          mode="edit" 
-                          officer={officer} 
-                          trigger={
-                            <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-xl transition-all">
-                              <Edit2 className="h-4 w-4" />
-                            </Button>
-                          } 
-                        />
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/5 rounded-xl transition-all"
-                          onClick={() => initiateDelete(officer)}
-                          disabled={officer.id === currentUser?.uid}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
+          ) : paginatedOfficers && paginatedOfficers.length > 0 ? (
+            <>
+              <Table>
+                <TableHeader className="bg-muted/30">
+                  <TableRow className="border-border hover:bg-transparent">
+                    <TableHead className="text-[9px] font-black uppercase h-14 pl-8 text-muted-foreground tracking-widest">Official Signature</TableHead>
+                    <TableHead className="text-[9px] font-black uppercase h-14 text-muted-foreground tracking-widest">Terminal</TableHead>
+                    <TableHead className="text-[9px] font-black uppercase h-14 text-muted-foreground tracking-widest">Clearance</TableHead>
+                    <TableHead className="text-[9px] font-black uppercase h-14 text-muted-foreground tracking-widest">Sector</TableHead>
+                    <TableHead className="text-[9px] font-black uppercase h-14 pr-8 text-right text-muted-foreground tracking-widest">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {paginatedOfficers.map((officer) => (
+                    <TableRow key={officer.id} className="hover:bg-muted/30 transition-colors group border-border h-20">
+                      <TableCell className="pl-8">
+                        <div className="flex items-center gap-4">
+                          <Avatar className="h-11 w-11 border-2 border-background shadow-md">
+                            <AvatarImage src={officer.profilePhoto} />
+                            <AvatarFallback className="font-black text-[10px]">{officer.fullName.substring(0, 2).toUpperCase()}</AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="text-sm font-black text-foreground tracking-tight">{officer.fullName}</p>
+                            <p className="text-[9px] font-mono text-muted-foreground/40 uppercase tracking-tighter">UID: {officer.id.substring(0, 12)}...</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2 text-muted-foreground text-[11px] font-bold">
+                          <Mail className="h-3.5 w-3.5 opacity-30" />
+                          {officer.email}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-lg tracking-tighter ${
+                          officer.role === 'admin' ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20' : 'bg-primary/10 text-primary border border-primary/20'
+                        }`}>
+                          {officer.role}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-1.5 text-[11px] font-black text-foreground/80 uppercase">
+                            <MapPin className="h-3 w-3 text-muted-foreground/30" />
+                            {officer.region}
+                          </div>
+                          <p className="text-[9px] text-muted-foreground/50 font-bold uppercase ml-4.5">{officer.cluster}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="pr-8 text-right">
+                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                          <OfficerFormModal 
+                            mode="edit" 
+                            officer={officer} 
+                            trigger={
+                              <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-xl transition-all">
+                                <Edit2 className="h-4 w-4" />
+                              </Button>
+                            } 
+                          />
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/5 rounded-xl transition-all"
+                            onClick={() => initiateDelete(officer)}
+                            disabled={officer.id === currentUser?.uid}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-8 py-4 bg-muted/5 border-t border-border">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                    Showing {paginatedOfficers.length} of {filteredOfficers.length} personnel
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9 w-9 p-0 rounded-xl border-border bg-background hover:bg-muted"
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <div className="flex items-center justify-center min-w-[80px] h-9 text-[10px] font-black text-foreground bg-muted/50 border border-border rounded-xl uppercase tracking-widest px-3">
+                      Page {currentPage} of {totalPages}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9 w-9 p-0 rounded-xl border-border bg-background hover:bg-muted"
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           ) : (
             <div className="flex flex-col items-center justify-center h-80 text-muted-foreground/30">
               <Users className="h-16 w-16 mb-4 opacity-10" />
-              <p className="text-sm font-black uppercase tracking-widest">No Registered Personnel</p>
-              <p className="text-xs">Initialize the first official record to begin.</p>
+              <p className="text-sm font-black uppercase tracking-widest">No Matches Found</p>
+              <p className="text-xs">Adjust your search parameters or register new personnel.</p>
             </div>
           )}
         </CardContent>

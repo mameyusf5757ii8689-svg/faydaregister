@@ -35,9 +35,10 @@ import { initializeApp, deleteApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc } from 'firebase/firestore';
 import { firebaseConfig } from '@/firebase/config';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { UserProfile } from '@/lib/types';
+import { logAuditAction } from '@/lib/audit';
 
 const formSchema = z.object({
   fullName: z.string().min(2, "Full name must be at least 2 characters"),
@@ -64,6 +65,13 @@ export function OfficerFormModal({ mode = 'add', officer, trigger }: OfficerForm
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const db = useFirestore();
+  const { user: currentUser } = useUser();
+
+  const userProfileRef = useMemoFirebase(() => {
+    if (!db || !currentUser?.uid) return null;
+    return doc(db, 'users', currentUser.uid);
+  }, [db, currentUser?.uid]);
+  const { data: currentProfile } = useDoc<UserProfile>(userProfileRef);
   
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -103,7 +111,7 @@ export function OfficerFormModal({ mode = 'add', officer, trigger }: OfficerForm
   }, [open, mode, officer, form]);
 
   async function onSubmit(values: FormValues) {
-    if (!db) return;
+    if (!db || !currentUser || !currentProfile) return;
     setIsSubmitting(true);
 
     try {
@@ -137,6 +145,15 @@ export function OfficerFormModal({ mode = 'add', officer, trigger }: OfficerForm
           setDocumentNonBlocking(doc(db, 'admin_users', uid), { active: true }, { merge: true });
         }
         
+        logAuditAction(
+          db,
+          currentUser,
+          currentProfile.fullName,
+          'PERSONNEL_MODIFIED',
+          uid,
+          `Registered new official: ${values.fullName} with ${values.role} clearance.`
+        );
+
         await deleteApp(secondaryApp);
         toast({
           title: "Officer Registered",
@@ -156,10 +173,16 @@ export function OfficerFormModal({ mode = 'add', officer, trigger }: OfficerForm
 
         if (values.role === 'admin') {
           setDocumentNonBlocking(doc(db, 'admin_users', officer.id), { active: true }, { merge: true });
-        } else {
-          // If role changed from admin to reviewer, remove admin privileges
-          // Note: In production you might want a more sophisticated revocation
         }
+
+        logAuditAction(
+          db,
+          currentUser,
+          currentProfile.fullName,
+          'PERSONNEL_MODIFIED',
+          officer.id,
+          `Modified profile for official: ${values.fullName}.`
+        );
 
         toast({
           title: "Record Synchronized",
@@ -328,9 +351,9 @@ export function OfficerFormModal({ mode = 'add', officer, trigger }: OfficerForm
             <div className="pt-6 flex flex-col gap-3">
               <Button type="submit" className="w-full h-14 bg-primary hover:bg-primary/90 text-primary-foreground font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/10 transition-all active:scale-[0.98]" disabled={isSubmitting}>
                 {isSubmitting ? (
-                  <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Transmitting...</>
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Transmitting...</>
                 ) : (
-                  <><ShieldCheck className="mr-2 h-5 w-5" /> {mode === 'add' ? 'Initialize Registration' : 'Confirm Updates'}</>
+                  <><ShieldCheck className="mr-2 h-4 w-4" /> {mode === 'add' ? 'Initialize Registration' : 'Confirm Updates'}</>
                 )}
               </Button>
               <Button type="button" variant="ghost" onClick={() => setOpen(false)} className="h-12 text-muted-foreground font-bold uppercase text-[10px] tracking-widest" disabled={isSubmitting}>
