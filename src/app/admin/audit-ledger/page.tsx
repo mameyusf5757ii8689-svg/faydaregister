@@ -121,8 +121,12 @@ export default function AuditLedgerPage() {
     setSelectedIds(next);
   };
 
+  const isVerified = useMemo(() => {
+    return purgeConfirmationText.trim().toUpperCase() === 'DELETE';
+  }, [purgeConfirmationText]);
+
   const handleBulkPurge = async () => {
-    if (!db || selectedIds.size === 0 || !user || !profile || purgeConfirmationText !== 'DELETE') return;
+    if (!db || selectedIds.size === 0 || !user || !profile || !isVerified) return;
     
     setIsPurging(true);
     const batch = writeBatch(db);
@@ -135,7 +139,6 @@ export default function AuditLedgerPage() {
     try {
       await batch.commit();
       
-      // Log the purge action itself
       logAuditAction(
         db,
         user,
@@ -323,7 +326,7 @@ export default function AuditLedgerPage() {
 
       {/* Bulk Purge Dialog */}
       <AlertDialog open={isPurgeDialogOpen} onOpenChange={(open) => {
-        if (!open) {
+        if (!open && !isPurging) {
           setPurgeConfirmationText('');
           setIsPurgeDialogOpen(false);
         }
@@ -364,7 +367,7 @@ export default function AuditLedgerPage() {
           <AlertDialogFooter className="bg-muted/30 p-6 flex-col sm:flex-col gap-3">
             <AlertDialogAction 
               onClick={(e) => { e.preventDefault(); handleBulkPurge(); }} 
-              disabled={isPurging || purgeConfirmationText !== 'DELETE'}
+              disabled={isPurging || !isVerified}
               className="w-full h-14 bg-destructive hover:bg-destructive/90 text-white font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-destructive/10 disabled:opacity-30 disabled:grayscale"
             >
               {isPurging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Confirm Destruction"}
