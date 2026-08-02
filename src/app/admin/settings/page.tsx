@@ -18,13 +18,12 @@ import {
   Save, 
   RefreshCcw, 
   Edit3, 
-  Eye, 
   Mail, 
   Phone, 
   MapPin, 
-  Clock, 
   ShieldCheck,
-  Globe
+  Globe,
+  Shield
 } from 'lucide-react';
 import Image from 'next/image';
 import { logAuditAction } from '@/lib/audit';
@@ -248,9 +247,9 @@ export default function AdminSettingsPage() {
                            </div>
                         </InfoSection>
 
-                        <InfoSection label="Operational Hours" icon={Clock}>
+                        <InfoSection label="Operational Parameters" icon={Shield}>
                            <div className="flex items-center gap-3">
-                              <div className="p-2 bg-muted rounded-lg"><Clock className="h-3.5 w-3.5 text-muted-foreground" /></div>
+                              <div className="p-2 bg-muted rounded-lg"><Shield className="h-3.5 w-3.5 text-muted-foreground" /></div>
                               <p className="text-sm font-bold text-foreground leading-relaxed">{formData.operationalHours || 'Operational 24/7 (Sync Enabled)'}</p>
                            </div>
                         </InfoSection>
