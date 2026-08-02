@@ -11,9 +11,13 @@ export const metadata: Metadata = {
   title: 'FaydaTrack | Professional Registration Tracking',
   description: 'Real-time summary of registration statistics and AI-assisted status management.',
   icons: {
-    icon: INSTITUTIONAL_ICON,
-    shortcut: INSTITUTIONAL_ICON,
-    apple: INSTITUTIONAL_ICON,
+    icon: [
+      { url: INSTITUTIONAL_ICON, rel: 'icon' },
+      { url: INSTITUTIONAL_ICON, rel: 'shortcut icon' },
+    ],
+    apple: [
+      { url: INSTITUTIONAL_ICON, rel: 'apple-touch-icon' },
+    ],
   },
 };
 
@@ -36,7 +40,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <FirebaseClientProvider { ...{ children: null } }>
+          <FirebaseClientProvider>
             <Navbar />
             <main className="flex-1 container mx-auto py-8 px-4 sm:px-6 lg:px-8">
               {children}
