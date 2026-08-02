@@ -11,7 +11,12 @@ export const metadata: Metadata = {
   title: 'FaydaTrack | Professional Registration Tracking',
   description: 'Real-time summary of registration statistics and AI-assisted status management.',
   icons: {
-    icon: INSTITUTIONAL_ICON,
+    icon: [
+      {
+        url: INSTITUTIONAL_ICON,
+        href: INSTITUTIONAL_ICON,
+      },
+    ],
     shortcut: INSTITUTIONAL_ICON,
     apple: INSTITUTIONAL_ICON,
   },

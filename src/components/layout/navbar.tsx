@@ -186,6 +186,7 @@ export function Navbar() {
                 fill
                 sizes="32px"
                 className="object-cover"
+                unoptimized
               />
             </div>
             <span className="text-xs font-black tracking-widest text-foreground uppercase">

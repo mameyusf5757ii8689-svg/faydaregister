@@ -14,7 +14,8 @@ import {
   LayoutGrid, 
   Mail, 
   Phone, 
-  MapPin
+  MapPin,
+  Clock
 } from 'lucide-react';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import Image from 'next/image';
@@ -218,7 +219,7 @@ export default function LandingPage() {
                     {branding?.officeAddress || 'Regional Headquarters'}
                  </div>
                  <div className="flex items-center gap-3 text-[11px] text-muted-foreground font-bold">
-                    <Shield className="h-3.5 w-3.5 text-primary/40" />
+                    <Clock className="h-3.5 w-3.5 text-primary/40" />
                     {branding?.operationalHours || 'Operational 24/7 (Sync Mode)'}
                  </div>
               </div>
