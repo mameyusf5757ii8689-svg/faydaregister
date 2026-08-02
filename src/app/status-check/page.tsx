@@ -21,9 +21,9 @@ import {
   Lock
 } from 'lucide-react';
 import Link from 'next/link';
-import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collection, query, limit, doc, where } from 'firebase/firestore';
-import { Registration, RegistrationStatus } from '@/lib/types';
+import { Registration, RegistrationStatus, UserProfile } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { 
@@ -58,6 +58,12 @@ export default function StatusCheckPage() {
   const [selectedDate, setSelectedDate] = useState('');
   const [activeRid, setActiveRid] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
+
+  const userProfileRef = useMemoFirebase(() => {
+    if (!db || !user?.uid) return null;
+    return doc(db, 'users', user.uid);
+  }, [db, user?.uid]);
+  const { data: profile } = useDoc<UserProfile>(userProfileRef);
 
   useEffect(() => {
     if (!isUserLoading && !user) {
@@ -120,7 +126,7 @@ export default function StatusCheckPage() {
   };
 
   const handleStatusUpdate = async (newStatus: RegistrationStatus) => {
-    if (!db || !activeRegistration || !user) return;
+    if (!db || !activeRegistration || !user || !profile) return;
     
     setIsUpdating(true);
     try {
@@ -138,7 +144,8 @@ export default function StatusCheckPage() {
       
       logAuditAction(
         db, 
-        user, 
+        user,
+        profile.fullName,
         'STATUS_UPDATE', 
         activeRegistration.id, 
         `Verification Terminal: Changed status for ${activeRegistration.applicantName} to ${newStatus}.`

@@ -5,9 +5,19 @@ import { Firestore } from 'firebase/firestore';
 
 export type AuditAction = 'STATUS_UPDATE' | 'RECORD_CREATED' | 'RECORD_DELETED' | 'PERSONNEL_MODIFIED' | 'BRANDING_UPDATE' | 'VERIFICATION_CHECK';
 
+/**
+ * Log an immutable operational action for security auditing.
+ * @param db Firestore instance.
+ * @param user Acting officer auth record.
+ * @param officerName Official full name of the acting officer.
+ * @param action The type of protocol being executed.
+ * @param targetId The ID of the record or configuration being modified.
+ * @param details Narrative explanation of the action.
+ */
 export function logAuditAction(
   db: Firestore, 
-  user: { uid: string; displayName?: string | null }, 
+  user: { uid: string; email?: string | null }, 
+  officerName: string,
   action: AuditAction, 
   targetId: string, 
   details: string
@@ -16,7 +26,7 @@ export function logAuditAction(
 
   const logData = {
     officerId: user.uid,
-    officerName: user.displayName || 'Official',
+    officerName: officerName || user.email?.split('@')[0] || 'Official',
     action,
     targetId,
     details,

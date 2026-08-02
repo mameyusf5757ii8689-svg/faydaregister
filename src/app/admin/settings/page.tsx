@@ -26,6 +26,12 @@ export default function AdminSettingsPage() {
   const [logoUrl, setLogoUrl] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
+  const userProfileRef = useMemoFirebase(() => {
+    if (!db || !user?.uid) return null;
+    return doc(db, 'users', user.uid);
+  }, [db, user?.uid]);
+  const { data: profile } = useDoc<UserProfile>(userProfileRef);
+
   const brandingRef = useMemoFirebase(() => {
     if (!db) return null;
     return doc(db, 'system_settings', 'branding');
@@ -41,7 +47,7 @@ export default function AdminSettingsPage() {
 
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!db || !user) return;
+    if (!db || !user || !profile) return;
 
     setIsSaving(true);
     try {
@@ -51,7 +57,14 @@ export default function AdminSettingsPage() {
         updatedAt: serverTimestamp(),
       }, { merge: true });
 
-      logAuditAction(db, user, 'BRANDING_UPDATE', 'branding', `Updated bureau name to ${bureauName} and modified logo source.`);
+      logAuditAction(
+        db, 
+        user, 
+        profile.fullName,
+        'BRANDING_UPDATE', 
+        'branding', 
+        `Updated bureau name to ${bureauName} and modified logo source.`
+      );
 
       toast({
         title: "Settings Updated",

@@ -105,7 +105,7 @@ export function RegistrationFormModal({ registration, mode, trigger }: Registrat
   }, [open, registration, form, profile, mode]);
 
   function onSubmit(values: FormValues) {
-    if (!db || !user) return;
+    if (!db || !user || !profile) return;
 
     const finalRejectionReason = values.status === 'Rejected' ? values.rejectionReason : '';
 
@@ -124,6 +124,7 @@ export function RegistrationFormModal({ registration, mode, trigger }: Registrat
       logAuditAction(
         db, 
         user, 
+        profile.fullName,
         'STATUS_UPDATE', 
         registration.id, 
         `Registry: Modified record for ${values.applicantName}. New Status: ${values.status}.`
@@ -137,6 +138,7 @@ export function RegistrationFormModal({ registration, mode, trigger }: Registrat
       logAuditAction(
         db, 
         user, 
+        profile.fullName,
         'RECORD_CREATED', 
         values.id, 
         `Registry: Created new registration for ${values.applicantName}.`
