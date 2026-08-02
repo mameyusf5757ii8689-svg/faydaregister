@@ -107,7 +107,7 @@ export default function AuditLedgerPage() {
   }, [filteredLogs, currentPage]);
 
   const toggleSelectAll = () => {
-    if (selectedIds.size === paginatedLogs.length) {
+    if (selectedIds.size === paginatedLogs.length && paginatedLogs.length > 0) {
       setSelectedIds(new Set());
     } else {
       setSelectedIds(new Set(paginatedLogs.map(l => l.id)));
@@ -357,27 +357,37 @@ export default function AuditLedgerPage() {
                   <Input 
                     value={purgeConfirmationText}
                     onChange={(e) => setPurgeConfirmationText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && isVerified && !isPurging) {
+                        handleBulkPurge();
+                      }
+                    }}
                     placeholder="Confirmation phrase..."
                     className="h-12 bg-background border-border focus:border-destructive/50 rounded-xl text-center font-black tracking-widest uppercase placeholder:font-bold placeholder:tracking-normal placeholder:text-muted-foreground/20"
+                    autoFocus
                   />
                 </div>
               )}
             </div>
           </div>
-          <AlertDialogFooter className="bg-muted/30 p-6 flex-col sm:flex-col gap-3">
-            <AlertDialogAction 
-              onClick={(e) => { e.preventDefault(); handleBulkPurge(); }} 
+          <div className="bg-muted/30 p-6 flex flex-col gap-3">
+            <Button 
+              onClick={handleBulkPurge} 
               disabled={isPurging || !isVerified}
-              className="w-full h-14 bg-destructive hover:bg-destructive/90 text-white font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-destructive/10 disabled:opacity-30 disabled:grayscale"
+              className="w-full h-14 bg-destructive hover:bg-destructive/90 text-white font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-destructive/10 disabled:opacity-30 disabled:grayscale transition-all active:scale-[0.98]"
             >
               {isPurging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Confirm Destruction"}
-            </AlertDialogAction>
+            </Button>
             {!isPurging && (
-              <AlertDialogCancel className="w-full h-12 rounded-2xl font-bold uppercase text-[10px] tracking-widest border-none bg-transparent hover:bg-card">
+              <Button 
+                variant="ghost"
+                onClick={() => { setPurgeConfirmationText(''); setIsPurgeDialogOpen(false); }}
+                className="w-full h-12 rounded-2xl font-bold uppercase text-[10px] tracking-widest border-none bg-transparent hover:bg-card text-muted-foreground"
+              >
                 Abort Operation
-              </AlertDialogCancel>
+              </Button>
             )}
-          </AlertDialogFooter>
+          </div>
         </AlertDialogContent>
       </AlertDialog>
 
