@@ -33,6 +33,7 @@ import {
 import { AuditLog, UserProfile } from '@/lib/types';
 import { format } from 'date-fns';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { 
   Dialog, 
   DialogContent, 
@@ -65,6 +66,7 @@ export default function AuditLedgerPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPurging, setIsPurging] = useState(false);
   const [isPurgeDialogOpen, setIsPurgeDialogOpen] = useState(false);
+  const [purgeConfirmationText, setPurgeConfirmationText] = useState('');
   
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -120,7 +122,7 @@ export default function AuditLedgerPage() {
   };
 
   const handleBulkPurge = async () => {
-    if (!db || selectedIds.size === 0 || !user || !profile) return;
+    if (!db || selectedIds.size === 0 || !user || !profile || purgeConfirmationText !== 'DELETE') return;
     
     setIsPurging(true);
     const batch = writeBatch(db);
@@ -148,6 +150,8 @@ export default function AuditLedgerPage() {
         description: `Successfully removed ${count} records from the forensic archive.`,
       });
       setSelectedIds(new Set());
+      setPurgeConfirmationText('');
+      setIsPurgeDialogOpen(false);
     } catch (error) {
       toast({
         variant: "destructive",
@@ -156,7 +160,6 @@ export default function AuditLedgerPage() {
       });
     } finally {
       setIsPurging(false);
-      setIsPurgeDialogOpen(false);
     }
   };
 
@@ -193,7 +196,10 @@ export default function AuditLedgerPage() {
             <Button 
               variant="destructive" 
               className="h-11 px-6 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-destructive/10 animate-in zoom-in duration-300"
-              onClick={() => setIsPurgeDialogOpen(true)}
+              onClick={() => {
+                setPurgeConfirmationText('');
+                setIsPurgeDialogOpen(true);
+              }}
             >
               <Trash2 className="mr-2 h-4 w-4" /> Purge ({selectedIds.size})
             </Button>
@@ -316,29 +322,50 @@ export default function AuditLedgerPage() {
       </Card>
 
       {/* Bulk Purge Dialog */}
-      <AlertDialog open={isPurgeDialogOpen} onOpenChange={setIsPurgeDialogOpen}>
+      <AlertDialog open={isPurgeDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setPurgeConfirmationText('');
+          setIsPurgeDialogOpen(false);
+        }
+      }}>
         <AlertDialogContent className="rounded-[32px] border-none shadow-2xl bg-popover max-w-md p-0 overflow-hidden">
           <div className="p-10 text-center space-y-6">
             <div className="mx-auto bg-destructive/10 p-5 rounded-2xl w-fit">
               {isPurging ? <Loader2 className="h-10 w-10 text-destructive animate-spin" /> : <ShieldAlert className="h-10 w-10 text-destructive" />}
             </div>
-            <div className="space-y-2">
-              <AlertDialogTitle className="text-2xl font-black text-foreground tracking-tighter uppercase leading-none">
-                {isPurging ? "PURGING LEDGER..." : "PURGE PROTOCOL"}
-              </AlertDialogTitle>
-              <AlertDialogDescription className="text-sm text-muted-foreground leading-relaxed font-medium">
-                {isPurging 
-                  ? "Executing bulk deletion of forensic signatures. Please stand by..."
-                  : `You are about to permanently delete ${selectedIds.size} records from the forensic ledger. This action undermines system immutability and cannot be reversed.`
-                }
-              </AlertDialogDescription>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <AlertDialogTitle className="text-2xl font-black text-foreground tracking-tighter uppercase leading-none">
+                  {isPurging ? "PURGING LEDGER..." : "PURGE PROTOCOL"}
+                </AlertDialogTitle>
+                <AlertDialogDescription className="text-sm text-muted-foreground leading-relaxed font-medium">
+                  {isPurging 
+                    ? "Executing bulk deletion of forensic signatures. Please stand by..."
+                    : `You are about to permanently delete ${selectedIds.size} records from the forensic ledger. This action cannot be reversed.`
+                  }
+                </AlertDialogDescription>
+              </div>
+
+              {!isPurging && (
+                <div className="space-y-3 pt-2 text-left">
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1">
+                    Type <span className="text-destructive font-black">DELETE</span> to confirm
+                  </Label>
+                  <Input 
+                    value={purgeConfirmationText}
+                    onChange={(e) => setPurgeConfirmationText(e.target.value)}
+                    placeholder="Confirmation phrase..."
+                    className="h-12 bg-background border-border focus:border-destructive/50 rounded-xl text-center font-black tracking-widest uppercase placeholder:font-bold placeholder:tracking-normal placeholder:text-muted-foreground/20"
+                  />
+                </div>
+              )}
             </div>
           </div>
           <AlertDialogFooter className="bg-muted/30 p-6 flex-col sm:flex-col gap-3">
             <AlertDialogAction 
               onClick={(e) => { e.preventDefault(); handleBulkPurge(); }} 
-              disabled={isPurging}
-              className="w-full h-14 bg-destructive hover:bg-destructive/90 text-white font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-destructive/10"
+              disabled={isPurging || purgeConfirmationText !== 'DELETE'}
+              className="w-full h-14 bg-destructive hover:bg-destructive/90 text-white font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-destructive/10 disabled:opacity-30 disabled:grayscale"
             >
               {isPurging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Confirm Destruction"}
             </AlertDialogAction>
