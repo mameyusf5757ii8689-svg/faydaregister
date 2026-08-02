@@ -19,7 +19,8 @@
         "officer": { "type": "string" },
         "remarks": { "type": "string" },
         "assignedReviewerId": { "type": "string" },
-        "rejectionReason": { "type": "string", "enum": ["Biometric Match", "Rejected by Superveser"] }
+        "rejectionReason": { "type": "string", "enum": ["Biometric Match", "Rejected by Superveser"] },
+        "isPrinted": { "type": "boolean" }
       },
       "required": ["id", "applicantName", "submissionDate", "status"]
     },

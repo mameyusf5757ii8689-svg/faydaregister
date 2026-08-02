@@ -25,7 +25,8 @@ import {
   Search,
   HardDrive,
   Activity,
-  TrendingUp
+  TrendingUp,
+  Printer
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -51,6 +52,7 @@ const OFFICER_NAV_ITEMS = [
   { name: 'Full Registry', href: '/full-registration', icon: Activity },
   { name: 'Performance', href: '/performance', icon: TrendingUp },
   { name: 'Status', href: '/status-check', icon: Search },
+  { name: 'Printing', href: '/printing', icon: Printer },
   { name: 'Comm', href: '/communication', icon: MessageSquare },
   { name: 'Reporting', href: '/daily-registrations', icon: CalendarPlus },
   { name: 'Records', href: '/registrations', icon: FileCheck },
@@ -64,6 +66,7 @@ const ADMIN_NAV_ITEMS = [
   { name: 'Full Registry', href: '/full-registration', icon: Activity },
   { name: 'Performance', href: '/performance', icon: TrendingUp },
   { name: 'Status', href: '/status-check', icon: Search },
+  { name: 'Printing', href: '/printing', icon: Printer },
   { name: 'Comm', href: '/communication', icon: MessageSquare },
   { name: 'Personnel', href: '/admin/officers', icon: Users },
   { name: 'Proxy', href: '/admin/reports-entry', icon: ClipboardEdit },
@@ -151,7 +154,7 @@ export function Navbar() {
 
   if (pathname === '/login') return null;
 
-  const isAdminSection = pathname.startsWith('/admin') && !pathname.includes('full-registration') && !pathname.includes('performance') && !pathname.includes('status-check') && !pathname.includes('communication');
+  const isAdminSection = pathname.startsWith('/admin') && !pathname.includes('full-registration') && !pathname.includes('performance') && !pathname.includes('status-check') && !pathname.includes('communication') && !pathname.includes('printing');
   
   const navItems = profile?.role === 'admin' ? ADMIN_NAV_ITEMS : OFFICER_NAV_ITEMS;
 

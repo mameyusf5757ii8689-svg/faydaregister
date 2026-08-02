@@ -17,6 +17,7 @@ export interface Registration {
   rejectionReason?: string;
   assignedReviewerId?: string;
   updatedAt?: string;
+  isPrinted?: boolean;
 }
 
 export interface DashboardStats {
