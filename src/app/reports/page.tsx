@@ -1,6 +1,7 @@
+
 "use client"
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,7 +36,9 @@ import {
   AlertCircle,
   Search,
   Loader2,
-  TrendingUp
+  TrendingUp,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { StatusBadge } from '@/components/dashboard/status-badge';
 import { format, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
@@ -44,7 +47,6 @@ import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebas
 import { collection, query, limit, where } from 'firebase/firestore';
 import { Registration } from '@/lib/types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 
 export default function ReportsPage() {
   const { user } = useUser();
@@ -55,9 +57,12 @@ export default function ReportsPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   const registrationsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    // Filter registrations so officers only see analytics for records they are responsible for
     return query(
       collection(db, 'registrations'), 
       where('assignedReviewerId', '==', user.uid),
@@ -88,8 +93,13 @@ export default function ReportsPage() {
         reg.phone.includes(searchTerm);
 
       return matchesStatus && matchesDate && matchesSearch;
-    });
+    }).sort((a, b) => new Date(b.submissionDate).getTime() - new Date(a.submissionDate).getTime());
   }, [registrations, statusFilter, startDate, endDate, searchTerm]);
+
+  // Reset pagination on filter change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, startDate, endDate, searchTerm]);
 
   const stats = useMemo(() => {
     return {
@@ -111,6 +121,13 @@ export default function ReportsPage() {
       { name: 'Failed', value: stats.failed, color: '#64748b' },
     ];
   }, [stats]);
+
+  const paginatedData = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredData.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredData, currentPage]);
+
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
 
   if (isLoading) {
     return (
@@ -276,7 +293,7 @@ export default function ReportsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredData.map((reg) => (
+                {paginatedData.map((reg) => (
                   <TableRow key={reg.id} className="hover:bg-muted/30 transition-colors border-border h-16">
                     <TableCell className="pl-8">
                       <div className="flex items-center gap-2 text-[10px] font-mono font-bold text-muted-foreground/30">
@@ -316,6 +333,38 @@ export default function ReportsPage() {
                 )}
               </TableBody>
             </Table>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-6 py-4 bg-muted/10 border-t border-border">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                  Showing {paginatedData.length} of {filteredData.length} Records
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 w-8 p-0 rounded-lg border-border bg-background hover:bg-muted"
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <div className="flex items-center justify-center min-w-[80px] h-8 text-[10px] font-black text-foreground bg-muted/50 border border-border rounded-lg uppercase tracking-widest px-3">
+                    Page {currentPage} of {totalPages}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 w-8 p-0 rounded-lg border-border bg-background hover:bg-muted"
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </Card>
         </div>
       </div>
