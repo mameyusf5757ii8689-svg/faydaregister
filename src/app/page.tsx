@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -19,7 +18,8 @@ import {
   LayoutGrid,
   Mail,
   Phone,
-  MapPin
+  MapPin,
+  Clock
 } from 'lucide-react';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import Image from 'next/image';

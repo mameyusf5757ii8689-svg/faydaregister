@@ -124,7 +124,7 @@ export interface SystemSettings {
   officeAddress?: string;
   operationalHours?: string;
   systemProtocol?: string;
-  updatedAt: string;
+  updatedAt: any;
 }
 
 export interface AuditLog {

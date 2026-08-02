@@ -354,17 +354,3 @@ function InfoSection({ label, icon: Icon, children, className }: any) {
       </div>
    );
 }
-
-function InfoCard({ title, value, icon: Icon }: any) {
-  return (
-    <Card className="border border-border bg-card shadow-sm rounded-2xl overflow-hidden">
-      <CardContent className="p-6 flex items-center justify-between">
-        <div className="space-y-1">
-          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{title}</p>
-          <p className="text-sm font-bold text-foreground leading-none">{value || 'Not Configured'}</p>
-        </div>
-        <div className="p-2 rounded-lg bg-muted/50"><Icon className="h-4 w-4 text-muted-foreground" /></div>
-      </CardContent>
-    </Card>
-  );
-}
