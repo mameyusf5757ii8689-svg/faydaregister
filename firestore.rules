@@ -11,7 +11,6 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if isSignedIn();
-      // Allow admins to write/delete any user profile, or users to write to their own
       allow write: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
       allow delete: if isAdmin();
 
@@ -20,15 +19,12 @@ service cloud.firestore {
       }
     }
     match /admin_users/{userId} {
-      // Allow public read to check if any admins exist (needed for bootstrap/login logic)
       allow read: if true;
       allow create: if isSignedIn() && request.auth.uid == userId;
       allow update, delete: if isAdmin();
     }
     match /registrations/{regId} {
-      // Authenticated staff can read, create, and update
       allow read, create, update: if isSignedIn();
-      // Only admins or the assigned officer can delete
       allow delete: if isSignedIn();
     }
     match /daily_reports/{reportId} {
@@ -54,12 +50,19 @@ service cloud.firestore {
     match /messages/{messageId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn();
-      // Allow sender or admin to edit (update) or delete messages
-      // Also allow any member of the conversation to update "deletedFor"
       allow update: if isAdmin() || 
                     (isSignedIn() && request.auth.uid == resource.data.senderId) ||
                     (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deletedFor']));
       allow delete: if isAdmin() || (isSignedIn() && request.auth.uid == resource.data.senderId);
+    }
+    match /system_settings/{configId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn();
+      allow update, delete: if false;
     }
   }
 }

@@ -23,10 +23,10 @@ import {
   Moon,
   Settings,
   Search,
-  HardDrive,
   Activity,
   TrendingUp,
-  Printer
+  Printer,
+  ShieldCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -42,7 +42,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { useAuth, useUser, useDoc, useMemoFirebase, useFirestore, useCollection } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { doc, collection, query, where } from 'firebase/firestore';
-import { UserProfile, Notification, Announcement, Conversation } from '@/lib/types';
+import { UserProfile, Notification, Announcement, Conversation, SystemSettings } from '@/lib/types';
 import { useMemo, useEffect, useState } from 'react';
 import { useTheme } from 'next-themes';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -67,11 +67,15 @@ const ADMIN_NAV_ITEMS = [
   { name: 'Performance', href: '/performance', icon: TrendingUp },
   { name: 'Status', href: '/status-check', icon: Search },
   { name: 'Printing', href: '/printing', icon: Printer },
+  { name: 'Audit', href: '/admin/audit-ledger', icon: ShieldCheck },
   { name: 'Comm', href: '/communication', icon: MessageSquare },
   { name: 'Personnel', href: '/admin/officers', icon: Users },
   { name: 'Proxy', href: '/admin/reports-entry', icon: ClipboardEdit },
   { name: 'Broadcasts', href: '/admin/announcements', icon: Megaphone },
+  { name: 'Settings', href: '/admin/settings', icon: Settings },
 ];
+
+const DEFAULT_LOGO = "https://imgs.search.brave.com/hbAJSw_uYBZxF3ww4Xys7njKWsrlOTeqfxCjk7DHf0A/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9wbGF5/LWxoLmdvb2dsZXVz/ZXJjb250ZW50LmNv/bS90eDFxcnBHZTBi/NnVCVGFkSnFMcUY2/NF9IVy1laHFuSF8w/MEo1TDVDeGp0RFB1/ODRlRGduRHZTRDVk/OU9USGUzU3V3PXcy/NDAtaDQ4MC1ydw";
 
 export function Navbar() {
   const pathname = usePathname();
@@ -82,15 +86,16 @@ export function Navbar() {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const brandingRef = useMemoFirebase(() => {
+    if (!db) return null;
+    return doc(db, 'system_settings', 'branding');
+  }, [db]);
+  const { data: branding } = useDoc<SystemSettings>(brandingRef);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user?.uid) return null;
     return doc(db, 'users', user.uid);
   }, [db, user?.uid]);
-
   const { data: profile } = useDoc<UserProfile>(userProfileRef);
 
   const unreadNotificationsQuery = useMemoFirebase(() => {
@@ -152,10 +157,13 @@ export function Navbar() {
     return count;
   }, [unreadNotifications, announcements, conversations, profile]);
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   if (pathname === '/login') return null;
 
-  const isAdminSection = pathname.startsWith('/admin') && !pathname.includes('full-registration') && !pathname.includes('performance') && !pathname.includes('status-check') && !pathname.includes('communication') && !pathname.includes('printing');
-  
+  const isAdminSection = pathname.startsWith('/admin') && !['full-registration', 'performance', 'status-check', 'communication', 'printing'].some(p => pathname.includes(p));
   const navItems = profile?.role === 'admin' ? ADMIN_NAV_ITEMS : OFFICER_NAV_ITEMS;
 
   const handleLogout = async () => {
@@ -163,11 +171,9 @@ export function Navbar() {
     router.push('/login');
   };
 
-  const handleSwitchView = () => {
-    router.push(isAdminSection ? '/dashboard' : '/admin');
-  };
-
   const photoUrl = profile?.profilePhoto || user?.photoURL || undefined;
+  const bureauName = branding?.bureauName || 'FaydaTrack';
+  const logoUrl = branding?.logoUrl || DEFAULT_LOGO;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-xl transition-all duration-300">
@@ -176,13 +182,15 @@ export function Navbar() {
           <Link href="/" className="flex items-center space-x-2 group">
             <div className="relative h-8 w-8 overflow-hidden rounded-md transition-all group-hover:scale-105">
               <Image 
-                src="https://imgs.search.brave.com/hbAJSw_uYBZxF3ww4Xys7njKWsrlOTeqfxCjk7DHf0A/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9wbGF5/LWxoLmdvb2dsZXVz/ZXJjb250ZW50LmNv/bS90eDFxcnBHZTBi/NnVCVGFkSnFMcUY2/NF9IVy1laHFuSF8w/MEo1TDVDeGp0RFB1/ODRlRGduRHZTRDVk/OU9USGUzU3V3PXcy/NDAtaDQ4MC1ydw"
-                alt="FaydaTrack Logo"
+                src={logoUrl}
+                alt={`${bureauName} Logo`}
                 fill
                 className="object-cover"
               />
             </div>
-            <span className="text-xs font-black tracking-widest text-foreground uppercase">Fayda<span className="text-primary italic">Track</span></span>
+            <span className="text-xs font-black tracking-widest text-foreground uppercase">
+              {bureauName.split('Track')[0]}<span className="text-primary italic">{bureauName.includes('Track') ? 'Track' : ''}</span>
+            </span>
           </Link>
 
           <nav className="hidden xl:flex items-center space-x-1">
@@ -253,15 +261,12 @@ export function Navbar() {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {profile?.role === 'admin' && (
-                  <DropdownMenuItem onClick={handleSwitchView} className="rounded-lg text-[10px] font-bold uppercase tracking-widest cursor-pointer">
+                  <DropdownMenuItem onClick={() => router.push(isAdminSection ? '/dashboard' : '/admin')} className="rounded-lg text-[10px] font-bold uppercase tracking-widest cursor-pointer">
                     Switch to {isAdminSection ? 'Officer' : 'Admin'}
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem onClick={() => router.push('/profile')} className="rounded-lg text-[10px] font-bold uppercase tracking-widest cursor-pointer">
                   <Settings className="mr-2 h-3 w-3" /> Profile Settings
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push(profile?.role === 'admin' ? '/admin' : '/dashboard')} className="rounded-lg text-[10px] font-bold uppercase tracking-widest cursor-pointer">
-                  Bureau Hub
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="text-destructive focus:text-destructive rounded-lg text-[10px] font-bold uppercase tracking-widest cursor-pointer" onClick={handleLogout}>
@@ -317,21 +322,6 @@ export function Navbar() {
                   </Link>
                 ))}
                 <div className="my-2 border-t border-border/50" />
-                <Link
-                  href="/profile"
-                  className={cn(
-                    "flex items-center justify-between px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest rounded-md transition-all",
-                    pathname === '/profile'
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:text-muted"
-                  )}
-                >
-                  <div className="flex items-center gap-3">
-                    <Settings className="h-4 w-4" />
-                    Identity Settings
-                  </div>
-                  <ChevronRight className="h-3 w-3 opacity-30" />
-                </Link>
                 <button
                   onClick={handleLogout}
                   className="w-full flex items-center justify-between px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-destructive hover:bg-destructive/5 rounded-md transition-all"

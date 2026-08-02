@@ -18,13 +18,27 @@ import {
   ShieldCheck,
   LayoutGrid
 } from 'lucide-react';
-import { useUser } from '@/firebase';
+import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { doc } from 'firebase/firestore';
+import { SystemSettings } from '@/lib/types';
+
+const DEFAULT_LOGO = "https://imgs.search.brave.com/hbAJSw_uYBZxF3ww4Xys7njKWsrlOTeqfxCjk7DHf0A/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9wbGF5/LWxoLmdvb2dsZXVz/ZXJjb250ZW50LmNv/bS90eDFxcnBHZTBi/NnVCVGFkSnFMcUY2/NF9IVy1laHFuSF8w/MEo1TDVDeGp0RFB1/ODRlRGduRHZTRDVk/OU9USGUzU3V3PXcy/NDAtaDQ4MC1ydw";
 
 export default function LandingPage() {
   const { user } = useUser();
+  const db = useFirestore();
   const accuracyImage = PlaceHolderImages.find(img => img.id === 'accuracy-hero')?.imageUrl;
+
+  const brandingRef = useMemoFirebase(() => {
+    if (!db) return null;
+    return doc(db, 'system_settings', 'branding');
+  }, [db]);
+  const { data: branding } = useDoc<SystemSettings>(brandingRef);
+
+  const bureauName = branding?.bureauName || 'FaydaTrack';
+  const logoUrl = branding?.logoUrl || DEFAULT_LOGO;
 
   return (
     <div className="flex flex-col min-h-screen -mt-8 -mx-4 sm:-mx-6 lg:-mx-8 bg-background selection:bg-primary/20">
@@ -51,7 +65,7 @@ export default function LandingPage() {
             
             <div className="space-y-8">
               <h1 className="text-6xl md:text-8xl lg:text-[110px] font-black tracking-tighter leading-[0.85] text-foreground animate-in fade-in slide-in-from-bottom-8 duration-1000">
-                Official Bureau <br/>
+                Official {bureauName.split('Track')[0]} <br/>
                 <span className="bg-gradient-to-r from-primary via-primary/80 to-primary/40 bg-clip-text text-transparent italic font-medium">Intelligence.</span>
               </h1>
               
@@ -122,7 +136,7 @@ export default function LandingPage() {
                        <span className="text-primary italic">Absolute Accuracy.</span>
                     </h2>
                     <p className="text-xl text-muted-foreground leading-relaxed font-medium tracking-tight">
-                       FaydaTrack serves as the central nervous system for regional registration bureaus, eliminating latency through unified data entry and historical archiving.
+                       {bureauName} serves as the central nervous system for regional registration bureaus, eliminating latency through unified data entry and historical archiving.
                     </p>
                  </div>
                  
@@ -142,22 +156,15 @@ export default function LandingPage() {
                 <div className="absolute inset-0 bg-primary/20 rounded-[40px] blur-3xl opacity-20 -rotate-6 animate-pulse" />
                 <div className="relative aspect-square md:aspect-video rounded-[40px] overflow-hidden border border-border shadow-2xl bg-card group p-16 flex items-center justify-center transition-transform duration-700 hover:scale-[1.02]">
                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/[0.03] to-transparent pointer-events-none" />
-                   {accuracyImage ? (
-                     <div className="relative h-full w-full">
-                       <Image 
-                          src={accuracyImage}
-                          alt="Fayda Accuracy Logo"
-                          fill
-                          className="object-contain p-12 transition-all duration-1000 group-hover:scale-110 group-hover:rotate-2"
-                          data-ai-hint="bureau logo"
-                       />
-                     </div>
-                   ) : (
-                     <div className="flex flex-col items-center gap-4 opacity-30">
-                       <Cpu className="h-20 w-20 text-muted-foreground" />
-                       <span className="text-xs font-black text-muted-foreground uppercase tracking-[0.3em]">Hardware Auth Required</span>
-                     </div>
-                   )}
+                   <div className="relative h-full w-full">
+                     <Image 
+                        src={logoUrl}
+                        alt={`${bureauName} Accuracy Logo`}
+                        fill
+                        className="object-contain p-12 transition-all duration-1000 group-hover:scale-110 group-hover:rotate-2"
+                        data-ai-hint="bureau logo"
+                     />
+                   </div>
                    
                    <div className="absolute top-8 left-8 h-4 w-4 border-t-2 border-l-2 border-primary/20" />
                    <div className="absolute bottom-8 right-8 h-4 w-4 border-b-2 border-r-2 border-primary/20" />
@@ -186,13 +193,15 @@ export default function LandingPage() {
           <div className="flex items-center gap-4">
             <div className="relative h-12 w-12 overflow-hidden rounded-2xl border border-border shadow-xl">
               <Image 
-                src="https://imgs.search.brave.com/hbAJSw_uYBZxF3ww4Xys7njKWsrlOTeqfxCjk7DHf0A/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9wbGF5/LWxoLmdvb2dsZXVz/ZXJjb250ZW50LmNv/bS90eDFxcnBHZTBi/NnVCVGFkSnFMcUY2/NF9IVy1laHFuSF8w/MEo1TDVDeGp0RFB1/ODRlRGduRHZTRDVk/OU9USGUzU3V3PXcy/NDAtaDQ4MC1ydw"
-                alt="FaydaTrack Logo"
+                src={logoUrl}
+                alt={`${bureauName} Logo`}
                 fill
                 className="object-contain"
               />
             </div>
-            <span className="text-lg font-black tracking-[0.4em] uppercase text-foreground">Fayda<span className="text-primary italic">Track</span></span>
+            <span className="text-lg font-black tracking-[0.4em] uppercase text-foreground">
+              {bureauName.split('Track')[0]}<span className="text-primary italic">{bureauName.includes('Track') ? 'Track' : ''}</span>
+            </span>
           </div>
           
           <div className="space-y-6">

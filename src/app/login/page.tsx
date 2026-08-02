@@ -15,11 +15,13 @@ import { useToast } from '@/hooks/use-toast';
 import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, collection, query, limit } from 'firebase/firestore';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { UserProfile } from '@/lib/types';
+import { UserProfile, SystemSettings } from '@/lib/types';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { cn } from '@/lib/utils';
+
+const DEFAULT_LOGO = "https://imgs.search.brave.com/hbAJSw_uYBZxF3ww4Xys7njKWsrlOTeqfxCjk7DHf0A/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9wbGF5/LWxoLmdvb2dsZXVz/ZXJjb250ZW50LmNv/bS90eDFxcnBHZTBi/NnVCVGFkSnFMcUY2/NF9IVy1laHFuSF8w/MEo1TDVDeGp0RFB1/ODRlRGduRHZTRDVk/OU9USGUzU3V3PXcy/NDAtaDQ4MC1ydw";
 
 export default function LoginPage() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -34,6 +36,12 @@ export default function LoginPage() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   const { toast } = useToast();
+
+  const brandingRef = useMemoFirebase(() => {
+    if (!db) return null;
+    return doc(db, 'system_settings', 'branding');
+  }, [db]);
+  const { data: branding } = useDoc<SystemSettings>(brandingRef);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user?.uid) return null;
@@ -132,6 +140,8 @@ export default function LoginPage() {
   };
 
   const isInitializing = isUserLoading || isAdminCheckLoading;
+  const bureauName = branding?.bureauName || 'FaydaTrack';
+  const logoUrl = branding?.logoUrl || DEFAULT_LOGO;
 
   if (isInitializing && !user) {
     return (
@@ -156,8 +166,8 @@ export default function LoginPage() {
           <CardHeader className="space-y-8 text-center pt-10 pb-8 px-8">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20 p-4 transition-transform duration-700 hover:scale-110">
               <Image 
-                src="https://imgs.search.brave.com/hbAJSw_uYBZxF3ww4Xys7njKWsrlOTeqfxCjk7DHf0A/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9wbGF5/LWxoLmdvb2dsZXVz/ZXJjb250ZW50LmNv/bS90eDFxcnBHZTBi/NnVCVGFkSnFMcUY2/NF9IVy1laHFuSF8w/MEo1TDVDeGp0RFB1/ODRlRGduRHZTRDVk/OU9USGUzU3V3PXcy/NDAtaDQ4MC1ydw"
-                alt="FaydaTrack Logo"
+                src={logoUrl}
+                alt={`${bureauName} Logo`}
                 width={48}
                 height={48}
                 className="object-contain"
@@ -167,7 +177,7 @@ export default function LoginPage() {
             
             <div className="space-y-2">
               <CardTitle className="text-3xl font-black tracking-tighter text-foreground uppercase leading-none">
-                Bureau <span className="text-primary italic">Terminal</span>
+                {bureauName.split('Track')[0]} <span className="text-primary italic">{bureauName.includes('Track') ? 'Terminal' : ''}</span>
               </CardTitle>
               <div className="flex items-center justify-center gap-2">
                 <Shield className="h-3 w-3 text-muted-foreground/40" />

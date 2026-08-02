@@ -114,3 +114,20 @@ export interface UserProfile {
   lastMessageReadAt?: string;
   updatedAt?: string;
 }
+
+export interface SystemSettings {
+  id: string;
+  bureauName: string;
+  logoUrl: string;
+  updatedAt: string;
+}
+
+export interface AuditLog {
+  id: string;
+  officerId: string;
+  officerName: string;
+  action: string;
+  targetId: string;
+  details: string;
+  timestamp: any;
+}
