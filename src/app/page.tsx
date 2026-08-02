@@ -3,17 +3,13 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { 
-  FileCheck, 
   ArrowRight, 
   Shield, 
   Zap, 
-  Globe, 
   Database, 
   MessageSquare, 
   Sparkles, 
   Fingerprint, 
-  Activity, 
-  Cpu, 
   ShieldCheck, 
   LayoutGrid, 
   Mail, 
@@ -22,7 +18,6 @@ import {
 } from 'lucide-react';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import Image from 'next/image';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { doc } from 'firebase/firestore';
 import { SystemSettings } from '@/lib/types';
 
@@ -31,7 +26,6 @@ const DEFAULT_LOGO = "https://imgs.search.brave.com/hbAJSw_uYBZxF3ww4Xys7njKWsrl
 export default function LandingPage() {
   const { user } = useUser();
   const db = useFirestore();
-  const accuracyImage = PlaceHolderImages.find(img => img.id === 'accuracy-hero')?.imageUrl;
 
   const brandingRef = useMemoFirebase(() => {
     if (!db) return null;
@@ -54,7 +48,7 @@ export default function LandingPage() {
 
         <div className="container relative z-20 mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-5xl mx-auto text-center space-y-12">
-            <div className="inline-flex items-center gap-2.5 px-5 py-2 rounded-full bg-background border border-border shadow-xl shadow-primary/5 animate-in fade-in zoom-in duration-1000">
+            <div className="inline-flex items-center gap-2.5 px-5 py-2 rounded-full bg-background border border-border shadow-xl shadow-primary/5">
               <div className="flex items-center gap-1.5">
                  <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
                  <span className="text-[10px] font-black uppercase tracking-[0.3em] text-foreground">{systemProtocol} Active</span>
@@ -67,18 +61,18 @@ export default function LandingPage() {
             </div>
             
             <div className="space-y-8">
-              <h1 className="text-6xl md:text-8xl lg:text-[110px] font-black tracking-tighter leading-[0.85] text-foreground animate-in fade-in slide-in-from-bottom-8 duration-1000">
+              <h1 className="text-6xl md:text-8xl lg:text-[110px] font-black tracking-tighter leading-[0.85] text-foreground">
                 Official {bureauName.split('Track')[0]} <br/>
                 <span className="bg-gradient-to-r from-primary via-primary/80 to-primary/40 bg-clip-text text-transparent italic font-medium">Intelligence.</span>
               </h1>
               
-              <p className="text-lg md:text-2xl text-muted-foreground/80 max-w-3xl mx-auto font-medium leading-relaxed tracking-tight animate-in fade-in slide-in-from-bottom-6 duration-1000 delay-300">
+              <p className="text-lg md:text-2xl text-muted-foreground/80 max-w-3xl mx-auto font-medium leading-relaxed tracking-tight">
                 The high-fidelity terminal for institutional registration tracking, real-time field coordination, and automated operational triage.
               </p>
             </div>
             
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-6 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-500">
-              <Button size="lg" className="w-full sm:w-auto h-16 px-12 text-[12px] font-black uppercase tracking-[0.25em] rounded-2xl shadow-[0_20px_50px_rgba(var(--primary),0.3)] hover:shadow-[0_20px_60px_rgba(var(--primary),0.5)] active:scale-95 transition-all duration-500" asChild>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-6">
+              <Button size="lg" className="w-full sm:w-auto h-16 px-12 text-[12px] font-black uppercase tracking-[0.25em] rounded-2xl shadow-[0_20px_50px_rgba(var(--primary),0.3)]" asChild>
                 <Link href={user ? "/dashboard" : "/login"}>
                   Initialize Terminal <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
@@ -165,8 +159,7 @@ export default function LandingPage() {
                         alt={`${bureauName} Accuracy Logo`}
                         fill
                         sizes="(max-width: 768px) 100vw, 50vw"
-                        className="object-contain p-12 transition-all duration-1000 group-hover:scale-110 group-hover:rotate-2"
-                        data-ai-hint="bureau logo"
+                        className="object-contain p-12 transition-all duration-1000 group-hover:scale-110"
                         unoptimized
                      />
                    </div>
@@ -186,7 +179,7 @@ export default function LandingPage() {
               <h2 className="text-4xl md:text-6xl font-black tracking-tighter">Ready for Field Deployment?</h2>
               <p className="text-muted-foreground max-w-xl mx-auto font-medium">Initialize your official terminal session and begin secure operations.</p>
            </div>
-           <Button size="lg" variant="secondary" className="h-16 px-12 text-[12px] font-black uppercase tracking-0.3em rounded-2xl bg-background text-foreground hover:bg-background/90" asChild>
+           <Button size="lg" variant="secondary" className="h-16 px-12 text-[12px] font-black uppercase tracking-widest rounded-2xl bg-background text-foreground hover:bg-background/90" asChild>
               <Link href={user ? "/dashboard" : "/login"}>Enter Terminal Hub</Link>
            </Button>
         </div>
@@ -208,7 +201,7 @@ export default function LandingPage() {
                     unoptimized
                   />
                 </div>
-                <span className="text-lg font-black tracking-0.4em uppercase text-foreground">
+                <span className="text-lg font-black tracking-widest uppercase text-foreground">
                   {bureauName.split('Track')[0]}<span className="text-primary italic">{bureauName.includes('Track') ? 'Track' : ''}</span>
                 </span>
               </div>
@@ -268,11 +261,11 @@ export default function LandingPage() {
 function InfoCard({ title, description, icon: Icon, index }: any) {
   return (
     <div 
-      className="p-12 rounded-[40px] bg-card border border-border shadow-sm transition-all duration-500 hover:shadow-2xl hover:shadow-primary/5 hover:border-primary/30 group relative overflow-hidden"
+      className="p-12 rounded-[40px] bg-card border border-border shadow-sm transition-all duration-500 hover:shadow-2xl group relative overflow-hidden"
       style={{ animationDelay: `${index * 150}ms` }}
     >
       <div className="absolute top-0 right-0 -mt-8 -mr-8 w-40 h-40 bg-primary/[0.02] rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
-      <div className="mb-10 p-5 rounded-[20px] bg-muted/50 w-fit border border-border group-hover:bg-primary/10 group-hover:border-primary/20 transition-all duration-500 group-hover:-translate-y-1">
+      <div className="mb-10 p-5 rounded-[20px] bg-muted/50 w-fit border border-border group-hover:bg-primary/10 group-hover:border-primary/20 transition-all duration-500">
         <Icon className="h-8 w-8 text-muted-foreground group-hover:text-primary transition-colors" strokeWidth={2.5} />
       </div>
       <div className="space-y-4 relative z-10">
