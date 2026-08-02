@@ -1,4 +1,3 @@
-
 "use client"
 
 import Link from 'next/link';
@@ -185,6 +184,7 @@ export function Navbar() {
                 src={logoUrl}
                 alt={`${bureauName} Logo`}
                 fill
+                sizes="32px"
                 className="object-cover"
               />
             </div>
@@ -311,7 +311,7 @@ export function Navbar() {
                       "flex items-center justify-between px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest rounded-md transition-all",
                       pathname === item.href
                         ? "bg-primary/10 text-primary"
-                        : "text-muted-foreground hover:bg-muted"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
                     )}
                   >
                     <div className="flex items-center gap-3">

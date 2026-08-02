@@ -5,21 +5,21 @@ import { Button } from '@/components/ui/button';
 import { 
   FileCheck, 
   ArrowRight, 
-  Shield,
-  Zap,
-  Globe,
-  Database,
-  MessageSquare,
-  Sparkles,
-  Fingerprint,
-  Activity,
-  Cpu,
-  ShieldCheck,
-  LayoutGrid,
-  Mail,
-  Phone,
-  MapPin,
-  Clock
+  Shield, 
+  Zap, 
+  Globe, 
+  Database, 
+  MessageSquare, 
+  Sparkles, 
+  Fingerprint, 
+  Activity, 
+  Cpu, 
+  ShieldCheck, 
+  LayoutGrid, 
+  Mail, 
+  Phone, 
+  MapPin, 
+  Clock 
 } from 'lucide-react';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import Image from 'next/image';
@@ -165,6 +165,7 @@ export default function LandingPage() {
                         src={logoUrl}
                         alt={`${bureauName} Accuracy Logo`}
                         fill
+                        sizes="(max-width: 768px) 100vw, 50vw"
                         className="object-contain p-12 transition-all duration-1000 group-hover:scale-110 group-hover:rotate-2"
                         data-ai-hint="bureau logo"
                         unoptimized
@@ -203,6 +204,7 @@ export default function LandingPage() {
                     src={logoUrl}
                     alt={`${bureauName} Logo`}
                     fill
+                    sizes="48px"
                     className="object-contain"
                     unoptimized
                   />

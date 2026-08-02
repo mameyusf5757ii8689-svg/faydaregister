@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -226,7 +225,7 @@ export default function AdminSettingsPage() {
                   <CardHeader className="bg-primary/5 border-b border-border p-8">
                      <div className="flex items-center gap-6">
                         <div className="h-20 w-20 relative rounded-2xl overflow-hidden border-2 border-background shadow-2xl bg-white p-2 shrink-0">
-                           <Image src={formData.logoUrl || DEFAULT_LOGO} alt="Bureau Logo" fill className="object-contain" unoptimized />
+                           <Image src={formData.logoUrl || DEFAULT_LOGO} alt="Bureau Logo" fill sizes="80px" className="object-contain" unoptimized />
                         </div>
                         <div className="space-y-1">
                            <h2 className="text-2xl font-black text-foreground tracking-tighter uppercase leading-none">{formData.bureauName}</h2>
@@ -296,7 +295,7 @@ export default function AdminSettingsPage() {
                     <div className="h-14 w-full bg-background border border-border rounded-xl flex items-center px-4 justify-between shadow-inner">
                        <div className="flex items-center gap-2">
                           <div className="h-7 w-7 relative rounded bg-white p-1 border border-border">
-                             <Image src={formData.logoUrl || DEFAULT_LOGO} alt="Logo" fill className="object-contain" unoptimized />
+                             <Image src={formData.logoUrl || DEFAULT_LOGO} alt="Logo" fill sizes="28px" className="object-contain" unoptimized />
                           </div>
                           <span className="text-[9px] font-black tracking-widest uppercase text-foreground">{formData.bureauName}</span>
                        </div>
@@ -313,7 +312,7 @@ export default function AdminSettingsPage() {
                     <div className="p-8 bg-muted/20 border border-border rounded-xl text-center space-y-4">
                         <div className="flex items-center justify-center gap-3 grayscale opacity-40">
                            <div className="h-6 w-6 relative">
-                              <Image src={formData.logoUrl || DEFAULT_LOGO} alt="Logo" fill className="object-contain" unoptimized />
+                              <Image src={formData.logoUrl || DEFAULT_LOGO} alt="Logo" fill sizes="24px" className="object-contain" unoptimized />
                            </div>
                            <span className="text-xs font-black tracking-[0.3em] uppercase">{formData.bureauName}</span>
                         </div>
