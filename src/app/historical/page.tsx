@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
@@ -13,7 +13,9 @@ import {
   Save,
   FileSpreadsheet,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  Edit2,
+  X
 } from 'lucide-react';
 import Link from 'next/link';
 import { 
@@ -52,6 +54,7 @@ export default function HistoricalDataPage() {
   const db = useFirestore();
   const { toast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   
   // Form State
   const [month, setMonth] = useState(MONTHS[new Date().getMonth()]);
@@ -109,8 +112,8 @@ export default function HistoricalDataPage() {
       timestamp: serverTimestamp(),
     };
 
-    // Use a predictable ID to prevent duplicates for the same month/year
-    const summaryId = `${user.uid}_${month}_${year}`;
+    // Use the original ID if editing to prevent duplicates unless month/year changed
+    const summaryId = editingId || `${user.uid}_${month}_${year}`;
     
     setDocumentNonBlocking(doc(db, 'monthly_summaries', summaryId), summaryData, { merge: true });
     
@@ -118,12 +121,27 @@ export default function HistoricalDataPage() {
     resetForm();
 
     toast({
-      title: "Monthly Summary Saved",
-      description: `Summary for ${month} ${year} has been archived successfully.`,
+      title: editingId ? "Summary Updated" : "Monthly Summary Saved",
+      description: `Summary for ${month} ${year} has been synchronized successfully.`,
     });
   };
 
+  const handleEdit = (entry: MonthlySummary) => {
+    setEditingId(entry.id);
+    setMonth(entry.month);
+    setYear(entry.year);
+    setEthio(entry.ethio.toString());
+    setSafaricom(entry.safaricom.toString());
+    setProcessed((entry.processed || 0).toString());
+    setProcessing((entry.processing || 0).toString());
+    setRejected((entry.rejected || 0).toString());
+    setFailed((entry.failed || 0).toString());
+    setPendingReview((entry.pendingReview || 0).toString());
+    setIsModalOpen(true);
+  };
+
   const resetForm = () => {
+    setEditingId(null);
     setMonth(MONTHS[new Date().getMonth()]);
     setYear(new Date().getFullYear().toString());
     setEthio('0');
@@ -163,7 +181,7 @@ export default function HistoricalDataPage() {
            <Button variant="outline" className="font-bold border-border bg-card text-foreground">
             <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-500" /> Export Archive
           </Button>
-          <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+          <Dialog open={isModalOpen} onOpenChange={(o) => { if(!o) resetForm(); setIsModalOpen(o); }}>
             <DialogTrigger asChild>
               <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold h-11 px-6 shadow-md">
                 <Plus className="mr-2 h-5 w-5" /> Archive Monthly Data
@@ -171,7 +189,11 @@ export default function HistoricalDataPage() {
             </DialogTrigger>
             <DialogContent className="sm:max-w-2xl p-0 overflow-hidden rounded-xl border-border shadow-2xl bg-popover">
               <DialogHeader className="p-6 border-b border-border bg-muted/30">
-                <DialogTitle className="text-xl font-bold text-foreground">Monthly Summary Entry</DialogTitle>
+                <div className="flex items-center justify-between pr-8">
+                  <DialogTitle className="text-xl font-bold text-foreground">
+                    {editingId ? 'Modify Archive Entry' : 'Monthly Summary Entry'}
+                  </DialogTitle>
+                </div>
               </DialogHeader>
               <form onSubmit={handleAddData} className="p-8 space-y-8 bg-card">
                 <div className="grid grid-cols-2 gap-6">
@@ -251,12 +273,12 @@ export default function HistoricalDataPage() {
 
                 <DialogFooter className="flex items-center justify-start gap-3 pt-6 border-t border-border sm:justify-start">
                   <Button type="submit" className="bg-primary hover:bg-primary/90 font-bold h-11 px-8">
-                    <Save className="mr-2 h-4 w-4" /> Save to Archive
+                    <Save className="mr-2 h-4 w-4" /> {editingId ? 'Commit Changes' : 'Save to Archive'}
                   </Button>
                   <Button 
                     type="button" 
                     variant="outline" 
-                    onClick={() => setIsModalOpen(false)}
+                    onClick={() => { resetForm(); setIsModalOpen(false); }}
                     className="h-11 px-8 font-bold border-border bg-background text-foreground"
                   >
                     Discard
@@ -310,14 +332,24 @@ export default function HistoricalDataPage() {
                       </div>
                     </div>
                   </div>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="text-muted-foreground/30 hover:text-destructive hover:bg-destructive/10 transition-all opacity-0 group-hover:opacity-100"
-                    onClick={() => handleDelete(entry.id, label)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-9 w-9 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                      onClick={() => handleEdit(entry)}
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => handleDelete(entry.id, label)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               );
             })}
@@ -339,6 +371,15 @@ export default function HistoricalDataPage() {
           Archived data is locked for auditing. Contact headquarters for corrections to processed records.
         </p>
       </div>
+    </div>
+  );
+}
+
+function DetailItem({ label, value, icon: Icon }: any) {
+  return (
+    <div className="space-y-1">
+      <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-[0.15em] flex items-center gap-1.5"><Icon className="h-3 w-3" /> {label}</p>
+      <p className="text-sm font-bold text-foreground">{value}</p>
     </div>
   );
 }
