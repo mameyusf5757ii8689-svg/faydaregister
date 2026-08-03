@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
@@ -175,6 +174,7 @@ export default function PerformancePage() {
     const rejected = filteredByMonth.filter(r => r.status === 'Rejected').length;
     const other = total - (processed + rejected);
     const successRate = Number(((processed / total) * 100).toFixed(1));
+    const rejectionRate = Number(((rejected / total) * 100).toFixed(1));
 
     const chartData = [
       { name: 'Success', value: processed, color: 'hsl(var(--primary))' },
@@ -218,7 +218,7 @@ export default function PerformancePage() {
       processed,
       rejected,
       successRate,
-      rejectionRate: Number(((rejected / total) * 100).toFixed(1)),
+      rejectionRate,
       topReason,
       peakDay,
       chartData,
@@ -337,7 +337,7 @@ export default function PerformancePage() {
       </div>
 
       {/* Advanced Performance Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card className="border border-border bg-card shadow-sm rounded-[32px] overflow-hidden relative group">
           <CardContent className="p-8 flex flex-col items-center justify-center text-center">
             <div className="h-[140px] w-full relative">
@@ -372,7 +372,38 @@ export default function PerformancePage() {
             </div>
             <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 rounded-full border border-emerald-500/20">
               <Target className="h-3 w-3 text-emerald-600" />
-              <span className="text-[9px] font-black text-emerald-700 uppercase">Bureau Target: 85%+</span>
+              <span className="text-[9px] font-black text-emerald-700 uppercase">Target: 85%+</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className={cn(
+          "border shadow-sm rounded-[32px] overflow-hidden relative group transition-all",
+          stats.rejectionRate > 15 ? "border-destructive/30 bg-destructive/5" : "border-border bg-card"
+        )}>
+          <CardContent className="p-8">
+            <div className="flex items-start justify-between mb-4">
+               <div>
+                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Rejection Rate</p>
+                  <p className={cn("text-4xl font-black tracking-tighter", stats.rejectionRate > 15 ? "text-destructive" : "text-foreground")}>
+                    {stats.rejectionRate}%
+                  </p>
+               </div>
+               <div className={cn(
+                 "p-2 rounded-lg",
+                 stats.rejectionRate > 15 ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground"
+               )}>
+                  <XCircle className="h-4 w-4" />
+               </div>
+            </div>
+            <p className="text-[10px] font-bold text-muted-foreground uppercase">
+              Impact: <span className={stats.rejectionRate > 15 ? "text-destructive font-black" : "text-foreground"}>{stats.rejected}</span> Purged
+            </p>
+            <div className="mt-4 pt-4 border-t border-dashed border-border flex items-center gap-2">
+               <AlertCircle className={cn("h-3.5 w-3.5", stats.rejectionRate > 15 ? "text-destructive" : "text-muted-foreground/40")} />
+               <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">
+                 {stats.rejectionRate > 15 ? 'Threshold Exceeded' : 'Protocol Safe'}
+               </span>
             </div>
           </CardContent>
         </Card>
