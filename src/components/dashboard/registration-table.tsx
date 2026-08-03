@@ -29,6 +29,8 @@ import {
   CheckCircle2,
   RefreshCcw,
   X,
+  ShieldAlert,
+  Loader2
 } from 'lucide-react';
 import { StatusBadge } from './status-badge';
 import { AiSuggestionModal } from './ai-suggestion-modal';
@@ -39,6 +41,16 @@ import { doc, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { logAuditAction } from '@/lib/audit';
 import { cn } from '@/lib/utils';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface RegistrationTableProps {
   registrations: Registration[];
@@ -49,6 +61,7 @@ export function RegistrationTable({ registrations, isDashboardView = false }: Re
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isBulkProcessing, setIsBulkProcessing] = useState(false);
+  const [isConfirmDeleteDialogOpen, setIsConfirmDeleteDialogOpen] = useState(false);
   const itemsPerPage = 10;
   
   const { toast } = useToast();
@@ -158,6 +171,7 @@ export function RegistrationTable({ registrations, isDashboardView = false }: Re
         variant: "destructive"
       });
       setSelectedIds(new Set());
+      setIsConfirmDeleteDialogOpen(false);
     } catch (error) {
       toast({
         variant: "destructive",
@@ -187,7 +201,7 @@ export function RegistrationTable({ registrations, isDashboardView = false }: Re
               className="h-8 px-3 text-[9px] font-black uppercase tracking-tighter hover:bg-white/10"
               onClick={() => setSelectedIds(new Set())}
             >
-              <X className="mr-1.5 h-3.5 w-3.5" /> Clear Selection
+              <X className="mr-1.5 h-3.5 w-3.5" /> Clear
             </Button>
             <div className="w-px h-4 bg-white/20 mx-1" />
             <Button 
@@ -213,7 +227,7 @@ export function RegistrationTable({ registrations, isDashboardView = false }: Re
               variant="ghost" 
               size="sm" 
               className="h-8 px-3 text-[9px] font-black uppercase tracking-tighter hover:bg-red-500 text-white"
-              onClick={handleBulkDelete}
+              onClick={() => setIsConfirmDeleteDialogOpen(true)}
               disabled={isBulkProcessing}
             >
               <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Purge
@@ -326,6 +340,42 @@ export function RegistrationTable({ registrations, isDashboardView = false }: Re
           </div>
         </div>
       )}
+
+      {/* Bulk Purge Confirmation Dialog */}
+      <AlertDialog open={isConfirmDeleteDialogOpen} onOpenChange={setIsConfirmDeleteDialogOpen}>
+        <AlertDialogContent className="rounded-[32px] border-none shadow-2xl bg-popover max-w-md p-0 overflow-hidden">
+          <div className="p-10 text-center space-y-6">
+            <div className="mx-auto bg-destructive/10 p-5 rounded-2xl w-fit">
+              {isBulkProcessing ? <Loader2 className="h-10 w-10 text-destructive animate-spin" /> : <ShieldAlert className="h-10 w-10 text-destructive" />}
+            </div>
+            <div className="space-y-2">
+              <AlertDialogTitle className="text-2xl font-black text-foreground tracking-tighter uppercase leading-none">
+                {isBulkProcessing ? "PURGING REGISTRY..." : "BULK PURGE PROTOCOL"}
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-sm text-muted-foreground leading-relaxed font-medium">
+                {isBulkProcessing 
+                  ? "Executing mass record destruction. Please stand by..."
+                  : `You are about to permanently purge ${selectedIds.size} records from the bureau registry. This action is final and will be logged in the forensic ledger.`
+                }
+              </AlertDialogDescription>
+            </div>
+          </div>
+          <AlertDialogFooter className="bg-muted/30 p-6 flex-col sm:flex-col gap-3">
+            <AlertDialogAction 
+              onClick={(e) => { e.preventDefault(); handleBulkDelete(); }} 
+              disabled={isBulkProcessing}
+              className="w-full h-14 bg-destructive hover:bg-destructive/90 text-white font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-destructive/10 active:scale-[0.98] transition-all"
+            >
+              {isBulkProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Confirm Destruction"}
+            </AlertDialogAction>
+            {!isBulkProcessing && (
+              <AlertDialogCancel className="w-full h-12 rounded-2xl font-bold uppercase text-[10px] tracking-widest border-none bg-transparent hover:bg-card">
+                Abort Protocol
+              </AlertDialogCancel>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
