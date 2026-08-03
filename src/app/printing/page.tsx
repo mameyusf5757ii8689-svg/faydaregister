@@ -334,7 +334,8 @@ export default function PrintingPage() {
                         <Printer className="h-12 w-12 text-muted-foreground" />
                         <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">No processed records found for current queue</p>
                       </div>
-                    </TableRow>
+                    </TableCell>
+                  </TableRow>
                 )}
               </TableBody>
             </Table>
