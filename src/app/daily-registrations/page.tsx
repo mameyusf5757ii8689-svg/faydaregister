@@ -1,6 +1,7 @@
+
 "use client"
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -26,19 +27,26 @@ import {
   Pencil,
   Trash2,
   X,
-  Loader2
+  Loader2,
+  Search,
+  FileSpreadsheet,
+  FileText,
+  ChevronLeft,
+  ChevronRight,
+  Filter
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collection, query, where, serverTimestamp, doc } from 'firebase/firestore';
 import { 
   addDocumentNonBlocking, 
   setDocumentNonBlocking, 
   deleteDocumentNonBlocking 
 } from '@/firebase/non-blocking-updates';
-import { DailyReport } from '@/lib/types';
+import { DailyReport, UserProfile } from '@/lib/types';
+import { logAuditAction } from '@/lib/audit';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,6 +57,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+
+import * as XLSX from 'xlsx';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const dailyReportSchema = z.object({
   date: z.string().min(1, "Date is required"),
@@ -63,12 +75,25 @@ export default function DailyRegistrationsPage() {
   const { user } = useUser();
   const db = useFirestore();
   const { toast } = useToast();
+  
+  // State Matrix
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   
   // Deletion state
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [reportToDelete, setReportToDelete] = useState<{id: string, date: string} | null>(null);
+
+  // Profile lookup for audit signatures
+  const userProfileRef = useMemoFirebase(() => {
+    if (!db || !user?.uid) return null;
+    return doc(db, 'users', user.uid);
+  }, [db, user?.uid]);
+  const { data: profile } = useDoc<UserProfile>(userProfileRef);
 
   // Fetch only this officer's reports
   const reportsQuery = useMemoFirebase(() => {
@@ -81,11 +106,23 @@ export default function DailyRegistrationsPage() {
 
   const { data: rawHistory, isLoading } = useCollection<DailyReport>(reportsQuery);
 
-  // Client-side sorting by date (descending)
+  // Filter and Pagination Intelligence
   const history = useMemo(() => {
     if (!rawHistory) return [];
-    return [...rawHistory].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [rawHistory]);
+    
+    return [...rawHistory]
+      .filter(item => 
+        item.date.includes(searchTerm) || 
+        item.remarks?.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [rawHistory, searchTerm]);
+
+  const totalPages = Math.ceil(history.length / itemsPerPage);
+  const paginatedHistory = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return history.slice(start, start + itemsPerPage);
+  }, [history, currentPage]);
 
   const form = useForm<DailyReportValues>({
     resolver: zodResolver(dailyReportSchema),
@@ -102,7 +139,8 @@ export default function DailyRegistrationsPage() {
   const dailyTotal = ethioCount + safaricomCount;
 
   async function onSubmit(values: DailyReportValues) {
-    if (!db || !user) return;
+    if (!db || !user || !profile) return;
+    setIsSubmitting(true);
 
     const reportData = {
       ...values,
@@ -111,27 +149,57 @@ export default function DailyRegistrationsPage() {
       timestamp: serverTimestamp(),
     };
 
-    if (editingId) {
-      await setDocumentNonBlocking(doc(db, 'daily_reports', editingId), reportData, { merge: true });
-      toast({
-        title: "Report Updated",
-        description: `Daily registration for ${format(new Date(values.date), 'MMM dd')} updated successfully.`,
-      });
-      setEditingId(null);
-    } else {
-      await addDocumentNonBlocking(collection(db, 'daily_reports'), reportData);
-      toast({
-        title: "Report Submitted",
-        description: `Daily registration for ${format(new Date(values.date), 'MMM dd')} saved successfully.`,
-      });
-    }
+    try {
+      if (editingId) {
+        await setDocumentNonBlocking(doc(db, 'daily_reports', editingId), reportData, { merge: true });
+        
+        logAuditAction(
+          db,
+          user,
+          profile.fullName,
+          'STATUS_UPDATE',
+          editingId,
+          `Modified daily report for ${values.date}. New Total: ${dailyTotal} (E: ${values.ethioCount}, S: ${values.safaricomCount})`
+        );
 
-    form.reset({
-      date: new Date().toISOString().split('T')[0],
-      ethioCount: 0,
-      safaricomCount: 0,
-      remarks: '',
-    });
+        toast({
+          title: "Report Updated",
+          description: `Daily registration for ${format(new Date(values.date), 'MMM dd')} updated successfully.`,
+        });
+        setEditingId(null);
+      } else {
+        await addDocumentNonBlocking(collection(db, 'daily_reports'), reportData);
+        
+        logAuditAction(
+          db,
+          user,
+          profile.fullName,
+          'RECORD_CREATED',
+          values.date,
+          `Logged new daily report for ${values.date}. Total Intake: ${dailyTotal}`
+        );
+
+        toast({
+          title: "Report Submitted",
+          description: `Daily registration for ${format(new Date(values.date), 'MMM dd')} saved successfully.`,
+        });
+      }
+
+      form.reset({
+        date: new Date().toISOString().split('T')[0],
+        ethioCount: 0,
+        safaricomCount: 0,
+        remarks: '',
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Sync Failure",
+        description: "Could not synchronize report with the bureau database."
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   const handleEdit = (entry: DailyReport) => {
@@ -146,12 +214,21 @@ export default function DailyRegistrationsPage() {
   };
 
   const confirmDelete = async () => {
-    if (!db || !reportToDelete) return;
+    if (!db || !reportToDelete || !user || !profile) return;
     
     setIsDeleting(true);
     try {
       await deleteDocumentNonBlocking(doc(db, 'daily_reports', reportToDelete.id));
       
+      logAuditAction(
+        db,
+        user,
+        profile.fullName,
+        'RECORD_DELETED',
+        reportToDelete.id,
+        `Purged daily report record for ${reportToDelete.date} from the ledger.`
+      );
+
       if (editingId === reportToDelete.id) {
         setEditingId(null);
         form.reset({
@@ -190,8 +267,40 @@ export default function DailyRegistrationsPage() {
     });
   };
 
+  // Export Intelligence
+  const handleExportExcel = () => {
+    if (history.length === 0) return;
+    const exportData = history.map(h => ({
+      'Date': h.date,
+      'Ethio Intake': h.ethioCount,
+      'Safaricom Intake': h.safaricomCount,
+      'Total': h.total,
+      'Remarks': h.remarks || ''
+    }));
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "DailyReports");
+    XLSX.writeFile(wb, `Bureau_Daily_Reports_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+    toast({ title: "Excel Synchronized", description: "Operational throughput data downloaded." });
+  };
+
+  const handleExportPDF = () => {
+    if (history.length === 0) return;
+    const doc = new jsPDF();
+    doc.text(`Official Bureau Ledger: ${profile?.fullName || 'Official'}`, 14, 15);
+    const rows = history.map(h => [h.date, h.ethioCount, h.safaricomCount, h.total, h.remarks || '']);
+    autoTable(doc, {
+      startY: 25,
+      head: [['Date', 'Ethio', 'Safaricom', 'Total', 'Remarks']],
+      body: rows,
+      theme: 'striped'
+    });
+    doc.save(`Bureau_Daily_Ledger_${format(new Date(), 'yyyyMMdd')}.pdf`);
+    toast({ title: "PDF Ledger Generated", description: "Official documentation saved." });
+  };
+
   return (
-    <div className="space-y-8 animate-in fade-in duration-700">
+    <div className="space-y-8 animate-in fade-in duration-700 pb-20">
       <div className="space-y-1">
         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Field Operations</p>
         <h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Registration Reporting</h1>
@@ -232,7 +341,7 @@ export default function DailyRegistrationsPage() {
                       <FormItem>
                         <FormLabel className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Date</FormLabel>
                         <FormControl>
-                          <Input type="date" {...field} className="h-11 bg-background border-border" />
+                          <Input type="date" {...field} className="h-11 bg-background border-border" disabled={isSubmitting} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -252,6 +361,7 @@ export default function DailyRegistrationsPage() {
                             <Input 
                               type="number" 
                               {...field} 
+                              disabled={isSubmitting}
                               className="h-11 bg-background border-border" 
                               onChange={(e) => field.onChange(e.target.value === '' ? 0 : Number(e.target.value))}
                             />
@@ -272,6 +382,7 @@ export default function DailyRegistrationsPage() {
                             <Input 
                               type="number" 
                               {...field} 
+                              disabled={isSubmitting}
                               className="h-11 bg-background border-border" 
                               onChange={(e) => field.onChange(e.target.value === '' ? 0 : Number(e.target.value))}
                             />
@@ -297,6 +408,7 @@ export default function DailyRegistrationsPage() {
                           <Textarea 
                             placeholder="e.g. Issues with network, branch updates..." 
                             className="resize-none min-h-[80px] bg-background border-border" 
+                            disabled={isSubmitting}
                             {...field} 
                           />
                         </FormControl>
@@ -306,12 +418,12 @@ export default function DailyRegistrationsPage() {
                   />
 
                   <div className="flex flex-col gap-2">
-                    <Button type="submit" className="w-full h-12 bg-primary hover:bg-primary/90 font-bold shadow-md">
-                      <CheckCircle2 className="mr-2 h-4 w-4" /> 
+                    <Button type="submit" className="w-full h-12 bg-primary hover:bg-primary/90 font-bold shadow-md" disabled={isSubmitting}>
+                      {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
                       {editingId ? "Update Registration Record" : "Finalize Registration Report"}
                     </Button>
                     {editingId && (
-                      <Button type="button" variant="outline" onClick={cancelEdit} className="w-full h-11 font-bold border-border">
+                      <Button type="button" variant="outline" onClick={cancelEdit} className="w-full h-11 font-bold border-border" disabled={isSubmitting}>
                         Cancel Update
                       </Button>
                     )}
@@ -323,16 +435,33 @@ export default function DailyRegistrationsPage() {
         </section>
 
         <section className="lg:col-span-2 space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
               <History className="h-4 w-4 text-primary" /> Report Ledger
             </h2>
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+               <div className="relative flex-1 sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/30" />
+                <Input 
+                  placeholder="Filter by date or notes..." 
+                  value={searchTerm}
+                  onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                  className="pl-10 h-10 border-border bg-card rounded-xl text-xs font-bold"
+                />
+              </div>
+              <Button onClick={handleExportExcel} variant="outline" size="icon" className="h-10 w-10 border-border bg-card text-emerald-500 hover:bg-emerald-500/10">
+                <FileSpreadsheet className="h-4 w-4" />
+              </Button>
+              <Button onClick={handleExportPDF} variant="outline" size="icon" className="h-10 w-10 border-border bg-card text-rose-500 hover:bg-rose-500/10">
+                <FileText className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-4">
             {isLoading ? (
               <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground/30" /></div>
-            ) : history.map((entry) => (
+            ) : paginatedHistory.map((entry) => (
               <Card key={entry.id} className={cn(
                 "border-none shadow-sm overflow-hidden group transition-all bg-card",
                 editingId === entry.id ? "ring-2 ring-primary bg-primary/5" : "hover:shadow-md"
@@ -386,11 +515,42 @@ export default function DailyRegistrationsPage() {
             {!isLoading && history.length === 0 && (
               <div className="flex flex-col items-center justify-center py-24 bg-card rounded-2xl border border-dashed border-border text-muted-foreground/30">
                 <CalendarPlus className="h-16 w-16 mb-4 opacity-10" />
-                <p className="text-lg font-bold">No reports logged yet</p>
-                <p className="text-sm">Submit your first registration report to begin tracking.</p>
+                <p className="text-lg font-bold">No records found</p>
+                <p className="text-sm">Submit your first report or adjust your search.</p>
               </div>
             )}
           </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-2 py-4 border-t border-border">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                Showing {paginatedHistory.length} of {history.length} records
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 w-9 p-0 rounded-xl border-border bg-background hover:bg-muted"
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div className="flex items-center justify-center min-w-[100px] h-9 text-[10px] font-black text-foreground bg-muted/50 border border-border rounded-xl uppercase tracking-widest px-3">
+                  Page {currentPage} of {totalPages}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 w-9 p-0 rounded-xl border-border bg-background hover:bg-muted"
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </section>
       </div>
 
