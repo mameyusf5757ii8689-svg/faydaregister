@@ -44,6 +44,7 @@ import { doc, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { logAuditAction } from '@/lib/audit';
 import { UserProfile } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
 interface RegistrationTableProps {
   registrations: Registration[];
@@ -236,7 +237,7 @@ export function RegistrationTable({ registrations, isDashboardView = false }: Re
             <TableRow 
               key={reg.id} 
               className={cn(
-                "hover:bg-muted/30 transition-colors border-border group",
+                "hover:bg-muted/30 transition-colors border-border h-16 group",
                 selectedIds.has(reg.id) && "bg-primary/5 hover:bg-primary/10"
               )}
             >
