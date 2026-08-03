@@ -96,61 +96,6 @@ export default function FullRegistrationPage() {
   const { data: summaries, isLoading: isSummariesLoading } = useCollection<MonthlySummary>(summariesQuery);
   const { data: reports, isLoading: isReportsLoading } = useCollection<DailyReport>(reportsQuery);
 
-  // Auto-Archive Protocol
-  useEffect(() => {
-    if (!db || !user || !summaries || !reports || !mounted || !profile) return;
-
-    const autoArchive = async () => {
-      const now = new Date();
-      let checkDate = new Date(START_DATE);
-      
-      while (checkDate < startOfMonth(now)) {
-        const monthLabel = MONTHS[checkDate.getMonth()];
-        const yearLabel = checkDate.getFullYear().toString();
-        const summaryId = `${user.uid}_${monthLabel}_${yearLabel}`;
-
-        const alreadyExists = summaries.some(s => s.month === monthLabel && s.year === yearLabel);
-        
-        if (!alreadyExists) {
-          const monthReports = reports.filter(r => {
-            const rDate = new Date(r.date);
-            return rDate.getMonth() === checkDate.getMonth() && rDate.getFullYear() === checkDate.getFullYear();
-          });
-
-          if (monthReports.length > 0) {
-            const ethio = monthReports.reduce((acc, curr) => acc + (curr.ethioCount || 0), 0);
-            const safaricom = monthReports.reduce((acc, curr) => acc + (curr.safaricomCount || 0), 0);
-            const total = ethio + safaricom;
-
-            await setDoc(doc(db, 'monthly_summaries', summaryId), {
-              id: summaryId,
-              officerId: user.uid,
-              month: monthLabel,
-              year: yearLabel,
-              ethio,
-              safaricom,
-              total,
-              processed: 0,
-              timestamp: serverTimestamp(),
-            }, { merge: true });
-
-            logAuditAction(
-              db,
-              user,
-              profile.fullName,
-              'STATUS_UPDATE',
-              summaryId,
-              `Grand Ledger: Autonomous archival for ${monthLabel} ${yearLabel} completed. Total: ${total}.`
-            );
-          }
-        }
-        checkDate = new Date(checkDate.setMonth(checkDate.getMonth() + 1));
-      }
-    };
-
-    autoArchive();
-  }, [db, user, summaries, reports, mounted, profile]);
-
   const handleManualSync = async () => {
     if (!db || !user || !reports || !profile) return;
     setIsSyncing(true);
@@ -160,6 +105,7 @@ export default function FullRegistrationPage() {
       let checkDate = new Date(START_DATE);
       let syncCount = 0;
       
+      // Auto-Archive Logic (Moved from useEffect to manual trigger for loop safety)
       while (checkDate < startOfMonth(now)) {
         const monthLabel = MONTHS[checkDate.getMonth()];
         const yearLabel = checkDate.getFullYear().toString();
@@ -175,6 +121,7 @@ export default function FullRegistrationPage() {
           const safaricom = monthReports.reduce((acc, curr) => acc + (curr.safaricomCount || 0), 0);
           const total = ethio + safaricom;
 
+          // Note: setDoc called here is triggered by user interaction, not automatically.
           await setDoc(doc(db, 'monthly_summaries', summaryId), {
             id: summaryId,
             officerId: user.uid,

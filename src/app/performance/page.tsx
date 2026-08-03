@@ -119,19 +119,6 @@ export default function PerformancePage() {
 
   const { data: registrations, isLoading } = useCollection<Registration>(registrationsQuery);
 
-  useEffect(() => {
-    if (db && user && profile && selectedMonth && mounted) {
-      logAuditAction(
-        db,
-        user,
-        profile.fullName,
-        'PERFORMANCE_REVIEW',
-        selectedMonth,
-        `Officer accessed performance intelligence for period: ${selectedMonth}.`
-      );
-    }
-  }, [selectedMonth, db, user, profile, mounted]);
-
   const monthsList = useMemo(() => {
     const list = [];
     let curr = new Date(START_DATE);

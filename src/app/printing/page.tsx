@@ -27,7 +27,6 @@ import {
   FileDigit,
   User,
   Clock,
-  PrinterCheck,
   History,
   LayoutGrid,
   ChevronLeft,
@@ -304,7 +303,7 @@ export default function PrintingPage() {
                     <TableCell className="text-center">
                       {reg.isPrinted ? (
                         <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-emerald-500/10 text-emerald-600 rounded-full border border-emerald-500/20">
-                          <PrinterCheck className="h-3 w-3" />
+                          <CheckCircle2 className="h-3 w-3" />
                           <span className="text-[9px] font-black uppercase tracking-tighter">Printed</span>
                         </div>
                       ) : (
@@ -335,8 +334,7 @@ export default function PrintingPage() {
                         <Printer className="h-12 w-12 text-muted-foreground" />
                         <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">No processed records found for current queue</p>
                       </div>
-                    </TableCell>
-                  </TableRow>
+                    </TableRow>
                 )}
               </TableBody>
             </Table>
