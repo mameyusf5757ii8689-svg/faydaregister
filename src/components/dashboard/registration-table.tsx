@@ -2,7 +2,7 @@
 "use client"
 
 import { useState, useMemo } from 'react';
-import { Registration, RegistrationStatus } from '@/lib/types';
+import { Registration, RegistrationStatus, UserProfile } from '@/lib/types';
 import { 
   Table, 
   TableBody, 
@@ -25,15 +25,9 @@ import {
   ExternalLink, 
   ChevronLeft, 
   ChevronRight, 
-  CheckSquare, 
-  Square,
   Trash2,
   CheckCircle2,
-  Clock,
-  XCircle,
-  AlertCircle,
   RefreshCcw,
-  ShieldAlert
 } from 'lucide-react';
 import { StatusBadge } from './status-badge';
 import { AiSuggestionModal } from './ai-suggestion-modal';
@@ -43,7 +37,6 @@ import { useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { logAuditAction } from '@/lib/audit';
-import { UserProfile } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 interface RegistrationTableProps {
@@ -73,12 +66,16 @@ export function RegistrationTable({ registrations, isDashboardView = false }: Re
     currentPage * itemsPerPage
   );
 
+  const allOnPageSelected = currentItems.length > 0 && currentItems.every(r => selectedIds.has(r.id));
+
   const toggleSelectAll = () => {
-    if (selectedIds.size === currentItems.length && currentItems.length > 0) {
-      setSelectedIds(new Set());
+    const next = new Set(selectedIds);
+    if (allOnPageSelected) {
+      currentItems.forEach(r => next.delete(r.id));
     } else {
-      setSelectedIds(new Set(currentItems.map(r => r.id)));
+      currentItems.forEach(r => next.add(r.id));
     }
+    setSelectedIds(next);
   };
 
   const toggleSelectRow = (id: string) => {
@@ -217,10 +214,10 @@ export function RegistrationTable({ registrations, isDashboardView = false }: Re
 
       <Table>
         <TableHeader className={isDashboardView ? "bg-muted/30" : "bg-muted/50"}>
-          <TableRow className="hover:bg-transparent">
+          <TableRow className="hover:bg-transparent border-border">
             <TableHead className="w-12 pl-6">
               <Checkbox 
-                checked={selectedIds.size === currentItems.length && currentItems.length > 0} 
+                checked={allOnPageSelected} 
                 onCheckedChange={toggleSelectAll}
                 className="border-muted-foreground/30"
               />

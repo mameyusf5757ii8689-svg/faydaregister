@@ -27,7 +27,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Trash2,
-  AlertCircle,
   ShieldAlert
 } from 'lucide-react';
 import { AuditLog, UserProfile } from '@/lib/types';
@@ -105,12 +104,16 @@ export default function AuditLedgerPage() {
     return filteredLogs.slice(start, start + itemsPerPage);
   }, [filteredLogs, currentPage]);
 
+  const allOnPageSelected = paginatedLogs.length > 0 && paginatedLogs.every(log => selectedIds.has(log.id));
+
   const toggleSelectAll = () => {
-    if (selectedIds.size === paginatedLogs.length && paginatedLogs.length > 0) {
-      setSelectedIds(new Set());
+    const next = new Set(selectedIds);
+    if (allOnPageSelected) {
+      paginatedLogs.forEach(log => next.delete(log.id));
     } else {
-      setSelectedIds(new Set(paginatedLogs.map(l => l.id)));
+      paginatedLogs.forEach(log => next.add(log.id));
     }
+    setSelectedIds(next);
   };
 
   const toggleSelectRow = (id: string) => {
@@ -215,7 +218,7 @@ export default function AuditLedgerPage() {
             <TableRow className="hover:bg-transparent border-border">
               <TableHead className="w-12 pl-8">
                 <Checkbox 
-                  checked={selectedIds.size === paginatedLogs.length && paginatedLogs.length > 0} 
+                  checked={allOnPageSelected} 
                   onCheckedChange={toggleSelectAll}
                   className="rounded-md border-muted-foreground/30"
                 />
