@@ -61,7 +61,6 @@ export default function PrintingPage() {
 
   const registrationsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    // Data Isolation: Only this officer's records
     return query(
       collection(db, 'registrations'),
       where('assignedReviewerId', '==', user.uid),
@@ -77,22 +76,18 @@ export default function PrintingPage() {
     const now = new Date();
     
     return registrations.filter(reg => {
-      // 1. STRCT REQUIREMENT: Only show Processed records for printing
       if (reg.status !== 'Processed') return false;
 
-      // 2. Period Filter (This month vs All months)
       if (periodFilter === 'current') {
         const regDate = new Date(reg.submissionDate);
         if (!isSameMonth(regDate, now)) return false;
       }
 
-      // 3. Search Filter
       const matchesSearch = 
         reg.applicantName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         reg.id.includes(searchTerm);
       if (!matchesSearch) return false;
 
-      // 4. Printing Status Filter
       if (filterPrinted === 'pending' && reg.isPrinted) return false;
       if (filterPrinted === 'printed' && !reg.isPrinted) return false;
 
@@ -100,7 +95,6 @@ export default function PrintingPage() {
     }).sort((a, b) => new Date(b.submissionDate).getTime() - new Date(a.submissionDate).getTime());
   }, [registrations, searchTerm, filterPrinted, periodFilter]);
 
-  // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, filterPrinted, periodFilter]);
@@ -252,13 +246,6 @@ export default function PrintingPage() {
                   </Button>
                 </div>
               </div>
-
-              <div className="pt-4 border-t border-dashed border-border">
-                <div className="p-4 bg-primary/[0.03] border border-primary/10 rounded-xl space-y-1">
-                   <p className="text-[9px] font-bold text-muted-foreground uppercase">Items in View</p>
-                   <p className="text-2xl font-black text-foreground">{filteredItems.length}</p>
-                </div>
-              </div>
             </CardContent>
           </Card>
         </div>
@@ -341,7 +328,6 @@ export default function PrintingPage() {
             </Table>
           </Card>
 
-          {/* Pagination Controls */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between px-6 py-4 bg-card border border-border rounded-2xl shadow-sm">
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">

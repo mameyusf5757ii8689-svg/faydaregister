@@ -21,10 +21,9 @@ import {
   FileSpreadsheet,
   FileText,
   RefreshCcw,
-  ArrowLeft
 } from 'lucide-react';
 import { DailyReport, MonthlySummary, UserProfile } from '@/lib/types';
-import { format, startOfMonth, isSameMonth } from 'date-fns';
+import { format, startOfMonth } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -65,7 +64,6 @@ export default function FullRegistrationPage() {
   const { toast } = useToast();
   const [mounted, setMounted] = useState(false);
   
-  // Navigation Matrix State
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'Operational' | 'Finalized'>('all');
   const [isSyncing, setIsSyncing] = useState(false);
@@ -105,7 +103,6 @@ export default function FullRegistrationPage() {
       let checkDate = new Date(START_DATE);
       let syncCount = 0;
       
-      // Auto-Archive Logic (Moved from useEffect to manual trigger for loop safety)
       while (checkDate < startOfMonth(now)) {
         const monthLabel = MONTHS[checkDate.getMonth()];
         const yearLabel = checkDate.getFullYear().toString();
@@ -121,7 +118,6 @@ export default function FullRegistrationPage() {
           const safaricom = monthReports.reduce((acc, curr) => acc + (curr.safaricomCount || 0), 0);
           const total = ethio + safaricom;
 
-          // Note: setDoc called here is triggered by user interaction, not automatically.
           await setDoc(doc(db, 'monthly_summaries', summaryId), {
             id: summaryId,
             officerId: user.uid,
@@ -446,7 +442,6 @@ export default function FullRegistrationPage() {
         </section>
       )}
 
-      {/* Navigation Matrix */}
       <div className="flex flex-col lg:flex-row items-center justify-between gap-6 bg-card p-6 rounded-[32px] border border-border shadow-sm">
         <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
           <div className="relative w-full sm:w-80 group">

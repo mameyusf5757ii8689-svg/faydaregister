@@ -4,7 +4,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMemoFirebase, useCollection, useUser, useFirestore, useDoc } from '@/firebase';
 import { collection, query, where, limit, doc } from 'firebase/firestore';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
   Trophy, 
   XCircle, 
@@ -25,11 +25,12 @@ import {
   Info,
   History,
   Zap,
-  Target
+  Target,
+  ShieldCheck
 } from 'lucide-react';
 import { Registration, UserProfile } from '@/lib/types';
 import { StatusBadge } from '@/components/dashboard/status-badge';
-import { format, addMonths, subDays, eachDayOfInterval, startOfMonth, endOfMonth, isSameDay } from 'date-fns';
+import { format, addMonths, eachDayOfInterval, endOfMonth, isSameDay } from 'date-fns';
 import { Input } from '@/components/ui/input';
 import { 
   PieChart, 
@@ -169,7 +170,6 @@ export default function PerformancePage() {
       { name: 'Other', value: other, color: 'hsl(var(--muted-foreground))' },
     ];
 
-    // Rejection Reason Intelligence
     const reasonCounts: Record<string, number> = {};
     filteredByMonth.filter(r => r.status === 'Rejected').forEach(r => {
       const reason = r.rejectionReason || 'Unknown';
@@ -177,7 +177,6 @@ export default function PerformancePage() {
     });
     const topReason = Object.entries(reasonCounts).sort((a,b) => b[1] - a[1])[0]?.[0] || 'Zero Discrepancies';
 
-    // Daily Trend Calculation
     const [year, month] = selectedMonth.split('-').map(Number);
     const startDate = new Date(year, month - 1, 1);
     const endDate = endOfMonth(startDate);
@@ -323,7 +322,6 @@ export default function PerformancePage() {
         </div>
       </div>
 
-      {/* Advanced Performance Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card className="border border-border bg-card shadow-sm rounded-[32px] overflow-hidden relative group">
           <CardContent className="p-8 flex flex-col items-center justify-center text-center">
