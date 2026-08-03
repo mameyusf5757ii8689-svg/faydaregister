@@ -91,6 +91,7 @@ export interface Conversation {
   lastMessage?: string;
   lastTimestamp?: any;
   createdBy?: string;
+  pinnedMessageId?: string;
 }
 
 export interface Announcement {

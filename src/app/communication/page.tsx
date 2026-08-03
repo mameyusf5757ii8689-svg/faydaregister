@@ -1,8 +1,9 @@
+
 'use client';
 
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, query, limit, serverTimestamp, where, doc, arrayUnion } from 'firebase/firestore';
+import { collection, query, limit, serverTimestamp, where, doc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { addDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -27,7 +28,12 @@ import {
   User,
   Mic,
   Square,
-  Volume2
+  Volume2,
+  Pin,
+  PinOff,
+  UserMinus,
+  Settings2,
+  ArrowRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -66,11 +72,17 @@ export default function CommunicationPage() {
   const { toast } = useToast();
   const [inputText, setInputText] = useState('');
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [channelSearchTerm, setChannelSearchTerm] = useState('');
+  const [messageSearchTerm, setMessageSearchTerm] = useState('');
+  const [isMsgSearchActive, setIsMsgSearchActive] = useState(false);
+  
   const [newGroupName, setNewGroupName] = useState('');
+  const [editGroupName, setNewEditGroupName] = useState('');
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  
   const [editingMsg, setEditingMsg] = useState<Message | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   
@@ -111,12 +123,18 @@ export default function CommunicationPage() {
 
   const conversations = useMemo(() => {
     if (!rawConversations) return [];
-    return [...rawConversations].sort((a, b) => {
-      const timeA = a.lastTimestamp?.toDate ? a.lastTimestamp.toDate().getTime() : 0;
-      const timeB = b.lastTimestamp?.toDate ? b.lastTimestamp.toDate().getTime() : 0;
-      return timeB - timeA;
-    });
-  }, [rawConversations]);
+    return [...rawConversations]
+      .filter(c => {
+        if (!channelSearchTerm) return true;
+        const name = c.type === 'group' ? c.name : 'Direct Message';
+        return name?.toLowerCase().includes(channelSearchTerm.toLowerCase());
+      })
+      .sort((a, b) => {
+        const timeA = a.lastTimestamp?.toDate ? a.lastTimestamp.toDate().getTime() : 0;
+        const timeB = b.lastTimestamp?.toDate ? b.lastTimestamp.toDate().getTime() : 0;
+        return timeB - timeA;
+      });
+  }, [rawConversations, channelSearchTerm]);
 
   const usersQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -130,7 +148,7 @@ export default function CommunicationPage() {
     return query(
       collection(db, 'messages'),
       where('conversationId', '==', activeConvId),
-      limit(100)
+      limit(200)
     );
   }, [db, activeConvId, user]);
 
@@ -148,15 +166,19 @@ export default function CommunicationPage() {
 
   const filteredMessages = useMemo(() => {
     if (!messages || !user) return [];
-    return messages.filter(m => !m.deletedFor?.includes(user.uid));
-  }, [messages, user]);
+    let list = messages.filter(m => !m.deletedFor?.includes(user.uid));
+    if (messageSearchTerm) {
+      list = list.filter(m => m.text?.toLowerCase().includes(messageSearchTerm.toLowerCase()));
+    }
+    return list;
+  }, [messages, user, messageSearchTerm]);
 
   useEffect(() => {
-    if (scrollRef.current) {
+    if (scrollRef.current && !messageSearchTerm) {
       const viewport = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
       if (viewport) viewport.scrollTop = viewport.scrollHeight;
     }
-  }, [filteredMessages]);
+  }, [filteredMessages, messageSearchTerm]);
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -283,11 +305,6 @@ export default function CommunicationPage() {
           lastMessage: newLatest.audioUrl ? 'Voice Message' : (newLatest.text || 'Message sent'),
           lastTimestamp: newLatest.timestamp,
         });
-      } else {
-        await updateDocumentNonBlocking(doc(db, 'conversations', activeConvId), {
-          lastMessage: 'Channel initialized',
-          lastTimestamp: serverTimestamp(),
-        });
       }
       setIsDeleteDialogOpen(false);
     } catch (error) {
@@ -298,9 +315,16 @@ export default function CommunicationPage() {
     }
   };
 
-  const cancelEdit = () => {
-    setEditingMsg(null);
-    setInputText('');
+  const togglePin = (msgId: string) => {
+    if (!db || !activeConvId) return;
+    const isAlreadyPinned = activeConv?.pinnedMessageId === msgId;
+    updateDocumentNonBlocking(doc(db, 'conversations', activeConvId), {
+      pinnedMessageId: isAlreadyPinned ? null : msgId
+    });
+    toast({
+      title: isAlreadyPinned ? "Transmission Unpinned" : "Protocol Pinned",
+      description: isAlreadyPinned ? "Instruction removed from header." : "Added to operational pinned view."
+    });
   };
 
   const startPrivateChat = (otherUser: UserProfile) => {
@@ -346,15 +370,25 @@ export default function CommunicationPage() {
     setIsCreateGroupOpen(false);
   };
 
-  const handleAddMember = (targetUserId: string) => {
+  const handleUpdateGroupName = () => {
+    if (!editGroupName.trim() || !db || !activeConvId) return;
+    updateDocumentNonBlocking(doc(db, 'conversations', activeConvId), {
+      name: editGroupName.trim()
+    });
+    setIsSettingsOpen(false);
+    toast({ title: "Designation Updated", description: "Channel name successfully changed." });
+  };
+
+  const handleRemoveMember = (targetUserId: string) => {
     if (!db || !activeConvId) return;
     updateDocumentNonBlocking(doc(db, 'conversations', activeConvId), {
-      members: arrayUnion(targetUserId)
+      members: arrayRemove(targetUserId)
     });
-    setIsAddMemberOpen(false);
+    toast({ title: "Personnel Revoked", description: "Official removed from coordination line." });
   };
 
   const activeConv = conversations.find(c => c.id === activeConvId);
+  const pinnedMessage = messages.find(m => m.id === activeConv?.pinnedMessageId);
 
   const getConvName = (conv: Conversation | undefined | null) => {
     if (!conv) return '...';
@@ -365,10 +399,11 @@ export default function CommunicationPage() {
     return otherUser?.fullName || 'Bureau Official';
   };
 
-  const toggleUserSelection = (userId: string) => {
-    setSelectedUserIds(prev => 
-      prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
-    );
+  const getOtherUserStatus = (conv: Conversation) => {
+    if (conv.type !== 'dm') return null;
+    const otherId = conv.members.find(m => m !== user?.uid);
+    const otherUser = allUsers?.find(u => u.id === otherId);
+    return otherUser?.isDutyActive;
   };
 
   if (isUserLoading) {
@@ -412,29 +447,27 @@ export default function CommunicationPage() {
                 <ScrollArea className="h-[200px] border border-border rounded-xl p-2 bg-muted/20">
                   <div className="space-y-1">
                     {allUsers?.filter(u => u.id !== user?.uid).map(u => (
-                      <div key={u.id} className="flex items-center justify-between p-2 hover:bg-background rounded-lg transition-all border border-transparent hover:border-border">
+                      <div key={u.id} className="flex items-center justify-between p-2 hover:bg-background rounded-lg transition-all">
                         <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8 border border-border">
-                            <AvatarFallback className="text-[10px] text-foreground">{u.fullName.substring(0, 2).toUpperCase()}</AvatarFallback>
-                          </Avatar>
+                          <div className="relative">
+                            <Avatar className="h-8 w-8 border border-border">
+                              <AvatarFallback className="text-[10px]">{u.fullName.substring(0, 2).toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                            {u.isDutyActive && <span className="absolute bottom-0 right-0 h-2 w-2 bg-green-500 rounded-full border border-background" />}
+                          </div>
                           <div>
                             <p className="text-xs font-bold text-foreground">{u.fullName}</p>
-                            <p className="text-[9px] text-muted-foreground uppercase font-medium">{u.role}</p>
+                            <p className="text-[9px] text-muted-foreground uppercase">{u.role}</p>
                           </div>
                         </div>
-                        <Checkbox 
-                          checked={selectedUserIds.includes(u.id)}
-                          onCheckedChange={() => toggleUserSelection(u.id)}
-                          className="rounded-md"
-                        />
+                        <Checkbox checked={selectedUserIds.includes(u.id)} onCheckedChange={(c) => setSelectedUserIds(prev => c ? [...prev, u.id] : prev.filter(id => id !== u.id))} />
                       </div>
                     ))}
                   </div>
                 </ScrollArea>
               </div>
             </div>
-            <DialogFooter className="p-6 bg-muted/30 border-t border-border">
-              <Button variant="ghost" onClick={() => setIsCreateGroupOpen(false)} className="font-bold text-xs uppercase text-muted-foreground hover:text-foreground">Cancel</Button>
+            <DialogFooter className="p-6 bg-muted/30 border-t">
               <Button onClick={handleCreateGroup} disabled={!newGroupName.trim()} className="rounded-xl font-bold px-8">Initialize Channel</Button>
             </DialogFooter>
           </DialogContent>
@@ -445,56 +478,56 @@ export default function CommunicationPage() {
         <Card className="w-80 flex flex-col border-border shadow-sm bg-card overflow-hidden rounded-2xl">
           <div className="p-4 border-b border-border">
             <div className="relative group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input 
                 placeholder="Filter channels..." 
-                className="pl-9 h-10 text-xs bg-muted/30 border-none rounded-xl text-foreground"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9 h-10 text-xs bg-muted/30 border-none rounded-xl"
+                value={channelSearchTerm}
+                onChange={(e) => setChannelSearchTerm(e.target.value)}
               />
             </div>
           </div>
           <ScrollArea className="flex-1">
             <div className="p-2 space-y-1">
               <p className="text-[10px] font-black text-muted-foreground uppercase px-3 py-3 tracking-widest">Active Channels</p>
-              {isConvsLoading ? (
-                <div className="p-8 text-center"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground/30" /></div>
-              ) : conversations.map(conv => {
-                const isNew = conv.lastTimestamp?.toDate && currentUserProfile?.lastMessageReadAt && 
-                              conv.lastTimestamp.toDate().getTime() > new Date(currentUserProfile.lastMessageReadAt).getTime();
+              {conversations.map(conv => {
+                const isActive = getOtherUserStatus(conv);
                 return (
                   <button
                     key={conv.id}
                     onClick={() => setActiveConvId(conv.id)}
                     className={cn(
-                      "w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left group mb-1 relative",
+                      "w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left mb-1 relative",
                       activeConvId === conv.id ? "bg-muted shadow-inner" : "hover:bg-muted/50"
                     )}
                   >
-                    <Avatar className="h-11 w-11 border-2 border-background shadow-sm">
-                      {conv.type === 'group' ? (
-                        <div className="bg-primary/10 h-full w-full flex items-center justify-center">
-                          <Users className="h-5 w-5 text-primary" />
-                        </div>
-                      ) : (
-                        <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${getConvName(conv)}`} />
+                    <div className="relative">
+                      <Avatar className="h-11 w-11 border-2 border-background">
+                        {conv.type === 'group' ? (
+                          <div className="bg-primary/10 h-full w-full flex items-center justify-center"><Users className="h-5 w-5 text-primary" /></div>
+                        ) : (
+                          <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${getConvName(conv)}`} />
+                        )}
+                        <AvatarFallback>{getConvName(conv).substring(0, 2).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      {isActive !== null && (
+                        <span className={cn(
+                          "absolute bottom-0.5 right-0.5 h-2.5 w-2.5 rounded-full border-2 border-background",
+                          isActive ? "bg-green-500" : "bg-muted-foreground/30"
+                        )} />
                       )}
-                      <AvatarFallback className="text-foreground">{getConvName(conv).substring(0, 2).toUpperCase()}</AvatarFallback>
-                    </Avatar>
+                    </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
-                        <p className={cn("text-sm font-bold text-foreground truncate", isNew && "text-primary")}>{getConvName(conv)}</p>
+                        <p className="text-sm font-bold text-foreground truncate">{getConvName(conv)}</p>
                         {conv.lastTimestamp && (
                           <span className="text-[9px] text-muted-foreground font-bold uppercase">
                             {format(conv.lastTimestamp.toDate ? conv.lastTimestamp.toDate() : new Date(), 'HH:mm')}
                           </span>
                         )}
                       </div>
-                      <p className={cn("text-[11px] text-muted-foreground truncate font-medium", isNew && "text-foreground font-bold")}>{conv.lastMessage}</p>
+                      <p className="text-[11px] text-muted-foreground truncate font-medium">{conv.lastMessage}</p>
                     </div>
-                    {isNew && (
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 h-1.5 w-1.5 bg-primary rounded-full" />
-                    )}
                   </button>
                 );
               })}
@@ -504,12 +537,15 @@ export default function CommunicationPage() {
                 <button
                   key={uProfile.id}
                   onClick={() => startPrivateChat(uProfile)}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-all text-left group"
+                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-all text-left"
                 >
-                  <Avatar className="h-10 w-10 border border-border">
-                    <AvatarImage src={uProfile.profilePhoto || `https://api.dicebear.com/7.x/initials/svg?seed=${uProfile.fullName}`} />
-                    <AvatarFallback className="text-foreground">{uProfile.fullName.substring(0, 2).toUpperCase()}</AvatarFallback>
-                  </Avatar>
+                  <div className="relative">
+                    <Avatar className="h-10 w-10 border border-border">
+                      <AvatarImage src={uProfile.profilePhoto} />
+                      <AvatarFallback>{uProfile.fullName.substring(0, 2).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    {uProfile.isDutyActive && <span className="absolute bottom-0 right-0 h-2.5 w-2.5 bg-green-500 rounded-full border-2 border-background" />}
+                  </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-foreground truncate">{uProfile.fullName}</p>
                     <p className="text-[10px] font-black text-muted-foreground uppercase tracking-tighter">{uProfile.role}</p>
@@ -523,7 +559,7 @@ export default function CommunicationPage() {
         <Card className="flex-1 flex flex-col border-border shadow-sm bg-card overflow-hidden rounded-2xl">
           {activeConvId && activeConv ? (
             <>
-              <CardHeader className="py-4 px-6 border-b border-border flex flex-row items-center justify-between bg-card">
+              <CardHeader className="py-3 px-6 border-b flex flex-row items-center justify-between bg-card">
                 <div className="flex items-center gap-4">
                   <Avatar className="h-10 w-10 border-2 border-background">
                     {activeConv.type === 'group' ? (
@@ -531,106 +567,114 @@ export default function CommunicationPage() {
                     ) : (
                       <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${getConvName(activeConv)}`} />
                     )}
-                    <AvatarFallback className="text-foreground">{getConvName(activeConv).substring(0, 2).toUpperCase()}</AvatarFallback>
+                    <AvatarFallback>{getConvName(activeConv).substring(0, 2).toUpperCase()}</AvatarFallback>
                   </Avatar>
                   <div>
                     <CardTitle className="text-base font-black text-foreground leading-none">{getConvName(activeConv)}</CardTitle>
                     <div className="flex items-center gap-1.5 mt-1">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className={cn(
+                        "h-1.5 w-1.5 rounded-full animate-pulse",
+                        activeConv.type === 'group' || getOtherUserStatus(activeConv) ? "bg-green-500" : "bg-muted-foreground/30"
+                      )} />
                       <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                        {activeConv.type === 'group' ? `${activeConv.members?.length || 0} Members Active` : 'Secure Official Line'}
+                        {activeConv.type === 'group' ? `${activeConv.members?.length || 0} Members Active` : getOtherUserStatus(activeConv) ? 'Active Duty' : 'Signal Offline'}
                       </p>
                     </div>
                   </div>
                 </div>
                 
-                {activeConv.type === 'group' && (
-                  <Dialog open={isAddMemberOpen} onOpenChange={setIsAddMemberOpen}>
-                    <DialogTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-9 gap-2 text-muted-foreground hover:text-primary hover:bg-primary/5 font-bold text-[10px] uppercase">
-                        <UserPlus className="h-4 w-4" /> Manage Team
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="rounded-2xl p-0 overflow-hidden sm:max-w-[400px] border-border bg-popover">
-                      <DialogHeader className="p-6 bg-muted/30 border-b border-border">
-                        <DialogTitle className="text-lg font-bold text-foreground">Add Personnel to Channel</DialogTitle>
-                      </DialogHeader>
-                      <ScrollArea className="max-h-[300px] p-2">
-                        <div className="space-y-1">
-                          {allUsers?.filter(u => !activeConv.members?.includes(u.id)).map(u => (
-                            <button
-                              key={u.id}
-                              onClick={() => handleAddMember(u.id)}
-                              className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-muted/50 transition-all text-left group"
-                            >
-                              <div className="flex items-center gap-3">
-                                <Avatar className="h-8 w-8 border border-border">
-                                  <AvatarFallback className="text-foreground">{u.fullName.substring(0, 2).toUpperCase()}</AvatarFallback>
-                                </Avatar>
-                                <div>
-                                  <p className="text-xs font-bold text-foreground">{u.fullName}</p>
-                                  <p className="text-[9px] text-muted-foreground uppercase font-medium">{u.role}</p>
-                                </div>
-                              </div>
-                              <Plus className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                            </button>
-                          ))}
-                          {allUsers?.filter(u => !activeConv.members?.includes(u.id)).length === 0 && (
-                            <div className="py-10 text-center text-muted-foreground text-xs font-medium">All personnel are already in this channel.</div>
-                          )}
-                        </div>
-                      </ScrollArea>
-                    </DialogContent>
-                  </Dialog>
-                )}
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="icon" onClick={() => setIsMsgSearchActive(!isMsgSearchActive)} className={cn("h-9 w-9 rounded-xl", isMsgSearchActive && "text-primary bg-primary/5")}>
+                    <Search className="h-4 w-4" />
+                  </Button>
+                  {activeConv.type === 'group' && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl"><Settings2 className="h-4 w-4" /></Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-56 p-1 rounded-xl">
+                        <DropdownMenuItem onClick={() => { setNewEditGroupName(activeConv.name || ''); setIsSettingsOpen(true); }} className="gap-2 font-bold text-xs">
+                          <Pencil className="h-3.5 w-3.5" /> Channel Designation
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setIsAddMemberOpen(true)} className="gap-2 font-bold text-xs">
+                          <UserPlus className="h-3.5 w-3.5" /> Assign Personnel
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </div>
               </CardHeader>
-              <CardContent className="flex-1 p-0 flex flex-col min-h-0 bg-muted/5">
+
+              {isMsgSearchActive && (
+                <div className="p-3 bg-muted/30 border-b border-border flex items-center gap-2 animate-in slide-in-from-top duration-300">
+                  <Search className="h-3.5 w-3.5 text-muted-foreground ml-2" />
+                  <Input 
+                    placeholder="Search transmissions..." 
+                    className="h-9 text-xs border-none bg-transparent focus-visible:ring-0" 
+                    value={messageSearchTerm}
+                    onChange={(e) => setMessageSearchTerm(e.target.value)}
+                    autoFocus
+                  />
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setMessageSearchTerm(''); setIsMsgSearchActive(false); }}>
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              )}
+
+              {pinnedMessage && (
+                <div className="bg-primary/5 border-b border-primary/10 px-6 py-2 flex items-center justify-between group/pinned">
+                  <div className="flex items-center gap-3 overflow-hidden">
+                    <Pin className="h-3.5 w-3.5 text-primary shrink-0" />
+                    <div className="overflow-hidden">
+                      <p className="text-[10px] font-black text-primary uppercase tracking-widest leading-none mb-1">Pinned Intelligence</p>
+                      <p className="text-xs text-foreground truncate font-medium">"{pinnedMessage.text}"</p>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => togglePin(pinnedMessage.id)} className="h-7 w-7 opacity-0 group-hover/pinned:opacity-100 transition-opacity">
+                    <PinOff className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+
+              <CardContent className="flex-1 p-0 flex flex-col min-h-0 bg-muted/5 relative">
                 <ScrollArea ref={scrollRef} className="flex-1 p-6">
                   <div className="space-y-6">
                     {isMessagesLoading ? (
-                      <div className="flex justify-center py-20 opacity-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-                    ) : filteredMessages.map((msg, idx) => {
+                      <div className="flex justify-center py-20 opacity-20"><Loader2 className="h-6 w-6 animate-spin" /></div>
+                    ) : filteredMessages.length > 0 ? filteredMessages.map((msg, idx) => {
                       const isMe = msg.senderId === user?.uid;
                       const isAdmin = currentUserProfile?.role === 'admin';
+                      const isPinned = activeConv.pinnedMessageId === msg.id;
                       const showSender = !isMe && (idx === 0 || filteredMessages[idx-1].senderId !== msg.senderId);
                       return (
                         <div key={msg.id} className={cn("flex flex-col max-w-[80%] group/msg", isMe ? "ml-auto items-end" : "mr-auto items-start")}>
                           <div className="flex items-center gap-2 mb-1.5 w-full">
                             {showSender && <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">{msg.senderName}</p>}
-                            {(isMe || isAdmin) && (
-                              <div className={cn("flex items-center gap-1 opacity-0 group-hover/msg:opacity-100 transition-opacity", isMe ? "ml-auto" : "mr-auto order-last")}>
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground rounded-full">
-                                      <MoreHorizontal className="h-3 w-3" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align={isMe ? "end" : "start"} className="w-32 p-1 rounded-xl shadow-xl border-border bg-popover">
-                                    {isMe && !msg.audioUrl && (
-                                      <DropdownMenuItem onClick={() => handleEditClick(msg)} className="gap-2 text-xs font-bold rounded-lg cursor-pointer text-foreground hover:bg-muted">
-                                        <Pencil className="h-3 w-3" /> Edit
-                                      </DropdownMenuItem>
-                                    )}
-                                    <DropdownMenuItem 
-                                      onClick={() => {
-                                        setMsgToDelete(msg);
-                                        setIsDeleteDialogOpen(true);
-                                      }} 
-                                      className="gap-2 text-xs font-bold text-destructive hover:text-destructive focus:text-destructive focus:bg-destructive/5 rounded-lg cursor-pointer"
-                                    >
-                                      <Trash2 className="h-3 w-3" /> Delete
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              </div>
-                            )}
+                            <div className={cn("flex items-center gap-1 opacity-0 group-hover/msg:opacity-100 transition-opacity", isMe ? "ml-auto" : "mr-auto order-last")}>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full"><MoreHorizontal className="h-3 w-3" /></Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align={isMe ? "end" : "start"} className="w-32 p-1 rounded-xl">
+                                  <DropdownMenuItem onClick={() => togglePin(msg.id)} className="gap-2 text-xs font-bold">
+                                    {isPinned ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />} {isPinned ? 'Unpin' : 'Pin Protocol'}
+                                  </DropdownMenuItem>
+                                  {isMe && !msg.audioUrl && (
+                                    <DropdownMenuItem onClick={() => handleEditClick(msg)} className="gap-2 text-xs font-bold"><Pencil className="h-3 w-3" /> Edit</DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuItem onClick={() => { setMsgToDelete(msg); setIsDeleteDialogOpen(true); }} className="gap-2 text-xs font-bold text-destructive">
+                                    <Trash2 className="h-3 w-3" /> Purge
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
                           </div>
                           <div className={cn(
-                            "px-4 py-3 rounded-[20px] text-sm shadow-sm transition-all",
-                            isMe 
-                              ? "bg-primary text-primary-foreground rounded-tr-none" 
-                              : "bg-card text-foreground border border-border rounded-tl-none"
+                            "px-4 py-3 rounded-[20px] text-sm shadow-sm transition-all relative",
+                            isMe ? "bg-primary text-primary-foreground rounded-tr-none" : "bg-card text-foreground border border-border rounded-tl-none",
+                            isPinned && "ring-2 ring-primary/20 ring-offset-2"
                           )}>
+                            {isPinned && <Pin className="absolute -top-1 -right-1 h-3 w-3 text-primary bg-background rounded-full p-0.5 border shadow-sm" />}
                             {msg.audioUrl ? (
                               <div className="flex flex-col gap-2 min-w-[200px]">
                                 <div className="flex items-center gap-2 mb-1">
@@ -646,23 +690,24 @@ export default function CommunicationPage() {
                             )}
                             {msg.isEdited && <span className="block text-[8px] opacity-40 mt-1 italic">(Edited)</span>}
                           </div>
-                          <p className={cn("text-[8px] font-black text-muted-foreground mt-1.5 uppercase tracking-tighter", isMe ? "mr-1" : "ml-1")}>
+                          <p className={cn("text-[8px] font-black text-muted-foreground mt-1.5 uppercase", isMe ? "mr-1" : "ml-1")}>
                             {msg.timestamp?.toDate ? format(msg.timestamp.toDate(), 'HH:mm • MMM dd') : 'Transmitting...'}
                           </p>
                         </div>
                       );
-                    })}
+                    }) : (
+                      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground/30">
+                        <MessageSquare className="h-12 w-12 mb-3" />
+                        <p className="text-xs font-black uppercase tracking-widest">No matching transmissions</p>
+                      </div>
+                    )}
                   </div>
                 </ScrollArea>
-                <div className="p-4 bg-card border-t border-border">
+                <div className="p-4 bg-card border-t">
                   {editingMsg && (
-                    <div className="flex items-center justify-between mb-2 px-3 py-1.5 bg-muted rounded-lg border border-border">
-                      <p className="text-[10px] font-bold text-primary uppercase flex items-center gap-1.5">
-                        <Pencil className="h-3 w-3" /> Modifying record...
-                      </p>
-                      <Button variant="ghost" size="icon" onClick={cancelEdit} className="h-5 w-5 text-muted-foreground hover:text-destructive">
-                        <X className="h-3 w-3" />
-                      </Button>
+                    <div className="flex items-center justify-between mb-2 px-3 py-1.5 bg-muted rounded-lg border">
+                      <p className="text-[10px] font-bold text-primary uppercase flex items-center gap-1.5"><Pencil className="h-3 w-3" /> Modifying record...</p>
+                      <Button variant="ghost" size="icon" onClick={() => { setEditingMsg(null); setInputText(''); }} className="h-5 w-5"><X className="h-3 w-3" /></Button>
                     </div>
                   )}
                   <form onSubmit={handleSendMessage} className="flex gap-3 items-center">
@@ -671,31 +716,14 @@ export default function CommunicationPage() {
                       value={inputText} 
                       onChange={(e) => setInputText(e.target.value)} 
                       disabled={isRecording}
-                      className="flex-1 h-12 border-border bg-muted/30 shadow-inner rounded-xl focus:ring-primary/20 text-foreground" 
+                      className="flex-1 h-12 border-border bg-muted/30 shadow-inner rounded-xl" 
                     />
-                    
                     {!editingMsg && (
-                      <Button 
-                        type="button"
-                        size="icon" 
-                        onClick={isRecording ? stopRecording : startRecording}
-                        className={cn(
-                          "h-12 w-12 rounded-xl transition-all shadow-lg active:scale-95",
-                          isRecording 
-                            ? "bg-destructive hover:bg-destructive/90 animate-pulse text-white" 
-                            : "bg-muted text-muted-foreground hover:bg-muted/80"
-                        )}
-                      >
+                      <Button type="button" size="icon" onClick={isRecording ? stopRecording : startRecording} className={cn("h-12 w-12 rounded-xl transition-all shadow-lg", isRecording ? "bg-destructive text-white animate-pulse" : "bg-muted text-muted-foreground")}>
                         {isRecording ? <Square className="h-5 w-5 fill-white" /> : <Mic className="h-5 w-5" />}
                       </Button>
                     )}
-
-                    <Button 
-                      type="submit" 
-                      size="icon" 
-                      disabled={!inputText.trim() || isRecording} 
-                      className="h-12 w-12 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xl shadow-primary/5 rounded-xl transition-all active:scale-95"
-                    >
+                    <Button type="submit" size="icon" disabled={!inputText.trim() || isRecording} className="h-12 w-12 bg-primary text-primary-foreground shadow-xl rounded-xl">
                       <Send className="h-5 w-5" />
                     </Button>
                   </form>
@@ -717,8 +745,86 @@ export default function CommunicationPage() {
         </Card>
       </div>
 
+      {/* Settings Dialog */}
+      <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+        <DialogContent className="rounded-2xl border-none p-0 overflow-hidden sm:max-w-[400px]">
+          <DialogHeader className="p-6 bg-muted/30 border-b">
+            <DialogTitle className="text-lg font-black uppercase tracking-tight">Channel Protocols</DialogTitle>
+          </DialogHeader>
+          <div className="p-6 space-y-8">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Designation</Label>
+              <div className="flex gap-2">
+                <Input value={editGroupName} onChange={(e) => setNewEditGroupName(e.target.value)} className="h-11 rounded-xl" />
+                <Button onClick={handleUpdateGroupName} className="rounded-xl h-11 px-6">Save</Button>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Assigned Personnel</Label>
+              <ScrollArea className="h-[200px] rounded-xl border p-2">
+                <div className="space-y-1">
+                  {activeConv?.members.map(mId => {
+                    const u = allUsers?.find(u => u.id === mId);
+                    return (
+                      <div key={mId} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-8 w-8"><AvatarFallback>{u?.fullName.substring(0, 2).toUpperCase()}</AvatarFallback></Avatar>
+                          <div>
+                            <p className="text-xs font-bold">{u?.fullName}</p>
+                            <p className="text-[9px] uppercase font-medium text-muted-foreground">{u?.role}</p>
+                          </div>
+                        </div>
+                        {u?.id !== user?.uid && (
+                          <Button variant="ghost" size="icon" onClick={() => handleRemoveMember(u!.id)} className="h-8 w-8 text-muted-foreground hover:text-destructive"><UserMinus className="h-4 w-4" /></Button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Personnel Add Dialog */}
+      <Dialog open={isAddMemberOpen} onOpenChange={setIsAddMemberOpen}>
+        <DialogContent className="rounded-2xl p-0 overflow-hidden sm:max-w-[400px]">
+          <DialogHeader className="p-6 bg-muted/30 border-b">
+            <DialogTitle className="text-lg font-black uppercase tracking-tight">Deploy Personnel</DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="max-h-[300px] p-2">
+            <div className="space-y-1">
+              {allUsers?.filter(u => !activeConv?.members.includes(u.id)).map(u => (
+                <button
+                  key={u.id}
+                  onClick={() => {
+                    updateDocumentNonBlocking(doc(db!, 'conversations', activeConvId!), { members: arrayUnion(u.id) });
+                    setIsAddMemberOpen(false);
+                    toast({ title: "Personnel Deployed", description: `${u.fullName} added to channel.` });
+                  }}
+                  className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-muted/50 transition-all text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      <Avatar className="h-8 w-8"><AvatarFallback>{u.fullName.substring(0, 2).toUpperCase()}</AvatarFallback></Avatar>
+                      {u.isDutyActive && <span className="absolute bottom-0 right-0 h-2 w-2 bg-green-500 rounded-full border border-background" />}
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold">{u.fullName}</p>
+                      <p className="text-[9px] uppercase font-medium text-muted-foreground">{u.role}</p>
+                    </div>
+                  </div>
+                  <Plus className="h-4 w-4 text-muted-foreground" />
+                </button>
+              ))}
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent className="rounded-3xl border-border shadow-2xl bg-popover overflow-hidden p-0">
+        <AlertDialogContent className="rounded-3xl border-none shadow-2xl bg-popover overflow-hidden p-0">
           <div className="p-8 text-center space-y-4">
              <div className="mx-auto bg-destructive/10 p-4 rounded-2xl w-fit">
               {isDeleting ? <Loader2 className="h-8 w-8 text-destructive animate-spin" /> : <ShieldAlert className="h-8 w-8 text-destructive" />}
@@ -728,51 +834,20 @@ export default function CommunicationPage() {
                 {isDeleting ? "PURGING TRANSMISSION..." : "MESSAGE DELETION"}
               </AlertDialogTitle>
               <AlertDialogDescription className="text-center text-muted-foreground">
-                {isDeleting 
-                  ? "Removing record from coordination log. Please stand by..."
-                  : "Select the scope of deletion for this transmission. This action is logged for security auditing."
-                }
+                {isDeleting ? "Removing record from coordination log. Please stand by..." : "Select the scope of deletion for this transmission."}
               </AlertDialogDescription>
             </AlertDialogHeader>
           </div>
-
           {!isDeleting && (
             <div className="grid grid-cols-1 gap-3 px-8 pb-4">
-              <Button 
-                variant="outline" 
-                className="h-12 justify-start px-6 rounded-xl border-border hover:bg-muted font-bold text-foreground"
-                onClick={handleDeleteForMe}
-              >
-                <User className="mr-3 h-4 w-4 text-muted-foreground" /> Delete for Me
-              </Button>
-              
+              <Button variant="outline" className="h-12 justify-start px-6 rounded-xl border-border font-bold" onClick={handleDeleteForMe}><User className="mr-3 h-4 w-4 text-muted-foreground" /> Delete for Me</Button>
               {(msgToDelete?.senderId === user?.uid || currentUserProfile?.role === 'admin') && (
-                <Button 
-                  variant="outline" 
-                  className="h-12 justify-start px-6 rounded-xl border-destructive/20 text-destructive hover:bg-destructive/5 font-bold"
-                  onClick={handleDeleteForEveryone}
-                >
-                  <Trash2 className="mr-3 h-4 w-4" /> Delete for Everyone
-                </Button>
+                <Button variant="outline" className="h-12 justify-start px-6 rounded-xl border-destructive/20 text-destructive hover:bg-destructive/5 font-bold" onClick={handleDeleteForEveryone}><Trash2 className="mr-3 h-4 w-4" /> Delete for Everyone</Button>
               )}
             </div>
           )}
-
-          <AlertDialogFooter className={cn("bg-muted/30 p-6 flex-col sm:flex-col gap-2", isDeleting && "justify-center")}>
-            {!isDeleting && (
-              <AlertDialogCancel 
-                className="w-full h-11 rounded-xl font-bold border-none bg-muted hover:bg-muted/80 text-foreground" 
-                onClick={() => { setMsgToDelete(null); setIsDeleteDialogOpen(false); }}
-              >
-                Cancel Operation
-              </AlertDialogCancel>
-            )}
-            {isDeleting && (
-               <div className="flex items-center justify-center gap-2 py-4">
-                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                 <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Processing request...</span>
-               </div>
-            )}
+          <AlertDialogFooter className="bg-muted/30 p-6">
+            <AlertDialogCancel disabled={isDeleting} className="w-full h-11 rounded-xl font-bold">Cancel Operation</AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
