@@ -113,6 +113,7 @@ export interface UserProfile {
   lastAnnouncementReadAt?: string;
   lastMessageReadAt?: string;
   updatedAt?: string;
+  isDutyActive?: boolean;
 }
 
 export interface SystemSettings {
