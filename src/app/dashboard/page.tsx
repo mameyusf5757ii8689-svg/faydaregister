@@ -32,12 +32,23 @@ export default function OfficerDashboard() {
 
   const announcementsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, 'announcements'), limit(5));
+    return query(collection(db, 'announcements'), limit(10));
   }, [db, user]);
 
   const { data: registrations, isLoading: isRegLoading } = useCollection<Registration>(registrationsQuery);
   const { data: reports, isLoading: isReportsLoading } = useCollection<DailyReport>(reportsQuery);
   const { data: announcements, isLoading: isAnnLoading } = useCollection<Announcement>(announcementsQuery);
+
+  const sortedAnnouncements = useMemo(() => {
+    if (!announcements) return [];
+    return [...announcements].sort((a, b) => {
+      const getTs = (item: Announcement) => {
+        if (item.timestamp?.toDate) return item.timestamp.toDate().getTime();
+        return new Date(item.date).getTime();
+      };
+      return getTs(b) - getTs(a);
+    });
+  }, [announcements]);
 
   const stats: DashboardStats = useMemo(() => {
     const defaultStats = { 
@@ -129,7 +140,7 @@ export default function OfficerDashboard() {
             <Megaphone className="h-3.5 w-3.5 text-primary" /> Bureau Telegrams
           </h2>
           <div className="space-y-3">
-            {announcements && announcements.length > 0 ? announcements.map((ann) => (
+            {sortedAnnouncements.length > 0 ? sortedAnnouncements.map((ann) => (
               <Card key={ann.id} className="border-none shadow-sm bg-card hover:shadow-md transition-shadow">
                 <CardContent className="p-4">
                   <div className="flex gap-3">
