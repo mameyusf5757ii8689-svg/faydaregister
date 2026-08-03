@@ -3,7 +3,7 @@ import { collection, serverTimestamp } from 'firebase/firestore';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Firestore } from 'firebase/firestore';
 
-export type AuditAction = 'STATUS_UPDATE' | 'RECORD_CREATED' | 'RECORD_DELETED' | 'PERSONNEL_MODIFIED' | 'BRANDING_UPDATE' | 'VERIFICATION_CHECK';
+export type AuditAction = 'STATUS_UPDATE' | 'RECORD_CREATED' | 'RECORD_DELETED' | 'PERSONNEL_MODIFIED' | 'BRANDING_UPDATE' | 'VERIFICATION_CHECK' | 'PERFORMANCE_REVIEW';
 
 /**
  * Log an immutable operational action for security auditing.

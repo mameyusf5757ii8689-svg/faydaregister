@@ -1,9 +1,10 @@
+
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useMemoFirebase, useCollection, useUser, useFirestore } from '@/firebase';
-import { collection, query, where, limit } from 'firebase/firestore';
+import { useMemoFirebase, useCollection, useUser, useFirestore, useDoc } from '@/firebase';
+import { collection, query, where, limit, doc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { 
   Trophy, 
@@ -18,13 +19,34 @@ import {
   ArrowUpRight,
   ShieldAlert,
   Calendar,
-  Filter
+  Filter,
+  FileSpreadsheet,
+  FileText,
+  Eye,
+  Info,
+  History,
+  Zap,
+  Target
 } from 'lucide-react';
-import { Registration } from '@/lib/types';
+import { Registration, UserProfile } from '@/lib/types';
 import { StatusBadge } from '@/components/dashboard/status-badge';
-import { format, addMonths, startOfMonth, isSameMonth } from 'date-fns';
+import { format, addMonths, subDays, eachDayOfInterval, startOfMonth, endOfMonth, isSameDay } from 'date-fns';
 import { Input } from '@/components/ui/input';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { 
+  PieChart, 
+  Pie, 
+  Cell, 
+  ResponsiveContainer, 
+  Tooltip as ChartTooltip,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  RadialBarChart,
+  RadialBar,
+  PolarAngleAxis
+} from 'recharts';
 import { 
   Table, 
   TableBody, 
@@ -40,6 +62,20 @@ import {
   SelectTrigger, 
   SelectValue 
 } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle,
+  DialogDescription
+} from '@/components/ui/dialog';
+import { useToast } from '@/hooks/use-toast';
+import { logAuditAction } from '@/lib/audit';
+import * as XLSX from 'xlsx';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { cn } from '@/lib/utils';
 
 const START_DATE = new Date(2025, 6, 1); // July 1, 2025
 
@@ -47,21 +83,31 @@ export default function PerformancePage() {
   const { user, isUserLoading } = useUser();
   const db = useFirestore();
   const router = useRouter();
+  const { toast } = useToast();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMonth, setSelectedMonth] = useState('');
+  const [selectedRejection, setSelectedRejection] = useState<Registration | null>(null);
+  const [mounted, setMounted] = useState(false);
 
-  // Security: Redirect to login if not authenticated
   useEffect(() => {
+    setMounted(true);
     if (!isUserLoading && !user) {
       router.push('/login');
     }
   }, [user, isUserLoading, router]);
 
-  // Initialize selected month on client
   useEffect(() => {
-    setSelectedMonth(format(new Date(), 'yyyy-MM'));
-  }, []);
+    if (mounted && !selectedMonth) {
+      setSelectedMonth(format(new Date(), 'yyyy-MM'));
+    }
+  }, [mounted, selectedMonth]);
+
+  const userProfileRef = useMemoFirebase(() => {
+    if (!db || !user?.uid) return null;
+    return doc(db, 'users', user.uid);
+  }, [db, user?.uid]);
+  const { data: profile } = useDoc<UserProfile>(userProfileRef);
 
   const registrationsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -73,6 +119,19 @@ export default function PerformancePage() {
   }, [db, user]);
 
   const { data: registrations, isLoading } = useCollection<Registration>(registrationsQuery);
+
+  useEffect(() => {
+    if (db && user && profile && selectedMonth && mounted) {
+      logAuditAction(
+        db,
+        user,
+        profile.fullName,
+        'PERFORMANCE_REVIEW',
+        selectedMonth,
+        `Officer accessed performance intelligence for period: ${selectedMonth}.`
+      );
+    }
+  }, [selectedMonth, db, user, profile, mounted]);
 
   const monthsList = useMemo(() => {
     const list = [];
@@ -102,15 +161,20 @@ export default function PerformancePage() {
       total: 0,
       processed: 0,
       rejected: 0,
-      successRate: "0.0",
-      rejectionRate: "0.0",
-      chartData: []
+      successRate: 0,
+      rejectionRate: 0,
+      topReason: 'None',
+      peakDay: { date: '-', success: 0 },
+      chartData: [],
+      trendData: [],
+      radialData: [{ name: 'Quality', value: 0, fill: 'hsl(var(--primary))' }]
     };
 
     const total = filteredByMonth.length;
     const processed = filteredByMonth.filter(r => r.status === 'Processed').length;
     const rejected = filteredByMonth.filter(r => r.status === 'Rejected').length;
     const other = total - (processed + rejected);
+    const successRate = Number(((processed / total) * 100).toFixed(1));
 
     const chartData = [
       { name: 'Success', value: processed, color: 'hsl(var(--primary))' },
@@ -118,15 +182,50 @@ export default function PerformancePage() {
       { name: 'Other', value: other, color: 'hsl(var(--muted-foreground))' },
     ];
 
+    // Rejection Reason Intelligence
+    const reasonCounts: Record<string, number> = {};
+    filteredByMonth.filter(r => r.status === 'Rejected').forEach(r => {
+      const reason = r.rejectionReason || 'Unknown';
+      reasonCounts[reason] = (reasonCounts[reason] || 0) + 1;
+    });
+    const topReason = Object.entries(reasonCounts).sort((a,b) => b[1] - a[1])[0]?.[0] || 'Zero Discrepancies';
+
+    // Daily Trend Calculation
+    const [year, month] = selectedMonth.split('-').map(Number);
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = endOfMonth(startDate);
+    const daysInterval = eachDayOfInterval({ start: startDate, end: endDate });
+
+    const trendData = daysInterval.map(day => {
+      const dayRegs = filteredByMonth.filter(r => isSameDay(new Date(r.submissionDate), day));
+      return {
+        date: format(day, 'dd MMM'),
+        success: dayRegs.filter(r => r.status === 'Processed').length,
+        rejected: dayRegs.filter(r => r.status === 'Rejected').length,
+      };
+    });
+
+    const peakDay = trendData.reduce((prev, curr) => (curr.success > prev.success) ? curr : prev, { date: '-', success: 0 });
+
+    const radialData = [{ 
+      name: 'Success Rate', 
+      value: successRate, 
+      fill: successRate >= 85 ? 'hsl(var(--primary))' : 'hsl(var(--destructive))' 
+    }];
+
     return {
       total,
       processed,
       rejected,
-      successRate: ((processed / total) * 100).toFixed(1),
-      rejectionRate: ((rejected / total) * 100).toFixed(1),
-      chartData
+      successRate,
+      rejectionRate: Number(((rejected / total) * 100).toFixed(1)),
+      topReason,
+      peakDay,
+      chartData,
+      trendData,
+      radialData
     };
-  }, [filteredByMonth]);
+  }, [filteredByMonth, selectedMonth]);
 
   const rejectedRegistrations = useMemo(() => {
     if (!filteredByMonth) return [];
@@ -138,6 +237,63 @@ export default function PerformancePage() {
       )
       .sort((a, b) => new Date(b.submissionDate).getTime() - new Date(a.submissionDate).getTime());
   }, [filteredByMonth, searchTerm]);
+
+  const handleExportExcel = () => {
+    if (filteredByMonth.length === 0) return;
+    const exportData = filteredByMonth.map(r => ({
+      'ID': r.id,
+      'Applicant': r.applicantName,
+      'Date': format(new Date(r.submissionDate), 'yyyy-MM-dd'),
+      'Status': r.status,
+      'Rejection Reason': r.rejectionReason || 'N/A',
+      'Location': r.location
+    }));
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "PerformanceRegistry");
+    XLSX.writeFile(wb, `Bureau_Performance_${selectedMonth}.xlsx`);
+    toast({ title: "Excel Intelligence Exported", description: "Monthly performance registry has been generated." });
+  };
+
+  const handleExportPDF = () => {
+    if (filteredByMonth.length === 0) return;
+    const doc = new jsPDF();
+    doc.text(`Official Performance Review: ${profile?.fullName || 'Official'}`, 14, 15);
+    doc.setFontSize(10);
+    doc.text(`Period: ${selectedMonth} | Success Rate: ${stats.successRate}% | Rejection Rate: ${stats.rejectionRate}%`, 14, 22);
+    
+    const rows = filteredByMonth.map(r => [
+      r.id.substring(0, 15) + '...', 
+      r.applicantName, 
+      format(new Date(r.submissionDate), 'MMM dd'), 
+      r.status,
+      r.rejectionReason || '-'
+    ]);
+
+    autoTable(doc, {
+      startY: 30,
+      head: [['RID', 'Applicant', 'Date', 'Status', 'Rejection Detail']],
+      body: rows,
+      theme: 'striped',
+      headStyles: { fillColor: [37, 99, 235] }
+    });
+    doc.save(`Bureau_Performance_${selectedMonth}.pdf`);
+    toast({ title: "PDF Ledger Generated", description: "Official documentation has been saved." });
+  };
+
+  const handleOpenForensicRecord = (reg: Registration) => {
+    setSelectedRejection(reg);
+    if (db && user && profile) {
+      logAuditAction(
+        db,
+        user,
+        profile.fullName,
+        'VERIFICATION_CHECK',
+        reg.id,
+        `Forensic Audit: Reviewed detailed rejection log for applicant ${reg.applicantName}.`
+      );
+    }
+  };
 
   if (isUserLoading || isLoading || !selectedMonth || !user) {
     return (
@@ -180,48 +336,90 @@ export default function PerformancePage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="border border-border bg-card shadow-sm rounded-2xl overflow-hidden relative group">
-          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-            <CheckCircle2 className="h-20 w-20 text-primary" />
-          </div>
-          <CardContent className="p-8">
-            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">Success Rate</p>
-            <div className="flex items-baseline gap-2">
-              <span className="text-5xl font-black text-foreground tracking-tighter">{stats.successRate}%</span>
-              <span className="text-[10px] font-bold text-emerald-500 uppercase flex items-center gap-1">
-                <ArrowUpRight className="h-3 w-3" /> Target: 85%+
-              </span>
+      {/* Advanced Performance Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card className="border border-border bg-card shadow-sm rounded-[32px] overflow-hidden relative group">
+          <CardContent className="p-8 flex flex-col items-center justify-center text-center">
+            <div className="h-[140px] w-full relative">
+               <ResponsiveContainer width="100%" height="100%">
+                  <RadialBarChart 
+                    cx="50%" 
+                    cy="50%" 
+                    innerRadius="60%" 
+                    outerRadius="100%" 
+                    barSize={12} 
+                    data={stats.radialData}
+                    startAngle={180}
+                    endAngle={0}
+                  >
+                    <PolarAngleAxis
+                      type="number"
+                      domain={[0, 100]}
+                      angleAxisId={0}
+                      tick={false}
+                    />
+                    <RadialBar
+                      background
+                      dataKey="value"
+                      cornerRadius={30}
+                    />
+                  </RadialBarChart>
+               </ResponsiveContainer>
+               <div className="absolute inset-0 flex flex-col items-center justify-center pt-10">
+                  <span className="text-4xl font-black text-foreground tracking-tighter">{stats.successRate}%</span>
+                  <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Accuracy</p>
+               </div>
             </div>
-            <div className="mt-6 h-2 w-full bg-muted rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-primary transition-all duration-1000" 
-                style={{ width: `${stats.successRate}%` }} 
-              />
+            <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 rounded-full border border-emerald-500/20">
+              <Target className="h-3 w-3 text-emerald-600" />
+              <span className="text-[9px] font-black text-emerald-700 uppercase">Bureau Target: 85%+</span>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border border-border bg-card shadow-sm rounded-2xl overflow-hidden relative group">
-          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-            <XCircle className="h-20 w-20 text-destructive" />
-          </div>
+        <Card className="border border-border bg-card shadow-sm rounded-[32px] overflow-hidden relative group">
           <CardContent className="p-8">
-            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">Rejection Rate</p>
-            <div className="flex items-baseline gap-2">
-              <span className="text-5xl font-black text-foreground tracking-tighter">{stats.rejectionRate}%</span>
-              <span className="text-[10px] font-bold text-amber-500 uppercase">Audit Threshold: 15%</span>
+            <div className="flex items-start justify-between mb-4">
+               <div>
+                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Peak Day</p>
+                  <p className="text-3xl font-black text-foreground tracking-tighter">{stats.peakDay.date}</p>
+               </div>
+               <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                  <Zap className="h-4 w-4" />
+               </div>
             </div>
-            <div className="mt-6 h-2 w-full bg-muted rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-destructive transition-all duration-1000" 
-                style={{ width: `${stats.rejectionRate}%` }} 
-              />
+            <p className="text-[10px] font-bold text-muted-foreground uppercase">
+              Throughput: <span className="text-foreground">{stats.peakDay.success}</span> Successes
+            </p>
+            <div className="mt-4 pt-4 border-t border-dashed border-border flex items-center gap-2">
+               <ArrowUpRight className="h-3.5 w-3.5 text-emerald-500" />
+               <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Highest Quality Output</span>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border border-border bg-card shadow-sm rounded-2xl overflow-hidden flex items-center justify-center p-6">
+        <Card className="border border-border bg-card shadow-sm rounded-[32px] overflow-hidden relative group">
+          <CardContent className="p-8">
+            <div className="flex items-start justify-between mb-4">
+               <div>
+                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Top Discrepancy</p>
+                  <p className="text-xl font-black text-foreground tracking-tight line-clamp-1">{stats.topReason}</p>
+               </div>
+               <div className="p-2 bg-rose-500/10 rounded-lg text-rose-500">
+                  <ShieldAlert className="h-4 w-4" />
+               </div>
+            </div>
+            <p className="text-[10px] font-bold text-muted-foreground uppercase">
+              Frequency: <span className="text-rose-600">{stats.rejected}</span> Instances
+            </p>
+            <div className="mt-4 pt-4 border-t border-dashed border-border flex items-center gap-2">
+               <AlertCircle className="h-3.5 w-3.5 text-rose-500" />
+               <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Primary Audit Flag</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border border-border bg-card shadow-sm rounded-[32px] overflow-hidden relative group flex items-center justify-center p-6">
            <div className="h-[180px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -238,7 +436,7 @@ export default function PerformancePage() {
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip 
+                <ChartTooltip 
                   contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '12px', border: '1px solid hsl(var(--border))' }}
                   itemStyle={{ fontSize: '10px', fontBold: true, textTransform: 'uppercase' }}
                 />
@@ -248,49 +446,118 @@ export default function PerformancePage() {
         </Card>
       </div>
 
+      <section className="grid grid-cols-1 lg:grid-cols-1 gap-6">
+        <Card className="border border-border bg-card overflow-hidden rounded-[32px] shadow-sm">
+           <CardHeader className="bg-muted/30 border-b border-border py-4 px-8 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-xs font-black text-foreground uppercase tracking-[0.2em]">Quality Velocity</CardTitle>
+                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">Daily throughput vs rejections</p>
+              </div>
+              <History className="h-4 w-4 text-muted-foreground opacity-20" />
+           </CardHeader>
+           <CardContent className="p-8">
+              <div className="h-[300px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={stats.trendData}>
+                    <defs>
+                      <linearGradient id="colorSuccess" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.1}/>
+                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="colorRejected" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(var(--destructive))" stopOpacity={0.1}/>
+                        <stop offset="95%" stopColor="hsl(var(--destructive))" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                    <XAxis 
+                      dataKey="date" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fontSize: 9, fontBold: true, fill: 'hsl(var(--muted-foreground))' }} 
+                    />
+                    <YAxis 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fontSize: 9, fontBold: true, fill: 'hsl(var(--muted-foreground))' }} 
+                    />
+                    <ChartTooltip 
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="bg-card border border-border shadow-2xl p-3 rounded-xl space-y-1">
+                              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{payload[0].payload.date}</p>
+                              <p className="text-xs font-black text-primary uppercase">Success: {payload[0].value}</p>
+                              <p className="text-xs font-black text-destructive uppercase">Rejected: {payload[1].value}</p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Area type="monotone" dataKey="success" stroke="hsl(var(--primary))" strokeWidth={2} fillOpacity={1} fill="url(#colorSuccess)" />
+                    <Area type="monotone" dataKey="rejected" stroke="hsl(var(--destructive))" strokeWidth={2} fillOpacity={1} fill="url(#colorRejected)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+           </CardContent>
+        </Card>
+      </section>
+
       <div className="space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-card p-6 rounded-[32px] border border-border shadow-sm">
+          <div className="space-y-1">
             <h2 className="text-xl font-black text-foreground uppercase tracking-tight flex items-center gap-2">
               <ShieldAlert className="h-5 w-5 text-destructive" /> Rejection Audit Registry
             </h2>
             <p className="text-xs font-medium text-muted-foreground">Protocol failures for {monthsList.find(m => m.value === selectedMonth)?.label}.</p>
           </div>
-          <div className="relative w-full max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/30" />
-            <Input 
-              placeholder="Search rejected records..." 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 h-11 border-border bg-card rounded-xl text-xs"
-            />
+          
+          <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
+            <div className="relative w-full sm:w-80 group">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/30 group-focus-within:text-primary transition-colors" />
+              <Input 
+                placeholder="Search rejected records..." 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="h-11 pl-10 border-border bg-background rounded-xl text-xs"
+              />
+            </div>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <Button onClick={handleExportExcel} variant="outline" className="flex-1 h-11 px-4 rounded-xl border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/10 font-bold text-[10px] uppercase tracking-widest bg-background">
+                <FileSpreadsheet className="mr-2 h-4 w-4" /> Excel
+              </Button>
+              <Button onClick={handleExportPDF} variant="outline" className="flex-1 h-11 px-4 rounded-xl border-rose-500/20 text-rose-500 hover:bg-rose-500/10 font-bold text-[10px] uppercase tracking-widest bg-background">
+                <FileText className="mr-2 h-4 w-4" /> PDF
+              </Button>
+            </div>
           </div>
         </div>
 
-        <Card className="border border-border bg-card shadow-sm rounded-3xl overflow-hidden">
+        <Card className="border border-border bg-card shadow-sm rounded-[32px] overflow-hidden">
           <Table>
             <TableHeader className="bg-muted/30">
               <TableRow className="hover:bg-transparent border-border">
-                <TableHead className="text-[10px] font-black uppercase tracking-widest py-5 pl-8">Applicant</TableHead>
-                <TableHead className="text-[10px] font-black uppercase tracking-widest py-5">Registry ID</TableHead>
-                <TableHead className="text-[10px] font-black uppercase tracking-widest py-5">Audit Date</TableHead>
-                <TableHead className="text-[10px] font-black uppercase tracking-widest py-5">Protocol Failure Reason</TableHead>
-                <TableHead className="text-[10px] font-black uppercase tracking-widest py-5 pr-8 text-right">Status</TableHead>
+                <TableHead className="text-[10px] font-black uppercase tracking-widest py-5 pl-10 text-muted-foreground">Applicant</TableHead>
+                <TableHead className="text-[10px] font-black uppercase tracking-widest py-5 text-muted-foreground">Registry ID</TableHead>
+                <TableHead className="text-[10px] font-black uppercase tracking-widest py-5 text-muted-foreground">Audit Date</TableHead>
+                <TableHead className="text-[10px] font-black uppercase tracking-widest py-5 text-muted-foreground">Discrepancy</TableHead>
+                <TableHead className="text-[10px] font-black uppercase tracking-widest py-5 pr-10 text-right text-muted-foreground">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {rejectedRegistrations.length > 0 ? rejectedRegistrations.map((reg) => (
-                <TableRow key={reg.id} className="hover:bg-muted/30 transition-colors border-border h-20">
-                  <TableCell className="pl-8">
+                <TableRow key={reg.id} className="hover:bg-muted/30 transition-colors border-border h-20 group">
+                  <TableCell className="pl-10">
                     <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center border border-border">
-                        <User className="h-4 w-4 text-muted-foreground/50" />
+                      <div className="h-10 w-10 rounded-2xl bg-muted flex items-center justify-center border border-border group-hover:bg-background transition-all">
+                        <User className="h-5 w-5 text-muted-foreground/30" />
                       </div>
                       <span className="text-sm font-black text-foreground">{reg.applicantName}</span>
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2 text-[10px] font-mono font-bold text-muted-foreground/40 uppercase">
+                    <div className="flex items-center gap-2 text-[10px] font-mono font-bold text-muted-foreground/20 uppercase">
                       <FileDigit className="h-3 w-3" />
                       {reg.id.substring(0, 15)}...
                     </div>
@@ -301,13 +568,20 @@ export default function PerformancePage() {
                     </span>
                   </TableCell>
                   <TableCell>
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-rose-500/5 border border-rose-500/10 rounded-lg">
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-rose-500/5 border border-rose-500/10 rounded-xl">
                       <AlertCircle className="h-3.5 w-3.5 text-rose-500" />
                       <span className="text-xs font-bold text-rose-700">{reg.rejectionReason || "Unspecified Discrepancy"}</span>
                     </div>
                   </TableCell>
-                  <TableCell className="pr-8 text-right">
-                    <StatusBadge status="Rejected" className="scale-90 origin-right" />
+                  <TableCell className="pr-10 text-right">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-9 px-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-xl opacity-0 group-hover:opacity-100 transition-all"
+                      onClick={() => handleOpenForensicRecord(reg)}
+                    >
+                      <Eye className="mr-2 h-4 w-4" /> Forensic View
+                    </Button>
                   </TableCell>
                 </TableRow>
               )) : (
@@ -315,7 +589,7 @@ export default function PerformancePage() {
                   <TableCell colSpan={5} className="h-60 text-center">
                     <div className="flex flex-col items-center justify-center gap-3 opacity-20">
                       <CheckCircle2 className="h-12 w-12 text-primary" />
-                      <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Zero Protocol Failures Detected in {selectedMonth}</p>
+                      <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Zero Protocol Failures Detected</p>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -325,10 +599,76 @@ export default function PerformancePage() {
         </Card>
       </div>
 
-      <div className="p-6 bg-amber-500/5 border border-amber-500/10 rounded-2xl flex items-center gap-4">
+      <Dialog open={!!selectedRejection} onOpenChange={(o) => !o && setSelectedRejection(null)}>
+        <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden rounded-[32px] border-none shadow-2xl bg-popover">
+          <DialogHeader className="p-8 border-b border-border bg-muted/30">
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-rose-500/10 rounded-xl">
+                   <ShieldAlert className="h-5 w-5 text-rose-500" />
+                </div>
+                <div>
+                   <DialogTitle className="text-lg font-black text-foreground uppercase tracking-tight">Forensic Rejection Detail</DialogTitle>
+                   <DialogDescription className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Bureau Internal Discrepancy Record</DialogDescription>
+                </div>
+              </div>
+              <StatusBadge status="Rejected" className="scale-90" />
+            </div>
+          </DialogHeader>
+
+          <div className="p-8 space-y-8 bg-card">
+            <div className="grid grid-cols-2 gap-8">
+              <div className="space-y-1">
+                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-1.5"><User className="h-3 w-3" /> Applicant Identity</p>
+                <p className="text-sm font-black text-foreground">{selectedRejection?.applicantName}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-1.5"><Calendar className="h-3 w-3" /> Registration Date</p>
+                <p className="text-sm font-black text-foreground">{selectedRejection ? format(new Date(selectedRejection.submissionDate), 'MMMM dd, yyyy') : '-'}</p>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+               <div className="p-5 bg-rose-500/5 border border-rose-500/10 rounded-2xl space-y-2 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-4 opacity-5">
+                    <AlertCircle className="h-16 w-16 text-rose-500" />
+                  </div>
+                  <p className="text-[9px] font-black text-rose-600 uppercase tracking-widest flex items-center gap-2">
+                    <Info className="h-3 w-3" /> protocol failure reason
+                  </p>
+                  <p className="text-base font-bold text-rose-700 leading-tight relative z-10">
+                    {selectedRejection?.rejectionReason || "Unspecified data discrepancy detected during processing."}
+                  </p>
+               </div>
+
+               <div className="space-y-2">
+                  <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                    <FileDigit className="h-3 w-3" /> Submission Payload
+                  </p>
+                  <div className="p-6 bg-muted/50 rounded-[24px] border border-border relative overflow-hidden">
+                     <p className="text-sm text-foreground leading-relaxed italic font-medium">
+                       "{selectedRejection?.content || "No narrative content provided in the initial submission payload."}"
+                     </p>
+                  </div>
+               </div>
+            </div>
+          </div>
+
+          <div className="p-4 border-t border-border bg-muted/30 flex justify-end">
+            <Button 
+              onClick={() => setSelectedRejection(null)} 
+              className="font-black text-[10px] uppercase tracking-widest h-10 px-8 rounded-xl"
+            >
+              Close Forensic Record
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <div className="p-6 bg-amber-500/5 border border-amber-500/10 rounded-[32px] flex items-center gap-4">
         <ShieldAlert className="h-6 w-6 text-amber-500 shrink-0" />
         <p className="text-[10px] text-amber-700 font-bold uppercase leading-relaxed tracking-widest">
-          Operational Security: This terminal reflects your individual field performance metrics. Rejection rates exceeding 15% across a 30-day period will trigger an automatic administrative review. Data is isolated to your official signature.
+          Operational Security: This terminal reflects your individual field performance metrics. Rejection rates exceeding 15% across a 30-day period will trigger an automatic administrative review. Access to forensic detail logs is restricted and audited.
         </p>
       </div>
     </div>
