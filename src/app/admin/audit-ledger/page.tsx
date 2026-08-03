@@ -27,7 +27,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Trash2,
-  ShieldAlert
+  ShieldAlert,
+  X
 } from 'lucide-react';
 import { AuditLog, UserProfile } from '@/lib/types';
 import { format } from 'date-fns';
@@ -198,16 +199,25 @@ export default function AuditLedgerPage() {
             />
           </div>
           {selectedIds.size > 0 && (
-            <Button 
-              variant="destructive" 
-              className="h-11 px-6 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-destructive/10 animate-in zoom-in duration-300"
-              onClick={() => {
-                setPurgeConfirmationText('');
-                setIsPurgeDialogOpen(true);
-              }}
-            >
-              <Trash2 className="mr-2 h-4 w-4" /> Purge ({selectedIds.size})
-            </Button>
+            <div className="flex items-center gap-2 animate-in zoom-in duration-300">
+               <Button 
+                variant="outline" 
+                className="h-11 px-4 rounded-xl font-black text-[10px] uppercase tracking-widest border-border bg-card hover:bg-muted"
+                onClick={() => setSelectedIds(new Set())}
+              >
+                <X className="mr-2 h-4 w-4" /> Clear
+              </Button>
+              <Button 
+                variant="destructive" 
+                className="h-11 px-6 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-destructive/10"
+                onClick={() => {
+                  setPurgeConfirmationText('');
+                  setIsPurgeDialogOpen(true);
+                }}
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Purge ({selectedIds.size})
+              </Button>
+            </div>
           )}
         </div>
       </div>

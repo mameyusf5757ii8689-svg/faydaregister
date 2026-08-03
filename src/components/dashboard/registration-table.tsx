@@ -28,6 +28,7 @@ import {
   Trash2,
   CheckCircle2,
   RefreshCcw,
+  X,
 } from 'lucide-react';
 import { StatusBadge } from './status-badge';
 import { AiSuggestionModal } from './ai-suggestion-modal';
@@ -180,6 +181,15 @@ export function RegistrationTable({ registrations, isDashboardView = false }: Re
             {selectedIds.size} Selected for Triage
           </p>
           <div className="flex items-center gap-2">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-8 px-3 text-[9px] font-black uppercase tracking-tighter hover:bg-white/10"
+              onClick={() => setSelectedIds(new Set())}
+            >
+              <X className="mr-1.5 h-3.5 w-3.5" /> Clear Selection
+            </Button>
+            <div className="w-px h-4 bg-white/20 mx-1" />
             <Button 
               variant="ghost" 
               size="sm" 
