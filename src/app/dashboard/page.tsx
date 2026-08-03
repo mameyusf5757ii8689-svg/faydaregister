@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useMemoFirebase, useCollection, useUser, useFirestore, useDoc } from '@/firebase';
 import { collection, query, where, limit, doc } from 'firebase/firestore';
 import { updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
@@ -21,7 +21,11 @@ import {
   CalendarPlus, 
   Search,
   Zap,
-  Power
+  Power,
+  RefreshCcw,
+  FileSpreadsheet,
+  FileText as FileTextIcon,
+  TrendingUp as VelocityIcon
 } from 'lucide-react';
 import { Registration, DashboardStats, Announcement, DailyReport, UserProfile } from '@/lib/types';
 import { RegistrationFormModal } from '@/components/registrations/registration-form-modal';
@@ -31,6 +35,19 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { logAuditAction } from '@/lib/audit';
+import { format, subDays } from 'date-fns';
+import { 
+  AreaChart, 
+  Area, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer 
+} from 'recharts';
+import * as XLSX from 'xlsx';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export default function OfficerDashboard() {
   const { user } = useUser();
@@ -38,6 +55,8 @@ export default function OfficerDashboard() {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [isTogglingDuty, setIsTogglingDuty] = useState(false);
+  const [lastSynced, setLastSynced] = useState<Date>(new Date());
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user?.uid) return null;
@@ -70,6 +89,12 @@ export default function OfficerDashboard() {
   const { data: rawRegistrations, isLoading: isRegLoading } = useCollection<Registration>(registrationsQuery);
   const { data: reports, isLoading: isReportsLoading } = useCollection<DailyReport>(reportsQuery);
   const { data: announcements, isLoading: isAnnLoading } = useCollection<Announcement>(announcementsQuery);
+
+  useEffect(() => {
+    if (rawRegistrations || reports || announcements) {
+      setLastSynced(new Date());
+    }
+  }, [rawRegistrations, reports, announcements]);
 
   const sortedAnnouncements = useMemo(() => {
     if (!announcements) return [];
@@ -111,6 +136,24 @@ export default function OfficerDashboard() {
     };
   }, [rawRegistrations, reports]);
 
+  const velocityData = useMemo(() => {
+    if (!reports) return [];
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
+      const d = subDays(new Date(), i);
+      return format(d, 'yyyy-MM-dd');
+    }).reverse();
+
+    return last7Days.map(date => {
+      const dayTotal = reports
+        .filter(r => r.date === date)
+        .reduce((acc, curr) => acc + (curr.total || 0), 0);
+      return {
+        name: format(new Date(date), 'MMM dd'),
+        total: dayTotal
+      };
+    });
+  }, [reports]);
+
   const handleToggleDuty = async () => {
     if (!db || !user || !profile || isTogglingDuty) return;
     
@@ -147,6 +190,42 @@ export default function OfficerDashboard() {
     }
   };
 
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    window.location.reload();
+  };
+
+  const handleExportExcel = () => {
+    if (filteredRegistrations.length === 0) return;
+    const exportData = filteredRegistrations.map(r => ({
+      'ID': r.id,
+      'Applicant': r.applicantName,
+      'Date': format(new Date(r.submissionDate), 'yyyy-MM-dd'),
+      'Status': r.status,
+      'Location': r.location
+    }));
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "ActiveWorklist");
+    XLSX.writeFile(wb, `Bureau_Worklist_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+    toast({ title: "Excel Snapshot Generated", description: "Current worklist exported to spreadsheet." });
+  };
+
+  const handleExportPDF = () => {
+    if (filteredRegistrations.length === 0) return;
+    const doc = new jsPDF();
+    doc.text(`Worklist Snapshot: ${profile?.fullName || 'Official'}`, 14, 15);
+    const rows = filteredRegistrations.map(r => [r.id.substring(0, 15), r.applicantName, format(new Date(r.submissionDate), 'MMM dd'), r.status]);
+    autoTable(doc, {
+      startY: 25,
+      head: [['RID', 'Applicant', 'Date', 'Status']],
+      body: rows,
+      theme: 'striped'
+    });
+    doc.save(`Bureau_Worklist_${format(new Date(), 'yyyyMMdd')}.pdf`);
+    toast({ title: "PDF Snapshot Generated", description: "Official documentation saved." });
+  };
+
   if (isRegLoading || isReportsLoading || isAnnLoading) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
@@ -171,7 +250,7 @@ export default function OfficerDashboard() {
           <p className="text-sm text-muted-foreground max-w-lg">Unified Command Center for field operations and mission triage.</p>
         </div>
 
-        <div className="flex items-center gap-4 bg-card p-3 rounded-2xl border shadow-sm">
+        <div className="flex flex-wrap items-center gap-4 bg-card p-3 rounded-2xl border shadow-sm">
           <div className="flex items-center gap-3 px-4 border-r border-border">
             <div className={cn(
               "p-2.5 rounded-xl transition-all",
@@ -194,11 +273,24 @@ export default function OfficerDashboard() {
               </button>
             </div>
           </div>
+          
+          <div className="flex items-center gap-3 px-4 border-r border-border group cursor-pointer" onClick={handleRefresh}>
+            <div className="p-2.5 bg-primary/10 rounded-xl text-primary group-hover:rotate-180 transition-transform duration-500">
+              <RefreshCcw className={cn("h-5 w-5", isRefreshing && "animate-spin")} />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Last Sync</span>
+              <span className="text-sm font-black text-foreground uppercase tracking-tighter">
+                {format(lastSynced, 'HH:mm:ss')}
+              </span>
+            </div>
+          </div>
+
           <div className="flex items-center gap-3 px-2">
-            <div className="p-2.5 bg-primary/10 rounded-xl text-primary"><Timer className="h-5 w-5" /></div>
+            <div className="p-2.5 bg-muted rounded-xl text-muted-foreground"><Timer className="h-5 w-5" /></div>
             <div className="flex flex-col">
               <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Network</span>
-              <span className="text-sm font-black text-foreground uppercase tracking-tighter">Synced</span>
+              <span className="text-sm font-black text-green-600 uppercase tracking-tighter">Synced</span>
             </div>
           </div>
         </div>
@@ -229,44 +321,103 @@ export default function OfficerDashboard() {
         </Button>
       </section>
 
-      <section className="space-y-4">
-        <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
-          <Sparkles className="h-3.5 w-3.5 text-primary" /> Performance Metrics
-        </h2>
-        <StatsCards stats={stats} showOfficerCount={false} />
-      </section>
-
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
-        {/* Worklist Triage */}
-        <section className="xl:col-span-8 space-y-4">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="xl:col-span-8 space-y-8">
+          {/* Registration Velocity Intelligence */}
+          <section className="space-y-4">
             <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
-              <FileText className="h-3.5 w-3.5 text-primary" /> Activity Ledger
+              <VelocityIcon className="h-3.5 w-3.5 text-primary" /> 7-Day Velocity
             </h2>
-            <div className="relative w-full sm:w-64 group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground group-focus-within:text-primary transition-colors" />
-              <Input 
-                placeholder="Quick Filter worklist..." 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="h-9 pl-9 bg-card border-border text-[11px] font-bold rounded-xl"
-              />
-            </div>
-          </div>
-          <Card className="border-none shadow-sm rounded-2xl overflow-hidden bg-card">
-            <CardContent className="p-0">
-              {filteredRegistrations && filteredRegistrations.length > 0 ? (
-                <RegistrationTable registrations={filteredRegistrations} isDashboardView={true} />
-              ) : (
-                <div className="flex flex-col items-center justify-center py-24 text-center bg-muted/5">
-                  <div className="p-6 bg-muted rounded-full mb-4"><Search className="h-10 w-10 text-muted-foreground/10" /></div>
-                  <h3 className="text-sm font-black text-foreground uppercase tracking-tight mb-1">No matches in queue</h3>
-                  <p className="text-xs text-muted-foreground font-medium italic">Adjust your search parameters or check full registry.</p>
+            <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-card">
+              <CardContent className="p-6">
+                <div className="h-[200px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={velocityData}>
+                      <defs>
+                        <linearGradient id="colorVelocity" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.1}/>
+                          <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                      <XAxis 
+                        dataKey="name" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{ fontSize: 9, fontBold: true, fill: 'hsl(var(--muted-foreground))' }} 
+                      />
+                      <YAxis 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{ fontSize: 9, fontBold: true, fill: 'hsl(var(--muted-foreground))' }} 
+                      />
+                      <Tooltip 
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            return (
+                              <div className="bg-card border border-border shadow-2xl p-3 rounded-xl">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">{payload[0].payload.name}</p>
+                                <p className="text-sm font-black text-foreground tracking-tighter">Total: {payload[0].value}</p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Area type="monotone" dataKey="total" stroke="hsl(var(--primary))" strokeWidth={2} fillOpacity={1} fill="url(#colorVelocity)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </section>
+              </CardContent>
+            </Card>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
+              <Sparkles className="h-3.5 w-3.5 text-primary" /> Performance Metrics
+            </h2>
+            <StatsCards stats={stats} showOfficerCount={false} />
+          </section>
+
+          {/* Worklist Triage */}
+          <section className="space-y-4">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
+                <FileText className="h-3.5 w-3.5 text-primary" /> Activity Ledger
+              </h2>
+              <div className="flex items-center gap-3 w-full sm:w-auto">
+                <div className="relative flex-1 sm:w-64 group">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  <Input 
+                    placeholder="Quick Filter worklist..." 
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="h-9 pl-9 bg-card border-border text-[11px] font-bold rounded-xl"
+                  />
+                </div>
+                <Button onClick={handleExportExcel} variant="outline" size="icon" className="h-9 w-9 border-border bg-card text-emerald-500 hover:bg-emerald-500/10 rounded-xl">
+                  <FileSpreadsheet className="h-4 w-4" />
+                </Button>
+                <Button onClick={handleExportPDF} variant="outline" size="icon" className="h-9 w-9 border-border bg-card text-rose-500 hover:bg-rose-500/10 rounded-xl">
+                  <FileTextIcon className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <Card className="border-none shadow-sm rounded-2xl overflow-hidden bg-card">
+              <CardContent className="p-0">
+                {filteredRegistrations && filteredRegistrations.length > 0 ? (
+                  <RegistrationTable registrations={filteredRegistrations} isDashboardView={true} />
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-24 text-center bg-muted/5">
+                    <div className="p-6 bg-muted rounded-full mb-4"><Search className="h-10 w-10 text-muted-foreground/10" /></div>
+                    <h3 className="text-sm font-black text-foreground uppercase tracking-tight mb-1">No matches in queue</h3>
+                    <p className="text-xs text-muted-foreground font-medium italic">Adjust your search parameters or check full registry.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </section>
+        </div>
 
         {/* Priorities Intelligence */}
         <section className="xl:col-span-4 space-y-4">
