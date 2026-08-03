@@ -46,8 +46,10 @@ export default function FullRegistrationPage() {
   const { user, isUserLoading } = useUser();
   const db = useFirestore();
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     if (!isUserLoading && !user) {
       router.push('/login');
     }
@@ -67,7 +69,7 @@ export default function FullRegistrationPage() {
   const { data: reports, isLoading: isReportsLoading } = useCollection<DailyReport>(reportsQuery);
 
   useEffect(() => {
-    if (!db || !user || !summaries || !reports) return;
+    if (!db || !user || !summaries || !reports || !mounted) return;
 
     const autoArchive = async () => {
       const now = new Date();
@@ -109,10 +111,11 @@ export default function FullRegistrationPage() {
     };
 
     autoArchive();
-  }, [db, user, summaries, reports]);
+  }, [db, user, summaries, reports, mounted]);
 
   const aggregates = useMemo(() => {
-    if (!summaries && !reports) return { ethio: 0, safaricom: 0, total: 0 };
+    const empty = { ethio: 0, safaricom: 0, total: 0 };
+    if (!mounted || (!summaries && !reports)) return empty;
 
     const now = new Date();
     const currentMonthIdx = now.getMonth();
@@ -141,9 +144,10 @@ export default function FullRegistrationPage() {
       safaricom: historicalSafaricom + currentSafaricom,
       total: (historicalEthio + currentEthio) + (historicalSafaricom + currentSafaricom)
     };
-  }, [summaries, reports]);
+  }, [summaries, reports, mounted]);
 
   const ledger = useMemo(() => {
+    if (!mounted) return [];
     const list: any[] = [];
     const now = new Date();
 
@@ -179,10 +183,10 @@ export default function FullRegistrationPage() {
     }
 
     return list.sort((a, b) => b.date.getTime() - a.date.getTime());
-  }, [summaries, reports]);
+  }, [summaries, reports, mounted]);
 
   const analysis = useMemo(() => {
-    if (ledger.length < 1) return null;
+    if (!mounted || ledger.length < 1) return null;
 
     const sortedLedger = [...ledger].sort((a, b) => a.date.getTime() - b.date.getTime());
     const chartData = sortedLedger.map(item => ({
@@ -204,7 +208,7 @@ export default function FullRegistrationPage() {
     const safaricomPct = aggregates.total > 0 ? (aggregates.safaricom / aggregates.total) * 100 : 0;
 
     return { chartData, growth, ethioPct, safaricomPct };
-  }, [ledger, aggregates]);
+  }, [ledger, aggregates, mounted]);
 
   if (isUserLoading || isSummariesLoading || isReportsLoading || !user) {
     return (

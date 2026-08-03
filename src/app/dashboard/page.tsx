@@ -55,8 +55,14 @@ export default function OfficerDashboard() {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [isTogglingDuty, setIsTogglingDuty] = useState(false);
-  const [lastSynced, setLastSynced] = useState<Date>(new Date());
+  const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    setLastSynced(new Date());
+  }, []);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user?.uid) return null;
@@ -123,6 +129,8 @@ export default function OfficerDashboard() {
       totalOfficers: 0, activeOfficers: 0, pendingOfficers: 0, onDutyOfficers: 0 
     };
     
+    if (!mounted) return defaultStats;
+    
     const totalFromReports = reports?.reduce((acc, curr) => acc + (curr.total || 0), 0) || 0;
 
     return {
@@ -134,10 +142,10 @@ export default function OfficerDashboard() {
       processing: rawRegistrations?.filter(r => r.status === 'Processing').length || 0,
       failed: rawRegistrations?.filter(r => r.status === 'Failed').length || 0,
     };
-  }, [rawRegistrations, reports]);
+  }, [rawRegistrations, reports, mounted]);
 
   const velocityData = useMemo(() => {
-    if (!reports) return [];
+    if (!reports || !mounted) return [];
     const last7Days = Array.from({ length: 7 }, (_, i) => {
       const d = subDays(new Date(), i);
       return format(d, 'yyyy-MM-dd');
@@ -152,7 +160,7 @@ export default function OfficerDashboard() {
         total: dayTotal
       };
     });
-  }, [reports]);
+  }, [reports, mounted]);
 
   const handleToggleDuty = async () => {
     if (!db || !user || !profile || isTogglingDuty) return;
@@ -281,7 +289,7 @@ export default function OfficerDashboard() {
             <div className="flex flex-col">
               <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Last Sync</span>
               <span className="text-sm font-black text-foreground uppercase tracking-tighter">
-                {format(lastSynced, 'HH:mm:ss')}
+                {lastSynced ? format(lastSynced, 'HH:mm:ss') : '--:--:--'}
               </span>
             </div>
           </div>
