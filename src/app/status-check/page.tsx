@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -125,45 +124,37 @@ export default function StatusCheckPage() {
     });
   };
 
-  const handleStatusUpdate = async (newStatus: RegistrationStatus) => {
+  const handleStatusUpdate = (newStatus: RegistrationStatus) => {
     if (!db || !activeRegistration || !user || !profile) return;
     
     setIsUpdating(true);
-    try {
-      const updateData: any = {
-        status: newStatus,
-        updatedAt: new Date().toISOString(),
-        remarks: `${activeRegistration.remarks || ''}\n[VERIFICATION TERMINAL]: Status updated to ${newStatus} on ${format(new Date(), 'MMM dd, HH:mm')}`
-      };
+    const updateData: any = {
+      status: newStatus,
+      updatedAt: new Date().toISOString(),
+      remarks: `${activeRegistration.remarks || ''}\n[VERIFICATION TERMINAL]: Status updated to ${newStatus} on ${format(new Date(), 'MMM dd, HH:mm')}`
+    };
 
-      if (newStatus === 'Processed' || newStatus === 'Processing') {
-        updateData.rejectionReason = '';
-      }
-
-      await updateDocumentNonBlocking(doc(db, 'registrations', activeRegistration.id), updateData);
-      
-      logAuditAction(
-        db, 
-        user,
-        profile.fullName,
-        'STATUS_UPDATE', 
-        activeRegistration.id, 
-        `Verification Terminal: Changed status for ${activeRegistration.applicantName} to ${newStatus}.`
-      );
-
-      toast({
-        title: "Registry Synchronized",
-        description: `Status for ${activeRegistration.applicantName} updated to ${newStatus}.`,
-      });
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Update Failed",
-        description: "Could not sync status change with the bureau database.",
-      });
-    } finally {
-      setIsUpdating(false);
+    if (newStatus === 'Processed' || newStatus === 'Processing') {
+      updateData.rejectionReason = '';
     }
+
+    updateDocumentNonBlocking(doc(db, 'registrations', activeRegistration.id), updateData);
+    
+    logAuditAction(
+      db, 
+      user,
+      profile.fullName,
+      'STATUS_UPDATE', 
+      activeRegistration.id, 
+      `Verification Terminal: Changed status for ${activeRegistration.applicantName} to ${newStatus}.`
+    );
+
+    toast({
+      title: "Registry Synchronized",
+      description: `Status for ${activeRegistration.applicantName} updated to ${newStatus}.`,
+    });
+    
+    setTimeout(() => setIsUpdating(false), 500);
   };
 
   if (isUserLoading || !user) {

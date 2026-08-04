@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
@@ -46,6 +45,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { logAuditAction } from '@/lib/audit';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -128,7 +129,7 @@ export default function AuditLedgerPage() {
     return purgeConfirmationText.trim().toUpperCase() === 'DELETE';
   }, [purgeConfirmationText]);
 
-  const handleBulkPurge = async () => {
+  const handleBulkPurge = () => {
     if (!db || selectedIds.size === 0 || !user || !profile || !isVerified) return;
     
     setIsPurging(true);
@@ -139,34 +140,32 @@ export default function AuditLedgerPage() {
       batch.delete(doc(db, 'audit_logs', id));
     });
 
-    try {
-      await batch.commit();
+    batch.commit()
+      .catch(async (error) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: 'audit_logs',
+          operation: 'delete',
+        }));
+      });
       
-      logAuditAction(
-        db,
-        user,
-        profile.fullName,
-        'RECORD_DELETED',
-        'audit_ledger',
-        `Administrative Purge: Permanently deleted ${count} forensic records from the ledger.`
-      );
+    logAuditAction(
+      db,
+      user,
+      profile.fullName,
+      'RECORD_DELETED',
+      'audit_ledger',
+      `Administrative Purge: Permanently deleted ${count} forensic records from the ledger.`
+    );
 
-      toast({
-        title: "Ledger Purged",
-        description: `Successfully removed ${count} records from the forensic archive.`,
-      });
-      setSelectedIds(new Set());
-      setPurgeConfirmationText('');
-      setIsPurgeDialogOpen(false);
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Purge Failed",
-        description: "Insufficient clearance or protocol error during deletion.",
-      });
-    } finally {
-      setIsPurging(false);
-    }
+    toast({
+      title: "Ledger Purged",
+      description: `Successfully removed ${count} records from the forensic archive.`,
+    });
+    
+    setSelectedIds(new Set());
+    setPurgeConfirmationText('');
+    setIsPurgeDialogOpen(false);
+    setTimeout(() => setIsPurging(false), 800);
   };
 
   if (isLoading) {

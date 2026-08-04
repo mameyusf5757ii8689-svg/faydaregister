@@ -46,6 +46,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { logAuditAction } from '@/lib/audit';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -94,67 +96,69 @@ export default function FullRegistrationPage() {
   const { data: summaries, isLoading: isSummariesLoading } = useCollection<MonthlySummary>(summariesQuery);
   const { data: reports, isLoading: isReportsLoading } = useCollection<DailyReport>(reportsQuery);
 
-  const handleManualSync = async () => {
+  const handleManualSync = () => {
     if (!db || !user || !reports || !profile) return;
     setIsSyncing(true);
     
-    try {
-      const now = new Date();
-      let checkDate = new Date(START_DATE);
-      let syncCount = 0;
-      
-      while (checkDate < startOfMonth(now)) {
-        const monthLabel = MONTHS[checkDate.getMonth()];
-        const yearLabel = checkDate.getFullYear().toString();
-        const summaryId = `${user.uid}_${monthLabel}_${yearLabel}`;
+    const now = new Date();
+    let checkDate = new Date(START_DATE);
+    let syncCount = 0;
+    
+    while (checkDate < startOfMonth(now)) {
+      const monthLabel = MONTHS[checkDate.getMonth()];
+      const yearLabel = checkDate.getFullYear().toString();
+      const summaryId = `${user.uid}_${monthLabel}_${yearLabel}`;
+      const docRef = doc(db, 'monthly_summaries', summaryId);
 
-        const monthReports = reports.filter(r => {
-          const rDate = new Date(r.date);
-          return rDate.getMonth() === checkDate.getMonth() && rDate.getFullYear() === checkDate.getFullYear();
-        });
+      const monthReports = reports.filter(r => {
+        const rDate = new Date(r.date);
+        return rDate.getMonth() === checkDate.getMonth() && rDate.getFullYear() === checkDate.getFullYear();
+      });
 
-        if (monthReports.length > 0) {
-          const ethio = monthReports.reduce((acc, curr) => acc + (curr.ethioCount || 0), 0);
-          const safaricom = monthReports.reduce((acc, curr) => acc + (curr.safaricomCount || 0), 0);
-          const total = ethio + safaricom;
+      if (monthReports.length > 0) {
+        const ethio = monthReports.reduce((acc, curr) => acc + (curr.ethioCount || 0), 0);
+        const safaricom = monthReports.reduce((acc, curr) => acc + (curr.safaricomCount || 0), 0);
+        const total = ethio + safaricom;
 
-          await setDoc(doc(db, 'monthly_summaries', summaryId), {
-            id: summaryId,
-            officerId: user.uid,
-            month: monthLabel,
-            year: yearLabel,
-            ethio,
-            safaricom,
-            total,
-            timestamp: serverTimestamp(),
-          }, { merge: true });
-          syncCount++;
-        }
-        checkDate = new Date(checkDate.setMonth(checkDate.getMonth() + 1));
+        const summaryData = {
+          id: summaryId,
+          officerId: user.uid,
+          month: monthLabel,
+          year: yearLabel,
+          ethio,
+          safaricom,
+          total,
+          timestamp: serverTimestamp(),
+        };
+
+        setDoc(docRef, summaryData, { merge: true })
+          .catch(async (error) => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+              path: docRef.path,
+              operation: 'write',
+              requestResourceData: summaryData
+            }));
+          });
+        syncCount++;
       }
-
-      logAuditAction(
-        db,
-        user,
-        profile.fullName,
-        'STATUS_UPDATE',
-        'grand_ledger',
-        `Grand Ledger: Manual protocol synchronization completed. ${syncCount} archives recalculated.`
-      );
-
-      toast({
-        title: "Registry Synchronized",
-        description: "Historical archives have been recalculated based on latest field reports.",
-      });
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Sync Protocol Failed",
-        description: "Could not establish a stable connection for archival recalculation.",
-      });
-    } finally {
-      setIsSyncing(false);
+      checkDate = new Date(checkDate.setMonth(checkDate.getMonth() + 1));
     }
+
+    logAuditAction(
+      db,
+      user,
+      profile.fullName,
+      'STATUS_UPDATE',
+      'grand_ledger',
+      `Grand Ledger: Manual protocol synchronization completed. ${syncCount} archives recalculated.`
+    );
+
+    toast({
+      title: "Registry Synchronized",
+      description: "Historical archives have been recalculated based on latest field reports.",
+    });
+    
+    setTimeout(() => setIsSyncing(false), 1000);
   };
 
   const aggregates = useMemo(() => {
@@ -355,7 +359,7 @@ export default function FullRegistrationPage() {
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={analysis.chartData}>
                     <defs>
-                      <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
+                      <linearGradient id="colorTotal" x1="0" x2="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.1}/>
                         <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
                       </linearGradient>
