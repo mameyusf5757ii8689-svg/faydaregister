@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useRef, useEffect, useMemo } from 'react';
@@ -31,7 +32,8 @@ import {
   Pin,
   PinOff,
   UserMinus,
-  Settings2
+  Settings2,
+  ChevronLeft
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -75,19 +77,11 @@ export default function CommunicationPage() {
   const [isMsgSearchActive, setIsMsgSearchActive] = useState(false);
   
   const [newGroupName, setNewGroupName] = useState('');
-  const [editGroupName, setNewEditGroupName] = useState('');
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
-  const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
   const [editingMsg, setEditingMsg] = useState<Message | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  
-  const [isRecording, setIsRecording] = useState(false);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [msgToDelete, setMsgToDelete] = useState<Message | null>(null);
 
@@ -217,59 +211,9 @@ export default function CommunicationPage() {
     }
   };
 
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        const reader = new FileReader();
-        reader.readAsDataURL(audioBlob);
-        reader.onloadend = () => {
-          const base64Audio = reader.result as string;
-          performSendMessage(undefined, base64Audio);
-          toast({ title: "Voice Transmission Sent", description: "Audio log added to record." });
-        };
-        stream.getTracks().forEach(track => track.stop());
-      };
-
-      mediaRecorder.start();
-      setIsRecording(true);
-    } catch (err) {
-      toast({
-        variant: "destructive",
-        title: "Mic Access Denied",
-        description: "Please allow microphone access to record voice messages."
-      });
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-    }
-  };
-
-  const handleEditClick = (msg: Message) => {
-    if (msg.audioUrl) return;
-    setEditingMsg(msg);
-    setInputText(msg.text || '');
-  };
-
   const handleDeleteForMe = async () => {
     if (!db || !user || !msgToDelete) return;
     const targetId = msgToDelete.id;
-    
     setIsDeleting(true);
     try {
       await updateDocumentNonBlocking(doc(db, 'messages', targetId), {
@@ -287,7 +231,6 @@ export default function CommunicationPage() {
   const handleDeleteForEveryone = async () => {
     if (!db || !msgToDelete || !activeConvId) return;
     const targetId = msgToDelete.id;
-
     setIsDeleting(true);
     try {
       await deleteDocumentNonBlocking(doc(db, 'messages', targetId));
@@ -341,15 +284,15 @@ export default function CommunicationPage() {
 
   return (
     <div className="max-w-6xl mx-auto h-[calc(100vh-140px)] flex flex-col gap-4 animate-in fade-in duration-700">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between px-2">
         <div className="space-y-0.5">
-          <h1 className="text-2xl font-bold tracking-tight text-foreground font-headline">Bureau Communications</h1>
-          <p className="text-xs text-muted-foreground">Secure operational coordination portal.</p>
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-foreground font-headline uppercase">Coordination Portal</h1>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Secure operational link</p>
         </div>
         <Dialog open={isCreateGroupOpen} onOpenChange={setIsCreateGroupOpen}>
           <DialogTrigger asChild>
-            <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-5 font-bold text-[10px] uppercase tracking-widest">
-              <Plus className="mr-2 h-3.5 w-3.5" /> Assemble Team
+            <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-4 md:px-5 font-bold text-[10px] uppercase tracking-widest">
+              <Plus className="mr-2 h-3.5 w-3.5" /> Assemble
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden rounded-2xl border-border bg-popover">
@@ -390,8 +333,12 @@ export default function CommunicationPage() {
         </Dialog>
       </div>
 
-      <div className="flex-1 flex gap-4 overflow-hidden">
-        <Card className="w-80 flex flex-col border-border shadow-sm bg-card overflow-hidden rounded-2xl">
+      <div className="flex-1 flex flex-col lg:flex-row gap-4 overflow-hidden relative">
+        {/* Channel Sidebar */}
+        <Card className={cn(
+          "w-full lg:w-80 flex flex-col border-border shadow-sm bg-card overflow-hidden rounded-2xl transition-all duration-300",
+          activeConvId ? "hidden lg:flex" : "flex"
+        )}>
           <div className="p-4 border-b border-border">
             <div className="relative group">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -436,7 +383,7 @@ export default function CommunicationPage() {
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-sm font-bold text-foreground truncate">{getConvName(conv)}</p>
                       </div>
-                      <p className="text-[11px] text-muted-foreground truncate font-medium">{conv.lastMessage}</p>
+                      <p className="text-[11px] text-muted-foreground truncate font-medium">{conv.lastMessage || 'No transmissions'}</p>
                     </div>
                   </button>
                 );
@@ -445,12 +392,19 @@ export default function CommunicationPage() {
           </ScrollArea>
         </Card>
 
-        <Card className="flex-1 flex flex-col border-border shadow-sm bg-card overflow-hidden rounded-2xl">
+        {/* Message Viewport */}
+        <Card className={cn(
+          "flex-1 flex flex-col border-border shadow-sm bg-card overflow-hidden rounded-2xl transition-all duration-300",
+          !activeConvId ? "hidden lg:flex" : "flex"
+        )}>
           {activeConvId && activeConv ? (
             <>
-              <CardHeader className="py-3 px-6 border-b flex flex-row items-center justify-between bg-card">
-                <div className="flex items-center gap-4">
-                  <Avatar className="h-10 w-10">
+              <CardHeader className="py-3 px-4 md:px-6 border-b flex flex-row items-center justify-between bg-card">
+                <div className="flex items-center gap-3 md:gap-4">
+                  <Button variant="ghost" size="icon" className="lg:hidden h-8 w-8 -ml-2" onClick={() => setActiveConvId(null)}>
+                    <ChevronLeft className="h-5 w-5" />
+                  </Button>
+                  <Avatar className="h-9 w-9 md:h-10 md:w-10">
                     {activeConv.type === 'group' ? (
                       <div className="bg-primary/10 h-full w-full flex items-center justify-center"><Users className="h-5 w-5 text-primary" /></div>
                     ) : (
@@ -458,13 +412,13 @@ export default function CommunicationPage() {
                     )}
                   </Avatar>
                   <div>
-                    <CardTitle className="text-base font-black text-foreground leading-none">{getConvName(activeConv)}</CardTitle>
+                    <CardTitle className="text-sm md:text-base font-black text-foreground leading-none">{getConvName(activeConv)}</CardTitle>
                     <div className="flex items-center gap-1.5 mt-1">
                       <span className={cn(
                         "h-1.5 w-1.5 rounded-full",
                         activeConv.type === 'group' || getOtherUserStatus(activeConv) ? "bg-green-500" : "bg-muted-foreground/30"
                       )} />
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                      <p className="text-[9px] md:text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
                         {activeConv.type === 'group' ? `${activeConv.members?.length || 0} Personnel` : getOtherUserStatus(activeConv) ? 'Active Duty' : 'Signal Offline'}
                       </p>
                     </div>
@@ -472,14 +426,14 @@ export default function CommunicationPage() {
                 </div>
                 
                 <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="icon" onClick={() => setIsMsgSearchActive(!isMsgSearchActive)} className={cn("h-9 w-9 rounded-xl", isMsgSearchActive && "text-primary bg-primary/5")}>
+                  <Button variant="ghost" size="icon" onClick={() => setIsMsgSearchActive(!isMsgSearchActive)} className={cn("h-8 w-8 md:h-9 md:w-9 rounded-xl", isMsgSearchActive && "text-primary bg-primary/5")}>
                     <Search className="h-4 w-4" />
                   </Button>
                 </div>
               </CardHeader>
 
               {pinnedMessage && (
-                <div className="bg-primary/5 border-b border-primary/10 px-6 py-2 flex items-center justify-between group/pinned">
+                <div className="bg-primary/5 border-b border-primary/10 px-4 md:px-6 py-2 flex items-center justify-between group/pinned">
                   <div className="flex items-center gap-3 overflow-hidden">
                     <Pin className="h-3.5 w-3.5 text-primary shrink-0" />
                     <div className="overflow-hidden">
@@ -494,7 +448,7 @@ export default function CommunicationPage() {
               )}
 
               <CardContent className="flex-1 p-0 flex flex-col min-h-0 bg-muted/5">
-                <ScrollArea ref={scrollRef} className="flex-1 p-6">
+                <ScrollArea ref={scrollRef} className="flex-1 p-4 md:p-6">
                   <div className="space-y-6">
                     {isMessagesLoading ? (
                       <div className="flex justify-center py-20 opacity-20"><Loader2 className="h-6 w-6 animate-spin" /></div>
@@ -502,12 +456,12 @@ export default function CommunicationPage() {
                       const isMe = msg.senderId === user?.uid;
                       const isPinned = activeConv.pinnedMessageId === msg.id;
                       return (
-                        <div key={msg.id} className={cn("flex flex-col max-w-[80%] group/msg", isMe ? "ml-auto items-end" : "mr-auto items-start")}>
+                        <div key={msg.id} className={cn("flex flex-col max-w-[90%] md:max-w-[80%] group/msg", isMe ? "ml-auto items-end" : "mr-auto items-start")}>
                           <div className="flex items-center gap-2 mb-1.5 w-full">
-                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">{msg.senderName}</p>
+                            <p className="text-[9px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">{msg.senderName}</p>
                           </div>
                           <div className={cn(
-                            "px-4 py-3 rounded-[20px] text-sm shadow-sm transition-all relative",
+                            "px-4 py-3 rounded-[18px] md:rounded-[20px] text-sm shadow-sm transition-all relative",
                             isMe ? "bg-primary text-primary-foreground rounded-tr-none" : "bg-card text-foreground border border-border rounded-tl-none",
                             isPinned && "ring-2 ring-primary/20 ring-offset-2"
                           )}>
@@ -522,42 +476,47 @@ export default function CommunicationPage() {
                     })}
                   </div>
                 </ScrollArea>
-                <div className="p-4 bg-card border-t">
-                  <form onSubmit={handleSendMessage} className="flex gap-3 items-center">
+                <div className="p-3 md:p-4 bg-card border-t">
+                  <form onSubmit={handleSendMessage} className="flex gap-2 md:gap-3 items-center">
                     <Input 
-                      placeholder="Secure message for team..."
+                      placeholder="Secure message..."
                       value={inputText} 
                       onChange={(e) => setInputText(e.target.value)} 
-                      className="flex-1 h-12 border-border bg-muted/30 rounded-xl" 
+                      className="flex-1 h-11 md:h-12 border-border bg-muted/30 rounded-xl text-xs md:text-sm" 
                     />
-                    <Button type="submit" size="icon" disabled={!inputText.trim()} className="h-12 w-12 bg-primary text-primary-foreground rounded-xl">
-                      <Send className="h-5 w-5" />
+                    <Button type="submit" size="icon" disabled={!inputText.trim()} className="h-11 w-11 md:h-12 md:w-12 bg-primary text-primary-foreground rounded-xl shrink-0">
+                      <Send className="h-4 w-4 md:h-5 md:w-5" />
                     </Button>
                   </form>
                 </div>
               </CardContent>
             </>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground space-y-4">
-              <MessageSquare className="h-12 w-12 opacity-20" />
-              <p className="text-xs font-black uppercase tracking-widest">Select a channel to begin</p>
+            <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground space-y-4 p-8 text-center">
+              <div className="p-6 bg-muted/50 rounded-full border border-border/40">
+                <MessageSquare className="h-10 w-10 md:h-12 md:w-12 opacity-20" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs font-black uppercase tracking-[0.2em]">Ready for Transmission</p>
+                <p className="text-[10px] font-medium opacity-60">Select a coordination channel to begin secure team communication.</p>
+              </div>
             </div>
           )}
         </Card>
       </div>
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent className="rounded-3xl">
+        <AlertDialogContent className="rounded-3xl max-w-sm mx-4">
           <AlertDialogHeader>
-            <AlertDialogTitle>Purge Transmission?</AlertDialogTitle>
-            <AlertDialogDescription>Select deletion scope for this record.</AlertDialogDescription>
+            <AlertDialogTitle className="text-center font-black uppercase tracking-tight">Purge Transmission?</AlertDialogTitle>
+            <AlertDialogDescription className="text-center">Select deletion scope for this record.</AlertDialogDescription>
           </AlertDialogHeader>
           <div className="flex flex-col gap-2 mt-4">
-             <Button variant="outline" onClick={handleDeleteForMe}>Delete for Me</Button>
-             <Button variant="destructive" onClick={handleDeleteForEveryone}>Delete for Everyone</Button>
+             <Button variant="outline" className="rounded-xl font-bold uppercase text-[10px] tracking-widest h-11" onClick={handleDeleteForMe}>Delete for Me</Button>
+             <Button variant="destructive" className="rounded-xl font-bold uppercase text-[10px] tracking-widest h-11" onClick={handleDeleteForEveryone}>Delete for Everyone</Button>
           </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogFooter className="mt-2">
+            <AlertDialogCancel className="w-full rounded-xl font-bold uppercase text-[10px] tracking-widest border-none">Cancel</AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
