@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useMemo } from 'react';
@@ -188,13 +187,13 @@ export function RegistrationTable({ registrations, isDashboardView = false }: Re
       "relative",
       isDashboardView ? "" : "rounded-xl border border-border bg-card shadow-sm overflow-hidden"
     )}>
-      {/* Bulk Action Overlay */}
+      {/* Bulk Action Overlay - Responsive Refinement */}
       {selectedIds.size > 0 && (
-        <div className="absolute top-0 left-0 right-0 z-20 h-12 bg-primary text-primary-foreground flex items-center px-6 gap-4 animate-in slide-in-from-top duration-300 shadow-lg">
+        <div className="absolute top-0 left-0 right-0 z-20 min-h-[3rem] h-auto bg-primary text-primary-foreground flex flex-col sm:flex-row items-center px-4 sm:px-6 py-2 sm:py-0 gap-3 sm:gap-4 animate-in slide-in-from-top duration-300 shadow-lg">
           <p className="text-[10px] font-black uppercase tracking-widest flex-1">
-            {selectedIds.size} Selected for Triage
+            {selectedIds.size} Selected
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-center gap-2">
             <Button 
               variant="ghost" 
               size="sm" 
@@ -203,7 +202,7 @@ export function RegistrationTable({ registrations, isDashboardView = false }: Re
             >
               <X className="mr-1.5 h-3.5 w-3.5" /> Clear
             </Button>
-            <div className="w-px h-4 bg-white/20 mx-1" />
+            <div className="hidden sm:block w-px h-4 bg-white/20 mx-1" />
             <Button 
               variant="ghost" 
               size="sm" 
@@ -222,7 +221,7 @@ export function RegistrationTable({ registrations, isDashboardView = false }: Re
             >
               <RefreshCcw className="mr-1.5 h-3.5 w-3.5" /> Active
             </Button>
-            <div className="w-px h-4 bg-white/20 mx-1" />
+            <div className="hidden sm:block w-px h-4 bg-white/20 mx-1" />
             <Button 
               variant="ghost" 
               size="sm" 
@@ -249,7 +248,7 @@ export function RegistrationTable({ registrations, isDashboardView = false }: Re
             <TableHead className="text-[10px] font-bold uppercase tracking-wider h-10 text-muted-foreground">Name</TableHead>
             <TableHead className="text-[10px] font-bold uppercase tracking-wider h-10 text-muted-foreground">Date</TableHead>
             <TableHead className="text-[10px] font-bold uppercase tracking-wider h-10 text-muted-foreground">Status</TableHead>
-            <TableHead className="text-[10px] font-bold uppercase tracking-wider h-10 text-muted-foreground">Location</TableHead>
+            <TableHead className="text-[10px] font-bold uppercase tracking-wider h-10 text-muted-foreground hidden sm:table-cell">Location</TableHead>
             {!isDashboardView && <TableHead className="text-right text-[10px] font-bold uppercase tracking-wider h-10 text-muted-foreground">Actions</TableHead>}
           </TableRow>
         </TableHeader>
@@ -278,12 +277,12 @@ export function RegistrationTable({ registrations, isDashboardView = false }: Re
               <TableCell className="py-4">
                 <StatusBadge status={reg.status} className="scale-90 origin-left" />
               </TableCell>
-              <TableCell className="py-4 text-muted-foreground text-sm">
+              <TableCell className="py-4 text-muted-foreground text-sm hidden sm:table-cell">
                 {reg.location}
               </TableCell>
               {!isDashboardView && (
                 <TableCell className="text-right py-4 pr-6">
-                  <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center justify-end gap-2 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                     <AiSuggestionModal registration={reg} />
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -315,10 +314,10 @@ export function RegistrationTable({ registrations, isDashboardView = false }: Re
       
       {totalPages > 1 && (
         <div className="flex items-center justify-between px-4 py-3 border-t bg-muted/10">
-          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest hidden sm:block">
             Showing {currentItems.length} of {registrations.length} records • Page {currentPage} of {totalPages}
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 ml-auto sm:ml-0">
             <Button
               variant="outline"
               size="icon"
@@ -328,6 +327,7 @@ export function RegistrationTable({ registrations, isDashboardView = false }: Re
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
+            <span className="sm:hidden text-[10px] font-black uppercase">{currentPage} / {totalPages}</span>
             <Button
               variant="outline"
               size="icon"
@@ -343,7 +343,7 @@ export function RegistrationTable({ registrations, isDashboardView = false }: Re
 
       {/* Bulk Purge Confirmation Dialog */}
       <AlertDialog open={isConfirmDeleteDialogOpen} onOpenChange={setIsConfirmDeleteDialogOpen}>
-        <AlertDialogContent className="rounded-[32px] border-none shadow-2xl bg-popover max-w-md p-0 overflow-hidden">
+        <AlertDialogContent className="rounded-[32px] border-none shadow-2xl bg-popover max-w-md p-0 overflow-hidden mx-4">
           <div className="p-10 text-center space-y-6">
             <div className="mx-auto bg-destructive/10 p-5 rounded-2xl w-fit">
               {isBulkProcessing ? <Loader2 className="h-10 w-10 text-destructive animate-spin" /> : <ShieldAlert className="h-10 w-10 text-destructive" />}
@@ -360,7 +360,7 @@ export function RegistrationTable({ registrations, isDashboardView = false }: Re
               </AlertDialogDescription>
             </div>
           </div>
-          <AlertDialogFooter className="bg-muted/30 p-6 flex-col sm:flex-col gap-3">
+          <AlertDialogFooter className="bg-muted/30 p-6 flex-col sm:flex-row gap-3">
             <AlertDialogAction 
               onClick={(e) => { e.preventDefault(); handleBulkDelete(); }} 
               disabled={isBulkProcessing}

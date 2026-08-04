@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useRef, useEffect, useMemo } from 'react';
@@ -295,7 +294,7 @@ export default function CommunicationPage() {
               <Plus className="mr-2 h-3.5 w-3.5" /> Assemble
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden rounded-2xl border-border bg-popover">
+          <DialogContent className="w-[calc(100%-2rem)] sm:max-w-[450px] p-0 overflow-hidden rounded-2xl border-border bg-popover max-h-[90vh] overflow-y-auto">
             <DialogHeader className="p-6 border-b bg-muted/30">
               <DialogTitle className="text-lg font-bold text-foreground">Initialize Field Group</DialogTitle>
             </DialogHeader>
@@ -327,7 +326,7 @@ export default function CommunicationPage() {
               </div>
             </div>
             <DialogFooter className="p-6 bg-muted/30 border-t">
-              <Button onClick={() => setIsCreateGroupOpen(false)} className="rounded-xl font-bold px-8">Initialize Channel</Button>
+              <Button onClick={() => setIsCreateGroupOpen(false)} className="w-full sm:w-auto rounded-xl font-bold px-8">Initialize Channel</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

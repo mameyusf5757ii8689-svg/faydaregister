@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useMemo, useEffect } from 'react';
@@ -455,13 +454,13 @@ export function RegistrationsList({ initialRegistrations }: RegistrationsListPro
           </div>
 
           <div className="rounded-2xl border border-border overflow-hidden shadow-sm relative min-h-[400px]">
-            {/* Bulk Command Matrix Overlay */}
+            {/* Bulk Command Matrix Overlay - Responsive Refinement */}
             {selectedIds.size > 0 && (
-              <div className="absolute top-0 left-0 right-0 z-30 h-auto sm:h-14 bg-primary text-primary-foreground flex flex-col sm:flex-row sm:items-center px-4 sm:px-6 py-3 sm:py-0 gap-4 sm:gap-6 animate-in slide-in-from-top duration-500 shadow-xl">
+              <div className="absolute top-0 left-0 right-0 z-30 min-h-[3.5rem] h-auto bg-primary text-primary-foreground flex flex-col sm:flex-row sm:items-center px-4 sm:px-6 py-3 sm:py-0 gap-4 sm:gap-6 animate-in slide-in-from-top duration-500 shadow-xl">
                 <p className="text-[11px] font-black uppercase tracking-widest flex-1">
                    {selectedIds.size} Units Selected
                 </p>
-                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
                   <Button variant="ghost" size="sm" className="h-9 px-3 text-[10px] font-black uppercase tracking-tighter hover:bg-white/10" onClick={() => setSelectedIds(new Set())}>
                     <X className="mr-1.5 h-3.5 w-3.5" /> Clear
                   </Button>
@@ -543,7 +542,7 @@ export function RegistrationsList({ initialRegistrations }: RegistrationsListPro
                           <StatusBadge status={reg.status} className="scale-75 sm:scale-90" />
                         </TableCell>
                         <TableCell className="text-right pr-8">
-                          <div className="flex items-center justify-end gap-2 lg:opacity-0 lg:group-hover:opacity-100 transition-all">
+                          <div className="flex items-center justify-end gap-2 sm:opacity-0 sm:group-hover:opacity-100 transition-all">
                             <Button variant="ghost" size="sm" className="h-9 px-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-xl" onClick={() => setViewingRegistration(reg)}>
                               <Eye className="mr-1.5 h-3.5 w-3.5" /> View
                             </Button>
@@ -605,7 +604,7 @@ export function RegistrationsList({ initialRegistrations }: RegistrationsListPro
 
       {/* Forensic Detail Dialog */}
       <Dialog open={!!viewingRegistration} onOpenChange={(open) => !open && setViewingRegistration(null)}>
-        <DialogContent className="sm:max-w-[650px] p-0 overflow-hidden rounded-[32px] border-none shadow-2xl bg-popover max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[calc(100%-2rem)] sm:max-w-[650px] p-0 overflow-hidden rounded-[32px] border-none shadow-2xl bg-popover max-h-[90vh] overflow-y-auto">
           <DialogHeader className="p-6 sm:p-8 border-b border-border bg-muted/30">
             <div className="flex items-center justify-between w-full">
               <div className="flex items-center gap-4">
@@ -689,7 +688,7 @@ export function RegistrationsList({ initialRegistrations }: RegistrationsListPro
               </AlertDialogDescription>
             </div>
           </div>
-          <AlertDialogFooter className="bg-muted/30 p-6 flex-col sm:flex-col gap-3">
+          <AlertDialogFooter className="bg-muted/30 p-6 flex-col sm:flex-row gap-3">
             <AlertDialogAction 
               onClick={(e) => { e.preventDefault(); confirmDelete(); }} 
               disabled={isDeleting}
@@ -725,7 +724,7 @@ export function RegistrationsList({ initialRegistrations }: RegistrationsListPro
               </AlertDialogDescription>
             </div>
           </div>
-          <AlertDialogFooter className="bg-muted/30 p-6 flex-col sm:flex-col gap-3">
+          <AlertDialogFooter className="bg-muted/30 p-6 flex-col sm:flex-row gap-3">
             <AlertDialogAction 
               onClick={(e) => { e.preventDefault(); handleBulkDelete(); }} 
               disabled={isBulkProcessing}

@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useForm } from 'react-hook-form';
@@ -166,7 +165,7 @@ export function RegistrationFormModal({ registration, mode, trigger }: Registrat
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden rounded-xl border-none shadow-2xl bg-popover">
+      <DialogContent className="w-[calc(100%-2rem)] sm:max-w-[550px] p-0 overflow-hidden rounded-xl border-none shadow-2xl bg-popover max-h-[95vh] overflow-y-auto">
         <DialogHeader className="p-6 border-b bg-muted/30">
           <DialogTitle className="text-xl font-bold text-foreground flex items-center gap-2">
             {mode === 'add' ? <Plus className="h-6 w-6 text-primary" /> : <Edit2 className="h-6 w-6 text-primary" />}

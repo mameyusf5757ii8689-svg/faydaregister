@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useForm } from 'react-hook-form';
@@ -207,13 +206,13 @@ export function OfficerFormModal({ mode = 'add', officer, trigger }: OfficerForm
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger || (
-          <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-black text-[10px] uppercase tracking-widest px-6 h-11 rounded-xl shadow-xl shadow-primary/10">
+          <Button className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground font-black text-[10px] uppercase tracking-widest px-6 h-11 rounded-xl shadow-xl shadow-primary/10">
             <UserPlus className="mr-2 h-4 w-4" /> Register Officer
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden rounded-[32px] border-none shadow-2xl bg-popover">
-        <DialogHeader className="p-8 border-b border-border bg-muted/30">
+      <DialogContent className="w-[calc(100%-2rem)] sm:max-w-[550px] p-0 overflow-hidden rounded-[32px] border-none shadow-2xl bg-popover max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="p-6 sm:p-8 border-b border-border bg-muted/30">
           <DialogTitle className="text-xl font-black text-foreground flex items-center gap-3 uppercase tracking-tighter">
             {mode === 'add' ? <UserPlus className="h-6 w-6 text-primary" /> : <Edit2 className="h-6 w-6 text-primary" />}
             {mode === 'add' ? 'Bureau Registration' : 'Update Profile'}
@@ -221,7 +220,7 @@ export function OfficerFormModal({ mode = 'add', officer, trigger }: OfficerForm
         </DialogHeader>
         
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="p-8 space-y-6 bg-card">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="p-6 sm:p-8 space-y-6 bg-card">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormField
                 control={form.control}

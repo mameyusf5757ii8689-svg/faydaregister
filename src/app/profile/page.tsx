@@ -130,10 +130,10 @@ export default function ProfilePage() {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
           <Card className="border border-border shadow-sm bg-card overflow-hidden rounded-2xl">
-            <CardHeader className="bg-muted/30 border-b border-border p-8">
-              <div className="flex flex-col md:flex-row items-center gap-8">
+            <CardHeader className="bg-muted/30 border-b border-border p-6 sm:p-8">
+              <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-8">
                 <div className="relative group">
-                  <Avatar className="h-24 w-24 border-4 border-background shadow-xl">
+                  <Avatar className="h-20 w-20 sm:h-24 sm:w-24 border-4 border-background shadow-xl">
                     <AvatarImage src={form.watch('profilePhoto') || profile?.profilePhoto} />
                     <AvatarFallback className="text-xl font-black bg-primary/10 text-primary">
                       {profile?.fullName?.substring(0, 2).toUpperCase()}
@@ -143,9 +143,9 @@ export default function ProfilePage() {
                     <Camera className="h-6 w-6 text-white" />
                   </div>
                 </div>
-                <div className="text-center md:text-left space-y-1">
+                <div className="text-center sm:text-left space-y-1">
                   <h2 className="text-xl font-bold text-foreground">{profile?.fullName}</h2>
-                  <div className="flex flex-wrap justify-center md:justify-start gap-2">
+                  <div className="flex flex-wrap justify-center sm:justify-start gap-2">
                     <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-tighter">
                       {profile?.role}
                     </span>
@@ -156,8 +156,8 @@ export default function ProfilePage() {
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="p-8 space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <CardContent className="p-6 sm:p-8 space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
                 <FormField
                   control={form.control}
                   name="fullName"
@@ -239,7 +239,7 @@ export default function ProfilePage() {
             </CardContent>
           </Card>
 
-          <div className="flex items-center justify-between gap-4 p-6 bg-primary/[0.03] border border-primary/10 rounded-2xl">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-6 bg-primary/[0.03] border border-primary/10 rounded-2xl">
             <div className="flex items-center gap-3">
               <ShieldCheck className="h-5 w-5 text-primary" />
               <p className="text-xs font-bold text-foreground">Personnel Verification Required</p>
@@ -247,7 +247,7 @@ export default function ProfilePage() {
             <Button 
               type="submit" 
               disabled={isSaving}
-              className="h-12 px-8 bg-primary hover:bg-primary/90 text-primary-foreground font-black uppercase tracking-widest rounded-xl shadow-xl shadow-primary/10"
+              className="w-full sm:w-auto h-12 px-8 bg-primary hover:bg-primary/90 text-primary-foreground font-black uppercase tracking-widest rounded-xl shadow-xl shadow-primary/10"
             >
               {isSaving ? (
                 <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Synchronizing...</>
