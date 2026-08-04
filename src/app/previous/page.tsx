@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, Suspense } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
@@ -23,8 +23,9 @@ import {
   Activity
 } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { format, addMonths, subMonths } from 'date-fns';
+import { format, addMonths, subMonths, setMonth, setYear } from 'date-fns';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
 import { MonthlySummary } from '@/lib/types';
@@ -34,15 +35,28 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December"
 ];
 
-export default function PreviousPage() {
+function PreviousContent() {
   const { user, isUserLoading } = useUser();
   const db = useFirestore();
+  const searchParams = useSearchParams();
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
   useEffect(() => {
-    // Initialize to current month safely on client
+    const paramMonth = searchParams.get('month');
+    const paramYear = searchParams.get('year');
+    
+    if (paramMonth && paramYear) {
+      const monthIdx = MONTHS.indexOf(paramMonth);
+      if (monthIdx !== -1) {
+        let d = new Date();
+        d = setYear(d, parseInt(paramYear));
+        d = setMonth(d, monthIdx);
+        setSelectedDate(d);
+        return;
+      }
+    }
     setSelectedDate(new Date());
-  }, []);
+  }, [searchParams]);
 
   const summariesQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -108,14 +122,14 @@ export default function PreviousPage() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700 pb-20">
-      <Link href="/registrations" className="flex items-center text-[10px] font-black text-muted-foreground hover:text-primary transition-colors uppercase tracking-widest gap-1.5">
-        <ArrowLeft className="h-3 w-3" /> Return to Registry
+      <Link href="/historical" className="flex items-center text-[10px] font-black text-muted-foreground hover:text-primary transition-colors uppercase tracking-widest gap-1.5">
+        <ArrowLeft className="h-3 w-3" /> Return to Ledger
       </Link>
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-1">
-          <h1 className="text-3xl font-black tracking-tight text-foreground font-headline uppercase leading-none">Monthly Archive</h1>
-          <p className="text-sm text-muted-foreground">Comparative throughput analysis for {stats.currentLabel}</p>
+          <h1 className="text-3xl font-black tracking-tight text-foreground font-headline uppercase leading-none">Comparative Analysis</h1>
+          <p className="text-sm text-muted-foreground">Historical throughput vs. preceding period metrics.</p>
         </div>
         
         <div className="flex items-center bg-card border border-border rounded-xl shadow-sm overflow-hidden">
@@ -277,5 +291,13 @@ function SummaryCard({ title, value, subtitle, icon: Icon, iconColor, iconBg }: 
         <Icon className={cn("h-8 w-8", iconColor)} strokeWidth={2.5} />
       </div>
     </Card>
+  );
+}
+
+export default function PreviousPage() {
+  return (
+    <Suspense fallback={<div className="flex h-[60vh] items-center justify-center"><Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" /></div>}>
+      <PreviousContent />
+    </Suspense>
   );
 }

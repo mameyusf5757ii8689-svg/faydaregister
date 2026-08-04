@@ -16,7 +16,8 @@ import {
   AlertCircle,
   Edit2,
   X,
-  ShieldAlert
+  ShieldAlert,
+  TrendingUp
 } from 'lucide-react';
 import Link from 'next/link';
 import { 
@@ -337,6 +338,16 @@ export default function HistoricalDataPage() {
                   </div>
                   
                   <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all ml-6">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-10 px-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-xl transition-all"
+                      asChild
+                    >
+                      <Link href={`/previous?month=${entry.month}&year=${entry.year}`}>
+                        <TrendingUp className="mr-2 h-4 w-4" /> Analysis
+                      </Link>
+                    </Button>
                     <Button 
                       variant="ghost" 
                       size="icon" 
