@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
@@ -181,34 +182,34 @@ export default function AuditLedgerPage() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700 pb-20">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div className="space-y-1">
           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Security Protocol</p>
-          <h1 className="text-3xl font-black tracking-tight text-foreground font-headline uppercase leading-none">Forensic Audit Ledger</h1>
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground font-headline uppercase leading-none">Forensic Audit Ledger</h1>
           <p className="text-sm text-muted-foreground">Chronological record of all critical bureau operations and official signatures.</p>
         </div>
-        <div className="flex items-center gap-4 w-full max-w-xl">
-          <div className="relative flex-1">
+        <div className="flex flex-col sm:flex-row items-center gap-4 w-full max-w-xl">
+          <div className="relative flex-1 w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/30" />
             <Input 
               placeholder="Search forensic records..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 h-11 border-border bg-card rounded-xl text-xs font-bold"
+              className="pl-10 h-11 border-border bg-card rounded-xl text-xs font-bold w-full"
             />
           </div>
           {selectedIds.size > 0 && (
-            <div className="flex items-center gap-2 animate-in zoom-in duration-300">
+            <div className="flex items-center gap-2 animate-in zoom-in duration-300 w-full sm:w-auto">
                <Button 
                 variant="outline" 
-                className="h-11 px-4 rounded-xl font-black text-[10px] uppercase tracking-widest border-border bg-card hover:bg-muted"
+                className="flex-1 sm:flex-none h-11 px-4 rounded-xl font-black text-[10px] uppercase tracking-widest border-border bg-card hover:bg-muted"
                 onClick={() => setSelectedIds(new Set())}
               >
                 <X className="mr-2 h-4 w-4" /> Clear
               </Button>
               <Button 
                 variant="destructive" 
-                className="h-11 px-6 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-destructive/10"
+                className="flex-1 sm:flex-none h-11 px-6 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-destructive/10"
                 onClick={() => {
                   setPurgeConfirmationText('');
                   setIsPurgeDialogOpen(true);
@@ -222,91 +223,93 @@ export default function AuditLedgerPage() {
       </div>
 
       <Card className="border border-border shadow-sm bg-card overflow-hidden rounded-3xl">
-        <Table>
-          <TableHeader className="bg-muted/30">
-            <TableRow className="hover:bg-transparent border-border">
-              <TableHead className="w-12 pl-8">
-                <Checkbox 
-                  checked={allOnPageSelected} 
-                  onCheckedChange={toggleSelectAll}
-                  className="rounded-md border-muted-foreground/30"
-                />
-              </TableHead>
-              <TableHead className="text-[9px] font-black uppercase tracking-widest py-5">Timestamp</TableHead>
-              <TableHead className="text-[9px] font-black uppercase tracking-widest py-5">Official Signature</TableHead>
-              <TableHead className="text-[9px] font-black uppercase tracking-widest py-5">Action Protocol</TableHead>
-              <TableHead className="text-[9px] font-black uppercase tracking-widest py-5">Target Reference</TableHead>
-              <TableHead className="text-[9px] font-black uppercase tracking-widest py-5 pr-8 text-right">Detail</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {paginatedLogs.length > 0 ? paginatedLogs.map((log) => (
-              <TableRow 
-                key={log.id} 
-                className={cn(
-                  "hover:bg-muted/30 transition-colors border-border h-16 group",
-                  selectedIds.has(log.id) && "bg-primary/[0.02]"
-                )}
-              >
-                <TableCell className="pl-8">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader className="bg-muted/30">
+              <TableRow className="hover:bg-transparent border-border">
+                <TableHead className="w-12 pl-6 sm:pl-8">
                   <Checkbox 
-                    checked={selectedIds.has(log.id)} 
-                    onCheckedChange={() => toggleSelectRow(log.id)}
+                    checked={allOnPageSelected} 
+                    onCheckedChange={toggleSelectAll}
                     className="rounded-md border-muted-foreground/30"
                   />
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase">
-                    <Clock className="h-3 w-3 opacity-30" />
-                    {log.timestamp?.toDate ? format(log.timestamp.toDate(), 'MMM dd, HH:mm') : 'Just now'}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <User className="h-3.5 w-3.5 text-primary/40" />
-                    <span className="text-xs font-black text-foreground">{log.officerName}</span>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <span className="text-[9px] font-black uppercase px-2 py-0.5 bg-primary/10 text-primary rounded border border-primary/20 tracking-tighter">
-                    {log.action.replace(/_/g, ' ')}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1.5 text-[9px] font-mono font-bold text-muted-foreground/40">
-                    <FileDigit className="h-3 w-3" />
-                    {log.targetId?.substring(0, 15)}...
-                  </div>
-                </TableCell>
-                <TableCell className="pr-8 text-right">
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-8 px-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-all opacity-0 group-hover:opacity-100"
-                    onClick={() => setSelectedLog(log)}
-                  >
-                    <Eye className="mr-1.5 h-3.5 w-3.5" /> View
-                  </Button>
-                </TableCell>
+                </TableHead>
+                <TableHead className="text-[9px] font-black uppercase tracking-widest py-5">Timestamp</TableHead>
+                <TableHead className="text-[9px] font-black uppercase tracking-widest py-5">Official Signature</TableHead>
+                <TableHead className="text-[9px] font-black uppercase tracking-widest py-5">Action Protocol</TableHead>
+                <TableHead className="text-[9px] font-black uppercase tracking-widest py-5 hidden xl:table-cell">Target Reference</TableHead>
+                <TableHead className="text-[9px] font-black uppercase tracking-widest py-5 pr-6 sm:pr-8 text-right">Detail</TableHead>
               </TableRow>
-            )) : (
-              <TableRow>
-                <TableCell colSpan={6} className="h-60 text-center">
-                  <div className="flex flex-col items-center justify-center gap-3 opacity-20">
-                    <ShieldCheck className="h-12 w-12 text-muted-foreground" />
-                    <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Forensic Scan Complete: Zero Records Found</p>
-                  </div>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {paginatedLogs.length > 0 ? paginatedLogs.map((log) => (
+                <TableRow 
+                  key={log.id} 
+                  className={cn(
+                    "hover:bg-muted/30 transition-colors border-border h-16 group",
+                    selectedIds.has(log.id) && "bg-primary/[0.02]"
+                  )}
+                >
+                  <TableCell className="pl-6 sm:pl-8">
+                    <Checkbox 
+                      checked={selectedIds.has(log.id)} 
+                      onCheckedChange={() => toggleSelectRow(log.id)}
+                      className="rounded-md border-muted-foreground/30"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase whitespace-nowrap">
+                      <Clock className="h-3 w-3 opacity-30" />
+                      {log.timestamp?.toDate ? format(log.timestamp.toDate(), 'MMM dd, HH:mm') : 'Just now'}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2 whitespace-nowrap">
+                      <User className="h-3.5 w-3.5 text-primary/40" />
+                      <span className="text-xs font-black text-foreground">{log.officerName}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-[9px] font-black uppercase px-2 py-0.5 bg-primary/10 text-primary rounded border border-primary/20 tracking-tighter whitespace-nowrap">
+                      {log.action.replace(/_/g, ' ')}
+                    </span>
+                  </TableCell>
+                  <TableCell className="hidden xl:table-cell">
+                    <div className="flex items-center gap-1.5 text-[9px] font-mono font-bold text-muted-foreground/40">
+                      <FileDigit className="h-3 w-3" />
+                      {log.targetId?.substring(0, 15)}...
+                    </div>
+                  </TableCell>
+                  <TableCell className="pr-6 sm:pr-8 text-right">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-8 px-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-all lg:opacity-0 lg:group-hover:opacity-100"
+                      onClick={() => setSelectedLog(log)}
+                    >
+                      <Eye className="mr-1.5 h-3.5 w-3.5" /> View
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              )) : (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-60 text-center">
+                    <div className="flex flex-col items-center justify-center gap-3 opacity-20">
+                      <ShieldCheck className="h-12 w-12 text-muted-foreground" />
+                      <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Forensic Scan Complete: Zero Records Found</p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
 
         {/* Pagination Controls */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between px-8 py-4 bg-muted/10 border-t border-border">
+          <div className="flex flex-col sm:flex-row items-center justify-between px-6 sm:px-8 py-4 bg-muted/10 border-t border-border gap-4">
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-              Showing {paginatedLogs.length} of {filteredLogs.length} Forensic Records
+              Showing {paginatedLogs.length} of {filteredLogs.length} Records
             </p>
             <div className="flex items-center gap-2">
               <Button
@@ -342,7 +345,7 @@ export default function AuditLedgerPage() {
           setIsPurgeDialogOpen(false);
         }
       }}>
-        <AlertDialogContent className="rounded-[32px] border-none shadow-2xl bg-popover max-w-md p-0 overflow-hidden">
+        <AlertDialogContent className="rounded-[32px] border-none shadow-2xl bg-popover max-w-md p-0 overflow-hidden mx-4">
           <div className="p-10 text-center space-y-6">
             <div className="mx-auto bg-destructive/10 p-5 rounded-2xl w-fit">
               {isPurging ? <Loader2 className="h-10 w-10 text-destructive animate-spin" /> : <ShieldAlert className="h-10 w-10 text-destructive" />}
@@ -368,11 +371,6 @@ export default function AuditLedgerPage() {
                   <Input 
                     value={purgeConfirmationText}
                     onChange={(e) => setPurgeConfirmationText(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && isVerified && !isPurging) {
-                        handleBulkPurge();
-                      }
-                    }}
                     placeholder="Confirmation phrase..."
                     className="h-12 bg-background border-border focus:border-destructive/50 rounded-xl text-center font-black tracking-widest uppercase placeholder:font-bold placeholder:tracking-normal placeholder:text-muted-foreground/20"
                     autoFocus
@@ -404,8 +402,8 @@ export default function AuditLedgerPage() {
 
       {/* Forensic Detail Dialog */}
       <Dialog open={!!selectedLog} onOpenChange={(open) => !open && setSelectedLog(null)}>
-        <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden rounded-[32px] border-none shadow-2xl bg-popover">
-          <DialogHeader className="p-8 border-b border-border bg-muted/30">
+        <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden rounded-[32px] border-none shadow-2xl bg-popover max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="p-6 sm:p-8 border-b border-border bg-muted/30">
             <div className="flex items-center justify-between w-full">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-primary/10 rounded-xl">
@@ -417,15 +415,15 @@ export default function AuditLedgerPage() {
                 </div>
               </div>
               {selectedLog && (
-                <span className="text-[9px] font-black uppercase px-2 py-1 bg-primary text-primary-foreground rounded-lg tracking-widest">
+                <span className="text-[9px] font-black uppercase px-2 py-1 bg-primary text-primary-foreground rounded-lg tracking-widest hidden sm:inline">
                   {selectedLog.action.replace(/_/g, ' ')}
                 </span>
               )}
             </div>
           </DialogHeader>
 
-          <div className="p-8 space-y-8 bg-card">
-            <div className="grid grid-cols-2 gap-8">
+          <div className="p-6 sm:p-8 space-y-8 bg-card">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
               <div className="space-y-1.5">
                 <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
                   <User className="h-3 w-3" /> Official Identity
@@ -460,14 +458,14 @@ export default function AuditLedgerPage() {
                   </p>
                </div>
 
-               <div className="flex items-center justify-between p-4 bg-primary/[0.03] border border-primary/10 rounded-2xl">
+               <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-primary/[0.03] border border-primary/10 rounded-2xl gap-4">
                   <div className="space-y-0.5">
                     <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
                       <FileDigit className="h-3 w-3" /> Target Reference ID
                     </p>
-                    <p className="text-[11px] font-mono font-bold text-primary">{selectedLog?.targetId}</p>
+                    <p className="text-[11px] font-mono font-bold text-primary break-all">{selectedLog?.targetId}</p>
                   </div>
-                  <div className="h-10 w-10 rounded-xl bg-background border border-border flex items-center justify-center">
+                  <div className="h-10 w-10 rounded-xl bg-background border border-border flex items-center justify-center shrink-0">
                     <Fingerprint className="h-5 w-5 text-muted-foreground/30" />
                   </div>
                </div>
@@ -477,7 +475,7 @@ export default function AuditLedgerPage() {
           <div className="p-4 border-t border-border bg-muted/30 flex justify-end">
             <Button 
               onClick={() => setSelectedLog(null)} 
-              className="font-black text-[10px] uppercase tracking-widest h-10 px-8 rounded-xl"
+              className="w-full sm:w-auto font-black text-[10px] uppercase tracking-widest h-10 px-8 rounded-xl"
             >
               Close Ledger Entry
             </Button>

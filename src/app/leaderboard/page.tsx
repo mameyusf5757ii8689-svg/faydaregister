@@ -182,31 +182,31 @@ export default function LeaderboardPage() {
         <div className="space-y-1.5">
           <div className="flex items-center gap-3">
              <div className="bg-amber-500/10 p-2.5 rounded-xl border border-amber-500/20">
-                <Trophy className="h-7 w-7 text-amber-500" />
+                <Trophy className="h-6 w-6 sm:h-7 sm:w-7 text-amber-500" />
              </div>
              <div>
-                <h1 className="text-4xl font-black tracking-tight text-foreground font-headline uppercase leading-none">Official Tiers</h1>
-                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Personnel Ranking Matrix • {format(new Date(selectedDate), 'MMMM dd, yyyy')}</p>
+                <h1 className="text-2xl sm:text-4xl font-black tracking-tight text-foreground font-headline uppercase leading-none">Official Tiers</h1>
+                <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Personnel Ranking Matrix • {format(new Date(selectedDate), 'MMMM dd, yyyy')}</p>
              </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-4 bg-card p-2.5 rounded-2xl border shadow-sm">
+        <div className="flex flex-wrap items-center gap-3 bg-card p-2.5 rounded-2xl border shadow-sm w-full md:w-auto">
           <Input 
             type="date" 
             value={selectedDate} 
             onChange={(e) => setSelectedDate(e.target.value)} 
-            className="h-11 bg-background border-border rounded-xl font-black text-[10px] uppercase tracking-widest w-[160px]" 
+            className="h-11 bg-background border-border rounded-xl font-black text-[10px] uppercase tracking-widest w-full sm:w-[160px]" 
           />
-          <div className="h-8 w-px bg-border mx-1" />
-          <Button onClick={handleSync} variant="outline" className="h-11 px-6 rounded-xl font-black text-[10px] uppercase tracking-widest border-border bg-background hover:bg-muted">
-             <RotateCw className="mr-2 h-4 w-4" /> Sync Matrix
+          <div className="h-8 w-px bg-border mx-1 hidden sm:block" />
+          <Button onClick={handleSync} variant="outline" className="flex-1 sm:flex-none h-11 px-6 rounded-xl font-black text-[10px] uppercase tracking-widest border-border bg-background hover:bg-muted">
+             <RotateCw className="mr-2 h-4 w-4" /> Sync
           </Button>
-          <div className="flex items-center gap-2">
-            <Button onClick={handleExportExcel} disabled={isExporting} variant="outline" className="h-11 px-4 rounded-xl border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/10 font-bold text-[10px] uppercase tracking-widest bg-background">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Button onClick={handleExportExcel} disabled={isExporting} variant="outline" className="flex-1 sm:flex-none h-11 px-4 rounded-xl border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/10 font-bold text-[10px] uppercase tracking-widest bg-background">
               <FileSpreadsheet className="h-4 w-4" />
             </Button>
-            <Button onClick={handleExportPDF} disabled={isExporting} variant="outline" className="h-11 px-4 rounded-xl border-rose-500/20 text-rose-500 hover:bg-rose-500/10 font-bold text-[10px] uppercase tracking-widest bg-background">
+            <Button onClick={handleExportPDF} disabled={isExporting} variant="outline" className="flex-1 sm:flex-none h-11 px-4 rounded-xl border-rose-500/20 text-rose-500 hover:bg-rose-500/10 font-bold text-[10px] uppercase tracking-widest bg-background">
               <FileText className="h-4 w-4" />
             </Button>
           </div>
@@ -219,7 +219,7 @@ export default function LeaderboardPage() {
             "border-none shadow-sm overflow-hidden rounded-[32px] transition-all hover:shadow-xl relative group", 
             perf.rank === 1 ? "bg-amber-500/5 ring-2 ring-amber-500/20" : "bg-card"
           )}>
-            <CardContent className="p-8">
+            <CardContent className="p-6 sm:p-8">
               <div className="absolute -top-10 -right-10 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity rotate-12">
                  <Trophy className="h-48 w-48" />
               </div>
@@ -227,28 +227,26 @@ export default function LeaderboardPage() {
               <div className="flex items-start justify-between mb-8 relative z-10">
                 <div className="flex items-center gap-3">
                   <div className={cn(
-                    "h-12 w-12 rounded-2xl flex items-center justify-center border-2",
+                    "h-10 w-10 sm:h-12 sm:w-12 rounded-2xl flex items-center justify-center border-2",
                     perf.rank === 1 ? "bg-amber-500 border-amber-600 text-white" : 
                     perf.rank === 2 ? "bg-slate-300 border-slate-400 text-slate-700" : "bg-orange-300 border-orange-400 text-orange-700"
                   )}>
-                    {perf.rank === 1 ? <Trophy className="h-6 w-6" /> : <Medal className="h-6 w-6" />}
+                    {perf.rank === 1 ? <Trophy className="h-5 w-5 sm:h-6 sm:w-6" /> : <Medal className="h-5 w-5 sm:h-6 sm:w-6" />}
                   </div>
-                  <span className="text-4xl font-black text-foreground tracking-tighter">#{perf.rank}</span>
+                  <span className="text-3xl sm:text-4xl font-black text-foreground tracking-tighter">#{perf.rank}</span>
                 </div>
                 <div className="text-right">
-                  <span className="text-4xl font-black text-foreground tracking-tighter">{perf.registrations.toLocaleString()}</span>
-                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest -mt-1 opacity-50">Units Intake</p>
+                  <span className="text-3xl sm:text-4xl font-black text-foreground tracking-tighter">{perf.registrations.toLocaleString()}</span>
+                  <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest -mt-1 opacity-50">Intake</p>
                 </div>
               </div>
 
               <div className="space-y-6 relative z-10">
                 <div className="space-y-1">
-                  <h3 className="text-xl font-black text-foreground uppercase tracking-tight line-clamp-1">{perf.name}</h3>
+                  <h3 className="text-lg sm:text-xl font-black text-foreground uppercase tracking-tight line-clamp-1">{perf.name}</h3>
                   <div className="flex items-center gap-2">
-                    <div className="p-1 bg-primary/10 rounded">
-                       <MapPin className="h-3 w-3 text-primary" />
-                    </div>
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                    <MapPin className="h-3 w-3 text-primary" />
+                    <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest line-clamp-1">
                        {perf.cluster} • {perf.region}
                     </p>
                   </div>
@@ -256,12 +254,12 @@ export default function LeaderboardPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="p-4 bg-muted/40 rounded-2xl border border-border shadow-inner">
-                    <p className="text-[9px] font-black text-muted-foreground uppercase mb-2 flex items-center gap-1.5"><Phone className="h-3 w-3 text-emerald-500" /> Ethio</p>
-                    <p className="text-xl font-black text-foreground">{perf.ethio}</p>
+                    <p className="text-[8px] font-black text-muted-foreground uppercase mb-1 flex items-center gap-1.5"><Phone className="h-2.5 w-2.5 text-emerald-500" /> Ethio</p>
+                    <p className="text-lg font-black text-foreground">{perf.ethio}</p>
                   </div>
                   <div className="p-4 bg-muted/40 rounded-2xl border border-border shadow-inner">
-                    <p className="text-[9px] font-black text-muted-foreground uppercase mb-2 flex items-center gap-1.5"><Smartphone className="h-3 w-3 text-orange-500" /> Safaricom</p>
-                    <p className="text-xl font-black text-foreground">{perf.safaricom}</p>
+                    <p className="text-[8px] font-black text-muted-foreground uppercase mb-1 flex items-center gap-1.5"><Smartphone className="h-2.5 w-2.5 text-orange-500" /> Safaricom</p>
+                    <p className="text-lg font-black text-foreground">{perf.safaricom}</p>
                   </div>
                 </div>
               </div>
@@ -270,82 +268,84 @@ export default function LeaderboardPage() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <SummaryCard label="Total Bureau Velocity" value={summary.totalRegs.toLocaleString()} icon={Activity} color="text-primary" />
-        <SummaryCard label="Average Unit Throughput" value={summary.avg} icon={ArrowUpRight} color="text-emerald-500" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <SummaryCard label="Bureau Velocity" value={summary.totalRegs.toLocaleString()} icon={Activity} color="text-primary" />
+        <SummaryCard label="Average Unit Output" value={summary.avg} icon={ArrowUpRight} color="text-emerald-500" />
       </div>
 
       <Card className="border border-border bg-card overflow-hidden rounded-[32px] shadow-sm">
-        <Table>
-          <TableHeader className="bg-muted/30">
-            <TableRow className="hover:bg-transparent border-border">
-              <TableHead className="text-[10px] font-black uppercase tracking-widest h-16 w-[120px] pl-10">Rank Tier</TableHead>
-              <TableHead className="text-[10px] font-black uppercase tracking-widest h-16">Official Identity</TableHead>
-              <TableHead className="text-[10px] font-black uppercase tracking-widest h-16">Sector Assignment</TableHead>
-              <TableHead className="text-[10px] font-black uppercase tracking-widest h-16 text-center">Ethio</TableHead>
-              <TableHead className="text-[10px] font-black uppercase tracking-widest h-16 text-center">Safaricom</TableHead>
-              <TableHead className="text-[10px] font-black uppercase tracking-widest h-16 text-right pr-10">Intake Total</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {leaderboardData.length > 0 ? leaderboardData.map((perf) => (
-              <TableRow key={perf.officerId} className="hover:bg-muted/20 transition-colors border-border h-24 group">
-                <TableCell className="pl-10">
-                  <div className="flex items-center gap-4">
-                    <div className={cn(
-                      "h-10 w-10 rounded-xl flex items-center justify-center border transition-all",
-                      perf.rank === 1 ? "bg-amber-500/10 border-amber-500/20 text-amber-600" : 
-                      perf.rank <= 3 ? "bg-primary/5 border-primary/10 text-primary" : "bg-muted border-border text-muted-foreground"
-                    )}>
-                      {perf.rank === 1 ? <Trophy className="h-5 w-5" /> : 
-                       perf.rank <= 3 ? <Medal className="h-5 w-5" /> : <User className="h-5 w-5 opacity-40" />}
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader className="bg-muted/30">
+              <TableRow className="hover:bg-transparent border-border">
+                <TableHead className="text-[10px] font-black uppercase tracking-widest h-16 w-[100px] pl-6 sm:pl-10">Rank</TableHead>
+                <TableHead className="text-[10px] font-black uppercase tracking-widest h-16">Official Identity</TableHead>
+                <TableHead className="text-[10px] font-black uppercase tracking-widest h-16 hidden md:table-cell">Sector</TableHead>
+                <TableHead className="text-[10px] font-black uppercase tracking-widest h-16 text-center hidden sm:table-cell">Ethio</TableHead>
+                <TableHead className="text-[10px] font-black uppercase tracking-widest h-16 text-center hidden sm:table-cell">Safaricom</TableHead>
+                <TableHead className="text-[10px] font-black uppercase tracking-widest h-16 text-right pr-6 sm:pr-10">Total</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {leaderboardData.length > 0 ? leaderboardData.map((perf) => (
+                <TableRow key={perf.officerId} className="hover:bg-muted/20 transition-colors border-border h-20 sm:h-24 group">
+                  <TableCell className="pl-6 sm:pl-10">
+                    <div className="flex items-center gap-4">
+                      <div className={cn(
+                        "h-8 w-8 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center border transition-all",
+                        perf.rank === 1 ? "bg-amber-500/10 border-amber-500/20 text-amber-600" : 
+                        perf.rank <= 3 ? "bg-primary/5 border-primary/10 text-primary" : "bg-muted border-border text-muted-foreground"
+                      )}>
+                        {perf.rank === 1 ? <Trophy className="h-4 w-4 sm:h-5 sm:w-5" /> : 
+                         perf.rank <= 3 ? <Medal className="h-4 w-4 sm:h-5 sm:w-5" /> : <User className="h-4 w-4 sm:h-5 sm:w-5 opacity-40" />}
+                      </div>
+                      <span className="font-black text-foreground text-base sm:text-lg tracking-tighter">#{perf.rank}</span>
                     </div>
-                    <span className="font-black text-foreground text-lg tracking-tighter">#{perf.rank}</span>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex flex-col">
-                    <span className="text-base font-black text-foreground tracking-tight uppercase">{perf.name}</span>
-                    <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-tighter flex items-center gap-1">
-                       <BadgeCheck className="h-2.5 w-2.5 text-primary opacity-40" /> Verified Official
-                    </span>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-black text-foreground/80 uppercase tracking-widest">{perf.cluster}</span>
-                    <span className="text-[9px] font-bold text-muted-foreground uppercase">{perf.region}</span>
-                  </div>
-                </TableCell>
-                <TableCell className="text-center">
-                   <span className="text-sm font-black text-emerald-600 tabular-nums">{perf.ethio}</span>
-                </TableCell>
-                <TableCell className="text-center">
-                   <span className="text-sm font-black text-orange-600 tabular-nums">{perf.safaricom}</span>
-                </TableCell>
-                <TableCell className="text-right pr-10">
-                  <div className="inline-flex items-center justify-center h-12 px-6 rounded-2xl bg-primary/5 text-lg font-black text-primary ring-1 ring-primary/10 shadow-sm transition-transform group-hover:scale-105">
-                    {perf.registrations.toLocaleString()}
-                  </div>
-                </TableCell>
-              </TableRow>
-            )) : (
-              <TableRow>
-                <TableCell colSpan={6} className="h-80 text-center">
-                  <div className="flex flex-col items-center justify-center gap-4 opacity-20">
-                    <Zap className="h-16 w-16 text-muted-foreground" />
-                    <p className="text-sm font-black uppercase tracking-[0.3em] text-muted-foreground">Terminal Scan Complete: Zero Activity Signals</p>
-                  </div>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span className="text-sm sm:text-base font-black text-foreground tracking-tight uppercase line-clamp-1">{perf.name}</span>
+                      <span className="text-[8px] sm:text-[9px] font-bold text-muted-foreground uppercase tracking-tighter flex items-center gap-1">
+                         <BadgeCheck className="h-2.5 w-2.5 text-primary opacity-40" /> Verified Official
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell">
+                    <div className="flex flex-col">
+                      <span className="text-[9px] font-black text-foreground/80 uppercase tracking-widest">{perf.cluster}</span>
+                      <span className="text-[8px] font-bold text-muted-foreground uppercase">{perf.region}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-center hidden sm:table-cell">
+                     <span className="text-sm font-black text-emerald-600 tabular-nums">{perf.ethio}</span>
+                  </TableCell>
+                  <TableCell className="text-center hidden sm:table-cell">
+                     <span className="text-sm font-black text-orange-600 tabular-nums">{perf.safaricom}</span>
+                  </TableCell>
+                  <TableCell className="text-right pr-6 sm:pr-10">
+                    <div className="inline-flex items-center justify-center h-10 sm:h-12 px-4 sm:px-6 rounded-2xl bg-primary/5 text-base sm:text-lg font-black text-primary ring-1 ring-primary/10 shadow-sm transition-transform group-hover:scale-105">
+                      {perf.registrations.toLocaleString()}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )) : (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-80 text-center">
+                    <div className="flex flex-col items-center justify-center gap-4 opacity-20">
+                      <Zap className="h-16 w-16 text-muted-foreground" />
+                      <p className="text-sm font-black uppercase tracking-[0.3em] text-muted-foreground">Terminal Scan Complete: Zero Activity Signals</p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </Card>
 
       <div className="p-6 bg-primary/[0.03] border border-primary/10 rounded-[32px] flex items-center gap-6">
-        <ShieldCheck className="h-8 w-8 text-primary shrink-0 opacity-40" />
-        <p className="text-[10px] text-foreground font-bold uppercase leading-relaxed tracking-widest max-w-5xl">
+        <ShieldCheck className="h-8 w-8 text-primary shrink-0 opacity-40 hidden sm:block" />
+        <p className="text-[10px] text-foreground font-bold uppercase leading-relaxed tracking-widest max-w-5xl text-center sm:text-left">
           Performance Integrity Policy: This leaderboard reflects raw registration intake reported by field units for the specified date. All data is synchronized from daily reports and subject to audit verification. Exported records are signed into the Forensic Audit Ledger under your official administrative signature.
         </p>
       </div>
@@ -356,16 +356,16 @@ export default function LeaderboardPage() {
 function SummaryCard({ label, value, icon: Icon, color }: any) {
   return (
     <Card className="border border-border shadow-sm bg-card overflow-hidden rounded-[32px] group">
-      <CardContent className="p-8 flex items-center justify-between">
+      <CardContent className="p-6 sm:p-8 flex items-center justify-between">
         <div className="space-y-1">
           <div className="flex items-center gap-2 mb-2">
             <div className="p-2 bg-muted rounded-xl"><Icon className={cn("h-4 w-4", color)} /></div>
             <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{label}</p>
           </div>
-          <p className="text-5xl font-black text-foreground tracking-tighter">{value}</p>
+          <p className="text-4xl sm:text-5xl font-black text-foreground tracking-tighter">{value}</p>
         </div>
-        <div className="h-20 w-20 bg-muted/30 rounded-full flex items-center justify-center border border-border group-hover:scale-110 transition-transform">
-           <TrendingUp className={cn("h-8 w-8 opacity-10", color)} />
+        <div className="h-16 w-16 sm:h-20 sm:w-20 bg-muted/30 rounded-full flex items-center justify-center border border-border group-hover:scale-110 transition-transform">
+           <TrendingUp className={cn("h-6 w-6 sm:h-8 sm:w-8 opacity-10", color)} />
         </div>
       </CardContent>
     </Card>

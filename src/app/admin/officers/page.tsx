@@ -143,7 +143,7 @@ export default function OfficerManagementPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-1.5">
           <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Bureau Administration</p>
-          <h1 className="text-4xl font-black tracking-tight text-foreground font-headline">Officer Command</h1>
+          <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-foreground font-headline">Officer Command</h1>
           <p className="text-sm text-muted-foreground max-w-lg">
             Register new official signatures, manage field permissions, and monitor personnel clusters.
           </p>
@@ -151,7 +151,7 @@ export default function OfficerManagementPage() {
         <OfficerFormModal mode="add" />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
         <StatSummary label="Total Active" value={stats.total} icon={Users} color="text-primary" />
         <StatSummary label="Field Officers" value={stats.reviewers} icon={Shield} color="text-emerald-500" />
         <StatSummary label="Bureau Admins" value={stats.admins} icon={BadgeCheck} color="text-amber-500" />
@@ -175,83 +175,85 @@ export default function OfficerManagementPage() {
             <div className="flex justify-center py-32"><Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" /></div>
           ) : paginatedOfficers && paginatedOfficers.length > 0 ? (
             <>
-              <Table>
-                <TableHeader className="bg-muted/30">
-                  <TableRow className="border-border hover:bg-transparent">
-                    <TableHead className="text-[9px] font-black uppercase h-14 pl-8 text-muted-foreground tracking-widest">Official Signature</TableHead>
-                    <TableHead className="text-[9px] font-black uppercase h-14 text-muted-foreground tracking-widest">Terminal</TableHead>
-                    <TableHead className="text-[9px] font-black uppercase h-14 text-muted-foreground tracking-widest">Clearance</TableHead>
-                    <TableHead className="text-[9px] font-black uppercase h-14 text-muted-foreground tracking-widest">Sector</TableHead>
-                    <TableHead className="text-[9px] font-black uppercase h-14 pr-8 text-right text-muted-foreground tracking-widest">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {paginatedOfficers.map((officer) => (
-                    <TableRow key={officer.id} className="hover:bg-muted/30 transition-colors group border-border h-20">
-                      <TableCell className="pl-8">
-                        <div className="flex items-center gap-4">
-                          <Avatar className="h-11 w-11 border-2 border-background shadow-md">
-                            <AvatarImage src={officer.profilePhoto} />
-                            <AvatarFallback className="font-black text-[10px]">{officer.fullName.substring(0, 2).toUpperCase()}</AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p className="text-sm font-black text-foreground tracking-tight">{officer.fullName}</p>
-                            <p className="text-[9px] font-mono text-muted-foreground/40 uppercase tracking-tighter">UID: {officer.id.substring(0, 12)}...</p>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2 text-muted-foreground text-[11px] font-bold">
-                          <Mail className="h-3.5 w-3.5 opacity-30" />
-                          {officer.email}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-lg tracking-tighter ${
-                          officer.role === 'admin' ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20' : 'bg-primary/10 text-primary border border-primary/20'
-                        }`}>
-                          {officer.role}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col">
-                          <div className="flex items-center gap-1.5 text-[11px] font-black text-foreground/80 uppercase">
-                            <MapPin className="h-3 w-3 text-muted-foreground/30" />
-                            {officer.region}
-                          </div>
-                          <p className="text-[9px] text-muted-foreground/50 font-bold uppercase ml-4.5">{officer.cluster}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell className="pr-8 text-right">
-                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                          <OfficerFormModal 
-                            mode="edit" 
-                            officer={officer} 
-                            trigger={
-                              <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-xl transition-all">
-                                <Edit2 className="h-4 w-4" />
-                              </Button>
-                            } 
-                          />
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/5 rounded-xl transition-all"
-                            onClick={() => initiateDelete(officer)}
-                            disabled={officer.id === currentUser?.uid}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-muted/30">
+                    <TableRow className="border-border hover:bg-transparent">
+                      <TableHead className="text-[9px] font-black uppercase h-14 pl-6 sm:pl-8 text-muted-foreground tracking-widest">Official Signature</TableHead>
+                      <TableHead className="text-[9px] font-black uppercase h-14 text-muted-foreground tracking-widest hidden lg:table-cell">Terminal</TableHead>
+                      <TableHead className="text-[9px] font-black uppercase h-14 text-muted-foreground tracking-widest">Clearance</TableHead>
+                      <TableHead className="text-[9px] font-black uppercase h-14 text-muted-foreground tracking-widest hidden sm:table-cell">Sector</TableHead>
+                      <TableHead className="text-[9px] font-black uppercase h-14 pr-6 sm:pr-8 text-right text-muted-foreground tracking-widest">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedOfficers.map((officer) => (
+                      <TableRow key={officer.id} className="hover:bg-muted/30 transition-colors group border-border h-20">
+                        <TableCell className="pl-6 sm:pl-8">
+                          <div className="flex items-center gap-4">
+                            <Avatar className="h-10 w-10 sm:h-11 sm:w-11 border-2 border-background shadow-md">
+                              <AvatarImage src={officer.profilePhoto} />
+                              <AvatarFallback className="font-black text-[10px]">{officer.fullName.substring(0, 2).toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="text-sm font-black text-foreground tracking-tight whitespace-nowrap">{officer.fullName}</p>
+                              <p className="text-[9px] font-mono text-muted-foreground/40 uppercase tracking-tighter hidden sm:block">UID: {officer.id.substring(0, 12)}...</p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell">
+                          <div className="flex items-center gap-2 text-muted-foreground text-[11px] font-bold">
+                            <Mail className="h-3.5 w-3.5 opacity-30" />
+                            {officer.email}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className={`text-[9px] font-black uppercase px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg tracking-tighter whitespace-nowrap ${
+                            officer.role === 'admin' ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20' : 'bg-primary/10 text-primary border border-primary/20'
+                          }`}>
+                            {officer.role}
+                          </span>
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell">
+                          <div className="flex flex-col">
+                            <div className="flex items-center gap-1.5 text-[11px] font-black text-foreground/80 uppercase">
+                              <MapPin className="h-3 w-3 text-muted-foreground/30" />
+                              {officer.region}
+                            </div>
+                            <p className="text-[9px] text-muted-foreground/50 font-bold uppercase ml-4.5">{officer.cluster}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="pr-6 sm:pr-8 text-right">
+                          <div className="flex items-center justify-end gap-1 sm:gap-2 lg:opacity-0 lg:group-hover:opacity-100 transition-all">
+                            <OfficerFormModal 
+                              mode="edit" 
+                              officer={officer} 
+                              trigger={
+                                <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-xl transition-all">
+                                  <Edit2 className="h-4 w-4" />
+                                </Button>
+                              } 
+                            />
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-9 w-9 text-muted-foreground/30 hover:text-destructive hover:bg-destructive/5 rounded-xl transition-all"
+                              onClick={() => initiateDelete(officer)}
+                              disabled={officer.id === currentUser?.uid}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
               {totalPages > 1 && (
-                <div className="flex items-center justify-between px-8 py-4 bg-muted/5 border-t border-border">
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                    Showing {paginatedOfficers.length} of {filteredOfficers.length} personnel
+                <div className="flex flex-col sm:flex-row items-center justify-between px-6 sm:px-8 py-4 bg-muted/5 border-t border-border gap-4">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-center sm:text-left">
+                    {paginatedOfficers.length} of {filteredOfficers.length} personnel
                   </p>
                   <div className="flex items-center gap-2">
                     <Button
@@ -264,7 +266,7 @@ export default function OfficerManagementPage() {
                       <ChevronLeft className="h-4 w-4" />
                     </Button>
                     <div className="flex items-center justify-center min-w-[80px] h-9 text-[10px] font-black text-foreground bg-muted/50 border border-border rounded-xl uppercase tracking-widest px-3">
-                      Page {currentPage} of {totalPages}
+                      {currentPage} / {totalPages}
                     </div>
                     <Button
                       variant="outline"
@@ -282,15 +284,15 @@ export default function OfficerManagementPage() {
           ) : (
             <div className="flex flex-col items-center justify-center h-80 text-muted-foreground/30">
               <Users className="h-16 w-16 mb-4 opacity-10" />
-              <p className="text-sm font-black uppercase tracking-widest">No Matches Found</p>
-              <p className="text-xs">Adjust your search parameters or register new personnel.</p>
+              <p className="text-sm font-black uppercase tracking-widest text-center">No Matches Found</p>
+              <p className="text-xs text-center px-6">Adjust your search parameters or register new personnel.</p>
             </div>
           )}
         </CardContent>
       </Card>
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent className="rounded-[32px] border-none shadow-2xl bg-popover max-w-md p-0 overflow-hidden">
+        <AlertDialogContent className="rounded-[32px] border-none shadow-2xl bg-popover max-w-md p-0 overflow-hidden mx-4">
           <div className="p-10 text-center space-y-6">
             <div className="mx-auto bg-destructive/10 p-5 rounded-2xl w-fit">
               {isDeleting ? <Loader2 className="h-10 w-10 text-destructive animate-spin" /> : <ShieldAlert className="h-10 w-10 text-destructive" />}
@@ -335,7 +337,7 @@ function StatSummary({ label, value, icon: Icon, color }: any) {
           <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{label}</p>
           <div className={`p-2 rounded-lg bg-muted/50 ${color}`}><Icon className="h-4 w-4" /></div>
         </div>
-        <p className="text-3xl font-black text-foreground tracking-tighter">{value.toLocaleString()}</p>
+        <p className="text-2xl sm:text-3xl font-black text-foreground tracking-tighter">{value.toLocaleString()}</p>
       </CardContent>
     </Card>
   );

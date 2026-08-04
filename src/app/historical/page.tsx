@@ -206,28 +206,28 @@ export default function HistoricalDataPage() {
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-1">
-          <h1 className="text-3xl font-black tracking-tight text-foreground font-headline uppercase leading-none">Historical Data Ledger</h1>
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground font-headline uppercase leading-none">Historical Data Ledger</h1>
           <p className="text-sm text-muted-foreground">Manage and review monthly registration archives from previous operational periods.</p>
         </div>
         
-        <div className="flex items-center gap-3">
-           <Button variant="outline" className="font-bold border-border bg-card text-foreground h-11 px-6 rounded-xl text-[10px] uppercase tracking-widest">
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+           <Button variant="outline" className="w-full sm:w-auto font-bold border-border bg-card text-foreground h-11 px-6 rounded-xl text-[10px] uppercase tracking-widest">
             <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-500" /> Export Archive
           </Button>
           <Dialog open={isModalOpen} onOpenChange={(o) => { if(!o) resetForm(); setIsModalOpen(o); }}>
             <DialogTrigger asChild>
-              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-black text-[10px] uppercase tracking-widest h-11 px-8 rounded-xl shadow-xl shadow-primary/10">
+              <Button className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground font-black text-[10px] uppercase tracking-widest h-11 px-8 rounded-xl shadow-xl shadow-primary/10">
                 <Plus className="mr-2 h-4 w-4" /> Archive Data
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-2xl p-0 overflow-hidden rounded-[32px] border-none shadow-2xl bg-popover">
+            <DialogContent className="sm:max-w-2xl p-0 overflow-hidden rounded-[32px] border-none shadow-2xl bg-popover max-h-[90vh] overflow-y-auto">
               <DialogHeader className="p-8 border-b border-border bg-muted/30">
                 <DialogTitle className="text-xl font-black text-foreground uppercase tracking-tighter">
                   {editingId ? 'Modify Archive Entry' : 'Monthly Summary Entry'}
                 </DialogTitle>
               </DialogHeader>
               <form onSubmit={handleAddData} className="p-8 space-y-8 bg-card">
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1">Reporting Month</Label>
                     <Select value={month} onValueChange={setMonth}>
@@ -252,7 +252,7 @@ export default function HistoricalDataPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1">Ethio Intake</Label>
                     <Input 
@@ -276,9 +276,9 @@ export default function HistoricalDataPage() {
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
                     <h3 className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.2em]">Operational Breakdown</h3>
-                    <span className="text-[9px] font-bold text-muted-foreground/40 uppercase">Detailed Performance Data</span>
+                    <span className="text-[9px] font-bold text-muted-foreground/40 uppercase hidden sm:inline">Detailed Performance Data</span>
                   </div>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                     <StatusField label="Processed" value={processed} onChange={setProcessed} color="emerald" />
                     <StatusField label="Processing" value={processing} onChange={setProcessing} color="blue" />
                     <StatusField label="Pending" value={pendingReview} onChange={setPendingReview} color="amber" />
@@ -288,7 +288,7 @@ export default function HistoricalDataPage() {
                 </div>
 
                 <div className="pt-6 border-t border-border flex flex-col gap-3">
-                  <Button type="submit" className="w-full h-14 bg-primary hover:bg-primary/90 text-primary-foreground font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/10">
+                  <Button type="submit" className="w-full h-14 bg-primary hover:bg-primary/90 text-primary-foreground font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/10 transition-all active:scale-[0.98]">
                     <Save className="mr-2 h-4 w-4" /> {editingId ? 'Commit Changes' : 'Synchronize with Archive'}
                   </Button>
                   <Button 
@@ -319,16 +319,16 @@ export default function HistoricalDataPage() {
             ) : history.map((entry) => {
               const label = `${entry.month} ${entry.year}`;
               return (
-                <div key={entry.id} className="group flex items-center justify-between p-6 hover:bg-muted/30 transition-all border-border border-b last:border-0 h-24">
-                  <div className="flex-1 flex items-center gap-10">
-                    <div className="flex items-center gap-4 min-w-[200px]">
+                <div key={entry.id} className="group flex flex-col lg:flex-row lg:items-center justify-between p-6 hover:bg-muted/30 transition-all border-border border-b last:border-0 lg:h-24 gap-6 lg:gap-0">
+                  <div className="flex-1 flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-10">
+                    <div className="flex items-center gap-4 min-w-[180px]">
                       <div className="p-3 rounded-2xl bg-muted/50 border border-border group-hover:bg-primary/5 group-hover:border-primary/20 transition-all">
                         <Calendar className="h-5 w-5 text-muted-foreground/40 group-hover:text-primary transition-colors" />
                       </div>
                       <h3 className="text-lg font-black text-foreground tracking-tight">{label}</h3>
                     </div>
                     
-                    <div className="flex-1 grid grid-cols-2 sm:grid-cols-5 gap-8">
+                    <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-4 lg:gap-8">
                       <MetricItem label="Grand Total" value={entry.total} color="text-primary" />
                       <MetricItem label="Ethio Intake" value={entry.ethio} color="text-foreground/80" />
                       <MetricItem label="Safaricom" value={entry.safaricom} color="text-foreground/80" />
@@ -337,7 +337,7 @@ export default function HistoricalDataPage() {
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all ml-6">
+                  <div className="flex items-center gap-2 lg:opacity-0 group-hover:opacity-100 transition-all lg:ml-6 justify-end">
                     <Button 
                       variant="ghost" 
                       size="sm" 
@@ -359,7 +359,7 @@ export default function HistoricalDataPage() {
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className="h-10 w-10 text-muted-foreground hover:text-destructive hover:bg-destructive/5 rounded-xl transition-all"
+                      className="h-10 w-10 text-muted-foreground/40 hover:text-destructive hover:bg-destructive/5 rounded-xl transition-all"
                       onClick={() => initiateDelete(entry.id, label)}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -383,7 +383,7 @@ export default function HistoricalDataPage() {
       </Card>
       
       <div className="flex items-center gap-3 p-5 bg-amber-500/5 border border-amber-500/10 rounded-2xl">
-        <ShieldAlert className="h-5 w-5 text-amber-500" />
+        <ShieldAlert className="h-5 w-5 text-amber-500 shrink-0" />
         <p className="text-[10px] text-amber-600 font-bold uppercase leading-relaxed tracking-widest max-w-4xl">
           Protocol Reminder: Archived throughput data is strictly isolated to your official signature. These records are subject to forensic auditing. Modifications to finalized historical summaries are logged in the bureau's audit ledger.
         </p>
@@ -391,7 +391,7 @@ export default function HistoricalDataPage() {
 
       {/* Professional Deletion Protocol */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent className="rounded-[32px] border-none shadow-2xl bg-popover max-w-md p-0 overflow-hidden">
+        <AlertDialogContent className="rounded-[32px] border-none shadow-2xl bg-popover max-w-md p-0 overflow-hidden mx-4">
           <div className="p-10 text-center space-y-6">
             <div className="mx-auto bg-destructive/10 p-5 rounded-2xl w-fit">
               {isDeleting ? <Loader2 className="h-10 w-10 text-destructive animate-spin" /> : <Trash2 className="h-10 w-10 text-destructive" />}
@@ -430,9 +430,9 @@ export default function HistoricalDataPage() {
 
 function MetricItem({ label, value, color }: { label: string, value: number, color: string }) {
   return (
-    <div className="space-y-1">
+    <div className="space-y-0.5">
       <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest block">{label}</span>
-      <span className={cn("text-base font-black tabular-nums", color)}>{value.toLocaleString()}</span>
+      <span className={cn("text-sm sm:text-base font-black tabular-nums", color)}>{value.toLocaleString()}</span>
     </div>
   );
 }
