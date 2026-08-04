@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect, Suspense } from 'react';
@@ -122,7 +123,7 @@ function PreviousContent() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700 pb-20">
-      <Link href="/historical" className="flex items-center text-[10px] font-black text-muted-foreground hover:text-primary transition-colors uppercase tracking-widest gap-1.5">
+      <Link href="/historical" className="flex items-center text-[10px] font-black text-muted-foreground hover:text-primary transition-colors uppercase tracking-widest gap-1.5 gap-1.5">
         <ArrowLeft className="h-3 w-3" /> Return to Ledger
       </Link>
 
