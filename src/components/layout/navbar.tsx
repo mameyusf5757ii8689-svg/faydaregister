@@ -25,7 +25,8 @@ import {
   Activity,
   TrendingUp,
   Printer,
-  ShieldCheck
+  ShieldCheck,
+  History as HistoryIcon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -50,6 +51,7 @@ const OFFICER_NAV_ITEMS = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Full Registry', href: '/full-registration', icon: Activity },
   { name: 'Performance', href: '/performance', icon: TrendingUp },
+  { name: 'Comparison', href: '/previous', icon: HistoryIcon },
   { name: 'Status', href: '/status-check', icon: Search },
   { name: 'Printing', href: '/printing', icon: Printer },
   { name: 'Comm', href: '/communication', icon: MessageSquare },
@@ -64,6 +66,7 @@ const ADMIN_NAV_ITEMS = [
   { name: 'Overview', href: '/admin', icon: LayoutDashboard },
   { name: 'Full Registry', href: '/full-registration', icon: Activity },
   { name: 'Performance', href: '/performance', icon: TrendingUp },
+  { name: 'Comparison', href: '/previous', icon: HistoryIcon },
   { name: 'Status', href: '/status-check', icon: Search },
   { name: 'Printing', href: '/printing', icon: Printer },
   { name: 'Audit', href: '/admin/audit-ledger', icon: ShieldCheck },
