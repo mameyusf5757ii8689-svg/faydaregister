@@ -148,6 +148,26 @@
         "details": { "type": "string" },
         "timestamp": { "type": "object" }
       }
+    },
+    "SystemSettings": {
+      "title": "SystemSettings",
+      "type": "object",
+      "description": "Bureau global configuration.",
+      "properties": {
+        "id": { "type": "string" },
+        "bureauName": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "contactEmail": { "type": "string" },
+        "contactPhone": { "type": "string" },
+        "officeAddress": { "type": "string" },
+        "operationalHours": { "type": "string" },
+        "systemProtocol": { "type": "string" },
+        "maintenanceMode": { "type": "boolean" },
+        "publicLookupEnabled": { "type": "boolean" },
+        "primaryLanguage": { "type": "string" },
+        "dateFormat": { "type": "string" },
+        "updatedAt": { "type": "object" }
+      }
     }
   },
   "auth": {
@@ -164,7 +184,8 @@
       { "path": "/conversations/{conversationId}", "definition": { "schema": { "$ref": "#/backend/entities/Conversation" }, "description": "Chat channels." } },
       { "path": "/messages/{messageId}", "definition": { "schema": { "$ref": "#/backend/entities/Message" }, "description": "Chat messages." } },
       { "path": "/admin_users/{userId}", "definition": { "schema": { "type": "object" }, "description": "Admin RBAC lookup." } },
-      { "path": "/audit_logs/{logId}", "definition": { "schema": { "$ref": "#/backend/entities/AuditLog" }, "description": "Forensic activity records." } }
+      { "path": "/audit_logs/{logId}", "definition": { "schema": { "$ref": "#/backend/entities/AuditLog" }, "description": "Forensic activity records." } },
+      { "path": "/system_settings/{settingsId}", "definition": { "schema": { "$ref": "#/backend/entities/SystemSettings" }, "description": "Institutional configuration." } }
     ]
   }
 }

@@ -128,6 +128,10 @@ export interface SystemSettings {
   officeAddress?: string;
   operationalHours?: string;
   systemProtocol?: string;
+  maintenanceMode?: boolean;
+  publicLookupEnabled?: boolean;
+  primaryLanguage?: string;
+  dateFormat?: string;
   updatedAt: any;
 }
 
