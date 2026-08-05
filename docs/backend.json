@@ -35,7 +35,11 @@
         "role": { "type": "string", "enum": ["admin", "reviewer"] },
         "region": { "type": "string" },
         "cluster": { "type": "string" },
-        "profilePhoto": { "type": "string" }
+        "profilePhoto": { "type": "string" },
+        "isDutyActive": { "type": "boolean" },
+        "lastAnnouncementReadAt": { "type": "string", "format": "date-time" },
+        "lastMessageReadAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "fullName", "email", "role"]
     },
@@ -78,12 +82,14 @@
     "Announcement": {
       "title": "Announcement",
       "type": "object",
-      "description": "Bureau-wide message.",
+      "description": "Bureau-wide or targeted message.",
       "properties": {
         "id": { "type": "string" },
         "title": { "type": "string" },
         "content": { "type": "string" },
         "type": { "type": "string", "enum": ["info", "alert", "update"] },
+        "targetRegion": { "type": "string" },
+        "targetRole": { "type": "string", "enum": ["all", "admin", "reviewer"] },
         "date": { "type": "string", "format": "date" },
         "timestamp": { "type": "object" }
       },
@@ -129,6 +135,19 @@
         "lastTimestamp": { "type": "object" },
         "createdBy": { "type": "string" }
       }
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "officerId": { "type": "string" },
+        "officerName": { "type": "string" },
+        "action": { "type": "string" },
+        "targetId": { "type": "string" },
+        "details": { "type": "string" },
+        "timestamp": { "type": "object" }
+      }
     }
   },
   "auth": {
@@ -144,7 +163,8 @@
       { "path": "/announcements/{announcementId}", "definition": { "schema": { "$ref": "#/backend/entities/Announcement" }, "description": "System broadcasts." } },
       { "path": "/conversations/{conversationId}", "definition": { "schema": { "$ref": "#/backend/entities/Conversation" }, "description": "Chat channels." } },
       { "path": "/messages/{messageId}", "definition": { "schema": { "$ref": "#/backend/entities/Message" }, "description": "Chat messages." } },
-      { "path": "/admin_users/{userId}", "definition": { "schema": { "type": "object" }, "description": "Admin RBAC lookup." } }
+      { "path": "/admin_users/{userId}", "definition": { "schema": { "type": "object" }, "description": "Admin RBAC lookup." } },
+      { "path": "/audit_logs/{logId}", "definition": { "schema": { "$ref": "#/backend/entities/AuditLog" }, "description": "Forensic activity records." } }
     ]
   }
 }

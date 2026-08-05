@@ -99,6 +99,8 @@ export interface Announcement {
   title: string;
   content: string;
   type: 'info' | 'alert' | 'update';
+  targetRegion?: string;
+  targetRole?: 'all' | 'admin' | 'reviewer';
   date: string;
   timestamp?: any;
 }
