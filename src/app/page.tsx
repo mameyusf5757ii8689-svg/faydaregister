@@ -37,7 +37,6 @@ import {
   DialogHeader, 
   DialogTitle, 
   DialogDescription,
-  DialogTrigger
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 
@@ -260,7 +259,7 @@ export default function LandingPage() {
             <div className="space-y-6 flex flex-col items-center md:items-start text-center md:text-left">
               <div className="flex items-center gap-4">
                 <div className="relative h-10 w-10 md:h-12 md:w-12 overflow-hidden rounded-2xl border border-border shadow-xl">
-                  <Image src={logoUrl} alt="Logo" fill sizes="48px" className="object-contain" unoptimized />
+                  <Image src={logoUrl} alt="Logo" fill sizes="48px" className="object-cover" unoptimized />
                 </div>
                 <span className="text-base md:text-lg font-black tracking-widest uppercase text-foreground">
                   {bureauName.split('Track')[0]}<span className="text-primary italic">{bureauName.includes('Track') ? 'Track' : ''}</span>
@@ -315,10 +314,10 @@ export default function LandingPage() {
         </div>
       </footer>
 
-      {/* Resident Lookup Dialog */}
+      {/* Resident Lookup Dialog - Hardened for Window Size */}
       <Dialog open={isLookupOpen} onOpenChange={setIsLookupOpen}>
-        <DialogContent className="sm:max-w-4xl p-0 overflow-hidden rounded-[32px] border-none shadow-2xl bg-popover max-h-[90vh] flex flex-col">
-           <DialogHeader className="p-6 sm:p-8 bg-muted/30 border-b border-border flex flex-row items-center justify-between">
+        <DialogContent className="w-[calc(100%-2rem)] sm:max-w-5xl h-[90vh] p-0 overflow-hidden rounded-[32px] border-none shadow-2xl bg-popover flex flex-col">
+           <DialogHeader className="p-6 sm:p-8 bg-muted/30 border-b border-border flex flex-row items-center justify-between shrink-0">
               <div className="flex items-center gap-4">
                  <div className="p-3 bg-primary/10 rounded-2xl">
                     <Globe className="h-6 w-6 text-primary" />
@@ -333,7 +332,7 @@ export default function LandingPage() {
               </Button>
            </DialogHeader>
            
-           <div className="flex-1 relative bg-card min-h-[600px]">
+           <div className="flex-1 relative bg-card overflow-hidden">
               <div className="absolute inset-0 flex items-center justify-center -z-10">
                  <div className="flex flex-col items-center gap-3 opacity-20">
                     <Loader2 className="h-10 w-10 text-primary animate-spin" />
@@ -342,13 +341,14 @@ export default function LandingPage() {
               </div>
               <iframe 
                 src={`https://resident.fayda.et/status?rid=${publicRid}`} 
-                className="w-full h-full border-none"
+                className="absolute inset-0 w-full h-full border-none"
                 title="Resident Portal"
                 loading="lazy"
+                allow="geolocation"
               />
            </div>
 
-           <div className="p-4 bg-muted/30 border-t border-border flex justify-center">
+           <div className="p-4 bg-muted/30 border-t border-border flex justify-center shrink-0">
               <div className="flex items-center gap-2 px-4 py-1.5 bg-background border border-border rounded-full shadow-sm">
                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
                  <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">End-to-End Encrypted Tunnel Established</span>
