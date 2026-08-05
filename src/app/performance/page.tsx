@@ -17,6 +17,7 @@ import {
   User,
   Search,
   ArrowUpRight,
+  ArrowDownRight,
   ShieldAlert,
   Calendar,
   Filter,
@@ -27,11 +28,13 @@ import {
   History,
   Zap,
   Target,
-  ShieldCheck
+  ShieldCheck,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { Registration, UserProfile } from '@/lib/types';
 import { StatusBadge } from '@/components/dashboard/status-badge';
-import { format, addMonths, eachDayOfInterval, endOfMonth, isSameDay } from 'date-fns';
+import { format, addMonths, subMonths, eachDayOfInterval, endOfMonth, isSameDay } from 'date-fns';
 import { Input } from '@/components/ui/input';
 import { 
   PieChart, 
@@ -92,6 +95,10 @@ function PerformanceContent() {
   const [selectedRejection, setSelectedRejection] = useState<Registration | null>(null);
   const [mounted, setMounted] = useState(false);
 
+  // Pagination for Rejection Audit
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
+
   // Determine target officer (Remote audit vs Self-audit)
   const targetOfficerId = searchParams.get('officerId') || user?.uid;
   const isRemoteAudit = targetOfficerId !== user?.uid;
@@ -140,48 +147,58 @@ function PerformanceContent() {
     return list.reverse();
   }, []);
 
-  const filteredByMonth = useMemo(() => {
-    if (!registrations || !selectedMonth) return [];
-    return registrations.filter(r => {
-      const date = new Date(r.submissionDate);
-      return format(date, 'yyyy-MM') === selectedMonth;
-    });
-  }, [registrations, selectedMonth]);
-
   const stats = useMemo(() => {
-    if (!filteredByMonth || filteredByMonth.length === 0) return {
-      total: 0, processed: 0, rejected: 0, successRate: 0, rejectionRate: 0,
-      topReason: 'None', peakDay: { date: '-', success: 0 },
-      chartData: [], trendData: [], radialData: [{ name: 'Quality', value: 0, fill: 'hsl(var(--primary))' }]
+    if (!registrations || !selectedMonth) return null;
+
+    const [year, month] = selectedMonth.split('-').map(Number);
+    const dateObj = new Date(year, month - 1, 1);
+    const prevMonthStr = format(subMonths(dateObj, 1), 'yyyy-MM');
+
+    const filterByPeriod = (p: string) => registrations.filter(r => format(new Date(r.submissionDate), 'yyyy-MM') === p);
+
+    const currItems = filterByPeriod(selectedMonth);
+    const prevItems = filterByPeriod(prevMonthStr);
+
+    const calculateMetrics = (items: Registration[]) => {
+      const total = items.length;
+      if (total === 0) return { total: 0, processed: 0, rejected: 0, successRate: 0, rejectionRate: 0 };
+      const processed = items.filter(r => r.status === 'Processed').length;
+      const rejected = items.filter(r => r.status === 'Rejected').length;
+      return {
+        total,
+        processed,
+        rejected,
+        successRate: Number(((processed / total) * 100).toFixed(1)),
+        rejectionRate: Number(((rejected / total) * 100).toFixed(1))
+      };
     };
 
-    const total = filteredByMonth.length;
-    const processed = filteredByMonth.filter(r => r.status === 'Processed').length;
-    const rejected = filteredByMonth.filter(r => r.status === 'Rejected').length;
-    const other = total - (processed + rejected);
-    const successRate = Number(((processed / total) * 100).toFixed(1));
-    const rejectionRate = Number(((rejected / total) * 100).toFixed(1));
+    const currMetrics = calculateMetrics(currItems);
+    const prevMetrics = calculateMetrics(prevItems);
 
+    const momSuccess = prevMetrics.successRate > 0 ? (currMetrics.successRate - prevMetrics.successRate) : 0;
+    const momRejection = prevMetrics.rejectionRate > 0 ? (currMetrics.rejectionRate - prevMetrics.rejectionRate) : 0;
+
+    const other = currMetrics.total - (currMetrics.processed + currMetrics.rejected);
     const chartData = [
-      { name: 'Success', value: processed, color: 'hsl(var(--primary))' },
-      { name: 'Rejected', value: rejected, color: 'hsl(var(--destructive))' },
+      { name: 'Success', value: currMetrics.processed, color: 'hsl(var(--primary))' },
+      { name: 'Rejected', value: currMetrics.rejected, color: 'hsl(var(--destructive))' },
       { name: 'Other', value: other, color: 'hsl(var(--muted-foreground))' },
     ];
 
     const reasonCounts: Record<string, number> = {};
-    filteredByMonth.filter(r => r.status === 'Rejected').forEach(r => {
+    currItems.filter(r => r.status === 'Rejected').forEach(r => {
       const reason = r.rejectionReason || 'Unknown';
       reasonCounts[reason] = (reasonCounts[reason] || 0) + 1;
     });
     const topReason = Object.entries(reasonCounts).sort((a,b) => b[1] - a[1])[0]?.[0] || 'Zero Discrepancies';
 
-    const [year, month] = selectedMonth.split('-').map(Number);
     const startDate = new Date(year, month - 1, 1);
     const endDate = endOfMonth(startDate);
     const daysInterval = eachDayOfInterval({ start: startDate, end: endDate });
 
     const trendData = daysInterval.map(day => {
-      const dayRegs = filteredByMonth.filter(r => isSameDay(new Date(r.submissionDate), day));
+      const dayRegs = currItems.filter(r => isSameDay(new Date(r.submissionDate), day));
       return {
         date: format(day, 'dd MMM'),
         success: dayRegs.filter(r => r.status === 'Processed').length,
@@ -190,22 +207,44 @@ function PerformanceContent() {
     });
 
     const peakDay = trendData.reduce((prev, curr) => (curr.success > prev.success) ? curr : prev, { date: '-', success: 0 });
-    const radialData = [{ name: 'Success Rate', value: successRate, fill: successRate >= 85 ? 'hsl(var(--primary))' : 'hsl(var(--destructive))' }];
+    const radialData = [{ name: 'Success Rate', value: currMetrics.successRate, fill: currMetrics.successRate >= 85 ? 'hsl(var(--primary))' : 'hsl(var(--destructive))' }];
 
-    return { total, processed, rejected, successRate, rejectionRate, topReason, peakDay, chartData, trendData, radialData };
-  }, [filteredByMonth, selectedMonth]);
+    return { 
+      ...currMetrics, 
+      momSuccess, 
+      momRejection, 
+      topReason, 
+      peakDay, 
+      chartData, 
+      trendData, 
+      radialData,
+      currItems
+    };
+  }, [registrations, selectedMonth]);
 
   const rejectedRegistrations = useMemo(() => {
-    if (!filteredByMonth) return [];
-    return filteredByMonth
+    if (!stats?.currItems) return [];
+    return stats.currItems
       .filter(r => r.status === 'Rejected')
       .filter(r => r.applicantName.toLowerCase().includes(searchTerm.toLowerCase()) || r.id.includes(searchTerm))
       .sort((a, b) => new Date(b.submissionDate).getTime() - new Date(a.submissionDate).getTime());
-  }, [filteredByMonth, searchTerm]);
+  }, [stats?.currItems, searchTerm]);
+
+  // Pagination logic for rejection audit
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedMonth]);
+
+  const paginatedRejections = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return rejectedRegistrations.slice(start, start + itemsPerPage);
+  }, [rejectedRegistrations, currentPage]);
+
+  const totalPages = Math.ceil(rejectedRegistrations.length / itemsPerPage);
 
   const handleExportExcel = () => {
-    if (filteredByMonth.length === 0) return;
-    const exportData = filteredByMonth.map(r => ({
+    if (!stats?.currItems || stats.currItems.length === 0) return;
+    const exportData = stats.currItems.map(r => ({
       'ID': r.id, 'Applicant': r.applicantName, 'Date': format(new Date(r.submissionDate), 'yyyy-MM-dd'),
       'Status': r.status, 'Rejection Reason': r.rejectionReason || 'N/A', 'Location': r.location
     }));
@@ -217,10 +256,10 @@ function PerformanceContent() {
   };
 
   const handleExportPDF = () => {
-    if (filteredByMonth.length === 0) return;
+    if (!stats?.currItems || stats.currItems.length === 0) return;
     const doc = new jsPDF();
     doc.text(`Performance Review: ${targetProfile?.fullName || 'Official'}`, 14, 15);
-    const rows = filteredByMonth.map(r => [r.id.substring(0, 15)+'...', r.applicantName, format(new Date(r.submissionDate), 'MMM dd'), r.status, r.rejectionReason || '-']);
+    const rows = stats.currItems.map(r => [r.id.substring(0, 15)+'...', r.applicantName, format(new Date(r.submissionDate), 'MMM dd'), r.status, r.rejectionReason || '-']);
     autoTable(doc, { startY: 30, head: [['RID', 'Applicant', 'Date', 'Status', 'Detail']], body: rows, theme: 'striped' });
     doc.save(`Performance_${targetProfile?.fullName}_${selectedMonth}.pdf`);
     toast({ title: "PDF Ledger Generated", description: "Official documentation saved." });
@@ -240,6 +279,8 @@ function PerformanceContent() {
       </div>
     );
   }
+
+  if (!stats) return null;
 
   return (
     <div className="space-y-10 animate-in fade-in duration-700 pb-20">
@@ -288,9 +329,20 @@ function PerformanceContent() {
                   <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Accuracy</p>
                </div>
             </div>
-            <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 rounded-full border border-emerald-500/20">
-              <Target className="h-3 w-3 text-emerald-600" />
-              <span className="text-[9px] font-black text-emerald-700 uppercase">Target: 85%+</span>
+            <div className="flex flex-col items-center gap-2">
+              <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 rounded-full border border-emerald-500/20">
+                <Target className="h-3 w-3 text-emerald-600" />
+                <span className="text-[9px] font-black text-emerald-700 uppercase">Target: 85%+</span>
+              </div>
+              {stats.momSuccess !== 0 && (
+                <div className={cn(
+                  "flex items-center gap-1 text-[8px] font-black uppercase tracking-tighter",
+                  stats.momSuccess > 0 ? "text-emerald-600" : "text-rose-600"
+                )}>
+                  {stats.momSuccess > 0 ? <ArrowUpRight className="h-2.5 w-2.5" /> : <ArrowDownRight className="h-2.5 w-2.5" />}
+                  {Math.abs(stats.momSuccess).toFixed(1)}% vs Last Month
+                </div>
+              )}
             </div>
         </Card>
 
@@ -302,7 +354,18 @@ function PerformanceContent() {
              </div>
              <div className={cn("p-2 rounded-lg", stats.rejectionRate > 15 ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground")}><XCircle className="h-4 w-4" /></div>
           </div>
-          <p className="text-[10px] font-bold text-muted-foreground uppercase">Impact: <span className={stats.rejectionRate > 15 ? "text-destructive font-black" : "text-foreground"}>{stats.rejected}</span> Purged</p>
+          <div className="space-y-1.5">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase">Impact: <span className={stats.rejectionRate > 15 ? "text-destructive font-black" : "text-foreground"}>{stats.rejected}</span> Purged</p>
+            {stats.momRejection !== 0 && (
+              <p className={cn(
+                "text-[8px] font-black uppercase tracking-tighter flex items-center gap-1",
+                stats.momRejection < 0 ? "text-emerald-600" : "text-rose-600"
+              )}>
+                {stats.momRejection < 0 ? <ArrowDownRight className="h-2.5 w-2.5" /> : <ArrowUpRight className="h-2.5 w-2.5" />}
+                {Math.abs(stats.momRejection).toFixed(1)}% Momentum
+              </p>
+            )}
+          </div>
         </Card>
 
         <Card className="border border-border bg-card shadow-sm rounded-[32px] p-8">
@@ -388,7 +451,7 @@ function PerformanceContent() {
           </div>
           <div className="flex flex-col sm:flex-row items-center gap-4">
             <div className="relative w-full sm:w-80 group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/30" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/30 group-focus-within:text-primary transition-colors" />
               <Input placeholder="Filter records..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-11 pl-10 border-border bg-background rounded-xl text-xs" />
             </div>
             <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -399,23 +462,61 @@ function PerformanceContent() {
         </div>
 
         <Card className="border border-border bg-card shadow-sm rounded-[32px] overflow-hidden">
-          <Table>
-            <TableHeader className="bg-muted/30">
-              <TableRow className="border-border"><TableHead className="py-5 pl-10">Applicant</TableHead><TableHead className="py-5">ID</TableHead><TableHead className="py-5 text-center">Status</TableHead><TableHead className="py-5 pr-10 text-right">Action</TableHead></TableRow>
-            </TableHeader>
-            <TableBody>
-              {rejectedRegistrations.length > 0 ? rejectedRegistrations.map((reg) => (
-                <TableRow key={reg.id} className="hover:bg-muted/30 border-border group h-20">
-                  <TableCell className="pl-10"><span className="text-sm font-black text-foreground">{reg.applicantName}</span></TableCell>
-                  <TableCell><span className="text-[10px] font-mono text-muted-foreground/40">{reg.id.substring(0, 15)}...</span></TableCell>
-                  <TableCell className="text-center"><StatusBadge status="Rejected" className="scale-75" /></TableCell>
-                  <TableCell className="pr-10 text-right"><Button variant="ghost" size="sm" className="h-9 px-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-all" onClick={() => handleOpenForensicRecord(reg)}><Eye className="mr-2 h-4 w-4" /> View</Button></TableCell>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-muted/30">
+                <TableRow className="border-border">
+                  <TableHead className="py-5 pl-10">Applicant</TableHead>
+                  <TableHead className="py-5">ID</TableHead>
+                  <TableHead className="py-5 text-center">Status</TableHead>
+                  <TableHead className="py-5 pr-10 text-right">Action</TableHead>
                 </TableRow>
-              )) : (
-                <TableRow><TableCell colSpan={4} className="h-40 text-center opacity-20"><CheckCircle2 className="h-10 w-10 mx-auto mb-2 text-primary" /><p className="text-xs font-black uppercase tracking-widest">No Protocol Failures</p></TableCell></TableRow>
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {paginatedRejections.length > 0 ? paginatedRejections.map((reg) => (
+                  <TableRow key={reg.id} className="hover:bg-muted/30 border-border group h-20">
+                    <TableCell className="pl-10"><span className="text-sm font-black text-foreground">{reg.applicantName}</span></TableCell>
+                    <TableCell><span className="text-[10px] font-mono text-muted-foreground/40">{reg.id.substring(0, 15)}...</span></TableCell>
+                    <TableCell className="text-center"><StatusBadge status="Rejected" className="scale-75" /></TableCell>
+                    <TableCell className="pr-10 text-right"><Button variant="ghost" size="sm" className="h-9 px-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-all" onClick={() => handleOpenForensicRecord(reg)}><Eye className="mr-2 h-4 w-4" /> View</Button></TableCell>
+                  </TableRow>
+                )) : (
+                  <TableRow><TableCell colSpan={4} className="h-40 text-center opacity-20"><CheckCircle2 className="h-10 w-10 mx-auto mb-2 text-primary" /><p className="text-xs font-black uppercase tracking-widest">No Protocol Failures</p></TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-10 py-6 bg-muted/5 border-t border-border">
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                Viewing {paginatedRejections.length} of {rejectedRegistrations.length} Failures
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-10 w-10 p-0 rounded-xl border-border bg-background hover:bg-muted"
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div className="flex items-center justify-center min-w-[120px] h-10 text-[10px] font-black text-foreground bg-muted/50 border border-border rounded-xl uppercase tracking-widest px-4">
+                  Page {currentPage} / {totalPages}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-10 w-10 p-0 rounded-xl border-border bg-background hover:bg-muted"
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </Card>
       </div>
 
