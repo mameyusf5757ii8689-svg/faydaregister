@@ -397,7 +397,17 @@ function PerformanceContent() {
                 <Pie data={stats.chartData} cx="50%" cy="50%" innerRadius={45} outerRadius={65} paddingAngle={6} dataKey="value">
                   {stats.chartData.map((entry: any, index: number) => <Cell key={`cell-${index}`} fill={entry.color} />)}
                 </Pie>
-                <ChartTooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '12px', border: '1px solid hsl(var(--border))' }} itemStyle={{ fontSize: '10px', fontBold: true, textTransform: 'uppercase' }} />
+                <ChartTooltip content={({ active, payload }) => {
+                  if (active && payload && payload.length) {
+                    return (
+                      <div className="bg-card border border-border shadow-2xl p-3 rounded-xl">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">{payload[0].name}</p>
+                        <p className="text-sm font-black text-foreground tracking-tighter">Units: {payload[0].value}</p>
+                      </div>
+                    );
+                  }
+                  return null;
+                }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
