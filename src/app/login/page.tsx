@@ -10,7 +10,20 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Lock, UserCircle, Loader2, ShieldCheck, LogOut, Mail, Fingerprint, ChevronRight, Shield } from 'lucide-react';
+import { 
+  Lock, 
+  UserCircle, 
+  Loader2, 
+  ShieldCheck, 
+  LogOut, 
+  Mail, 
+  Fingerprint, 
+  ChevronRight, 
+  Shield,
+  Eye,
+  EyeOff,
+  Activity
+} from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, collection, query, limit } from 'firebase/firestore';
@@ -28,6 +41,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [adminsExist, setAdminsExist] = useState<boolean | null>(null);
   
@@ -139,16 +153,26 @@ export default function LoginPage() {
     }
   };
 
-  const isInitializing = isUserLoading || isAdminCheckLoading;
+  const isInitializing = isUserLoading || isAdminCheckLoading || (user && isProfileLoading);
   const bureauName = branding?.bureauName || 'FaydaTrack';
   const logoUrl = branding?.logoUrl || DEFAULT_LOGO;
 
-  if (isInitializing && !user) {
+  if (isInitializing) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-6">
-          <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
-          <p className="text-[10px] font-black uppercase tracking-[0.5em] text-muted-foreground animate-pulse">Gateway Handshake</p>
+          <div className="relative">
+            <div className="absolute inset-0 bg-primary/20 rounded-full blur-2xl animate-pulse" />
+            <Loader2 className="h-12 w-12 animate-spin text-primary relative z-10 opacity-40" />
+          </div>
+          <div className="space-y-2 text-center animate-in fade-in duration-1000">
+             <p className="text-[10px] font-black uppercase tracking-[0.5em] text-muted-foreground">
+               {user ? "Synchronizing Official Signature" : "Gateway Handshake"}
+             </p>
+             <p className="text-[9px] font-bold text-muted-foreground/40 uppercase tracking-widest italic">
+               Verification in progress...
+             </p>
+          </div>
         </div>
       </div>
     );
@@ -220,7 +244,7 @@ export default function LoginPage() {
             ) : (
               <form onSubmit={handleSubmit} className="space-y-5">
                 {mode === 'register' && (
-                  <div className="space-y-1.5">
+                  <div className="space-y-1.5 animate-in slide-in-from-top-2 duration-500">
                     <Label className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-1">Official Designation</Label>
                     <div className="relative group">
                       <UserCircle className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/30 group-focus-within:text-primary transition-colors" />
@@ -230,6 +254,7 @@ export default function LoginPage() {
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
                         required
+                        autoFocus
                       />
                     </div>
                   </div>
@@ -246,6 +271,7 @@ export default function LoginPage() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
+                      autoFocus={mode === 'login'}
                     />
                   </div>
                 </div>
@@ -255,13 +281,20 @@ export default function LoginPage() {
                   <div className="relative group">
                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/30 group-focus-within:text-primary transition-colors" />
                     <Input 
-                      type="password" 
+                      type={showPassword ? "text" : "password"}
                       placeholder="••••••••" 
-                      className="h-14 pl-12 bg-muted/20 border border-border focus:border-primary/30 rounded-2xl text-xs font-bold transition-all"
+                      className="h-14 pl-12 pr-12 bg-muted/20 border border-border focus:border-primary/30 rounded-2xl text-xs font-bold transition-all"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 hover:text-primary transition-colors"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
                   </div>
                 </div>
                 
