@@ -23,7 +23,9 @@ import {
   X,
   Pin,
   PinOff,
-  ChevronLeft
+  ChevronLeft,
+  User,
+  Activity
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -38,6 +40,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -58,6 +61,7 @@ export default function CommunicationPage() {
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [channelSearchTerm, setChannelSearchTerm] = useState('');
   const [personnelSearchTerm, setPersonnelSearchTerm] = useState('');
+  const [sidebarTab, setSidebarTab] = useState<'channels' | 'directory'>('channels');
   
   const [newGroupName, setNewGroupName] = useState('');
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
@@ -99,7 +103,7 @@ export default function CommunicationPage() {
     return [...rawConversations]
       .filter(c => {
         if (!channelSearchTerm) return true;
-        const name = c.type === 'group' ? (c.name || '') : 'Direct Message';
+        const name = c.type === 'group' ? (c.name || '') : getConvName(c);
         return name.toLowerCase().includes(channelSearchTerm.toLowerCase());
       })
       .sort((a, b) => {
@@ -121,7 +125,8 @@ export default function CommunicationPage() {
     return allUsers.filter(u => 
       u.id !== user.uid && 
       (u.fullName.toLowerCase().includes(personnelSearchTerm.toLowerCase()) || 
-       u.email.toLowerCase().includes(personnelSearchTerm.toLowerCase()))
+       u.email.toLowerCase().includes(personnelSearchTerm.toLowerCase()) ||
+       u.region?.toLowerCase().includes(personnelSearchTerm.toLowerCase()))
     );
   }, [allUsers, personnelSearchTerm, user]);
 
@@ -183,36 +188,49 @@ export default function CommunicationPage() {
     setInputText('');
   };
 
+  const handleOpenDirectMessage = async (otherId: string) => {
+    if (!db || !user) return;
+    
+    const existingDm = rawConversations?.find(c => 
+      c.type === 'dm' && 
+      c.members.includes(user.uid) && 
+      c.members.includes(otherId)
+    );
+
+    if (existingDm) {
+      setActiveConvId(existingDm.id);
+      setSidebarTab('channels');
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      const newDmRef = doc(collection(db, 'conversations'));
+      const dmData = {
+        type: 'dm',
+        members: [user.uid, otherId],
+        lastMessage: 'Secure link established.',
+        lastTimestamp: serverTimestamp(),
+        createdBy: user.uid
+      };
+      await setDocumentNonBlocking(newDmRef, dmData, { merge: true });
+      setActiveConvId(newDmRef.id);
+      setSidebarTab('channels');
+      toast({ title: "Secure Link Established", description: "Direct communication path initialized." });
+    } catch (err) {
+      toast({ title: "Handshake Failed", description: "Could not initialize channel.", variant: "destructive" });
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   const handleCreateConversation = async () => {
     if (!db || !user || selectedUserIds.length === 0) return;
 
     setIsCreating(true);
     try {
       if (selectedUserIds.length === 1) {
-        const otherId = selectedUserIds[0];
-        const existingDm = rawConversations?.find(c => 
-          c.type === 'dm' && 
-          c.members.includes(user.uid) && 
-          c.members.includes(otherId)
-        );
-
-        if (existingDm) {
-          setActiveConvId(existingDm.id);
-          setIsCreateGroupOpen(false);
-          return;
-        }
-
-        const newDmRef = doc(collection(db, 'conversations'));
-        const dmData = {
-          type: 'dm',
-          members: [user.uid, otherId],
-          lastMessage: 'Secure link established.',
-          lastTimestamp: serverTimestamp(),
-          createdBy: user.uid
-        };
-        await setDocumentNonBlocking(newDmRef, dmData, { merge: true });
-        setActiveConvId(newDmRef.id);
-        toast({ title: "Secure Link Established", description: "You can now transmit direct instructions." });
+        await handleOpenDirectMessage(selectedUserIds[0]);
       } else {
         const newGroupRef = doc(collection(db, 'conversations'));
         const groupData = {
@@ -270,18 +288,18 @@ export default function CommunicationPage() {
     <div className="max-w-6xl mx-auto h-[calc(100vh-140px)] flex flex-col gap-4 animate-in fade-in duration-700">
       <div className="flex items-center justify-between px-2">
         <div className="space-y-0.5">
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-foreground font-headline uppercase">Coordination Portal</h1>
-          <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Secure operational link</p>
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-foreground font-headline uppercase leading-none">Coordination Portal</h1>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-black mt-1">Authorized Tactical Link</p>
         </div>
         <Dialog open={isCreateGroupOpen} onOpenChange={setIsCreateGroupOpen}>
           <DialogTrigger asChild>
-            <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-4 md:px-5 font-bold text-[10px] uppercase tracking-widest shadow-lg shadow-primary/10">
-              <Plus className="mr-2 h-3.5 w-3.5" /> Assemble
+            <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-4 md:px-6 h-9 md:h-10 font-black text-[10px] uppercase tracking-widest shadow-xl shadow-primary/10">
+              <Plus className="mr-2 h-4 w-4" /> Assemble Group
             </Button>
           </DialogTrigger>
           <DialogContent className="w-[calc(100%-2rem)] sm:max-w-[450px] p-0 overflow-hidden rounded-[32px] border-none shadow-2xl bg-popover max-h-[90vh] flex flex-col">
             <DialogHeader className="p-6 border-b bg-muted/30">
-              <DialogTitle className="text-lg font-black text-foreground uppercase tracking-tight">Initialize Secure Link</DialogTitle>
+              <DialogTitle className="text-lg font-black text-foreground uppercase tracking-tight">Initialize Tactical Link</DialogTitle>
             </DialogHeader>
             <div className="p-6 space-y-6 flex-1 overflow-hidden flex flex-col">
               {selectedUserIds.length > 1 && (
@@ -312,13 +330,13 @@ export default function CommunicationPage() {
                     {filteredPersonnel.length > 0 ? filteredPersonnel.map(u => (
                       <div key={u.id} className="flex items-center justify-between p-3 hover:bg-background rounded-xl transition-all group">
                         <div className="flex items-center gap-3">
-                          <Avatar className="h-10 w-10 border border-border/50">
+                          <Avatar className="h-10 w-10 border border-border/50 shadow-sm">
                             <AvatarImage src={u.profilePhoto} />
                             <AvatarFallback className="text-[10px] font-black bg-muted">{u.fullName.substring(0, 2).toUpperCase()}</AvatarFallback>
                           </Avatar>
                           <div className="min-w-0">
                             <p className="text-xs font-black text-foreground uppercase tracking-tight">{u.fullName}</p>
-                            <p className="text-[9px] text-muted-foreground font-bold uppercase truncate max-w-[180px]">{u.role} • {u.email}</p>
+                            <p className="text-[9px] text-muted-foreground font-bold uppercase truncate max-w-[180px]">{u.role} • {u.region || 'HQ'}</p>
                           </div>
                         </div>
                         <Checkbox 
@@ -351,64 +369,106 @@ export default function CommunicationPage() {
       </div>
 
       <div className="flex-1 flex flex-col lg:flex-row gap-4 overflow-hidden relative">
-        {/* Channel Sidebar */}
+        {/* Unified Coordination Sidebar */}
         <Card className={cn(
           "w-full lg:w-80 flex flex-col border-border shadow-sm bg-card overflow-hidden rounded-3xl transition-all duration-300",
           activeConvId ? "hidden lg:flex" : "flex"
         )}>
           <div className="p-4 border-b border-border bg-muted/10">
-            <div className="relative group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/30 group-focus-within:text-primary transition-colors" />
-              <Input 
-                placeholder="Filter channels..." 
-                className="pl-9 h-11 text-xs bg-background border-border rounded-xl font-bold"
-                value={channelSearchTerm}
-                onChange={(e) => setChannelSearchTerm(e.target.value)}
-              />
-            </div>
+            <Tabs value={sidebarTab} onValueChange={(v: any) => setSidebarTab(v)} className="w-full">
+              <TabsList className="grid grid-cols-2 w-full h-10 bg-background border border-border p-1 rounded-xl">
+                <TabsTrigger value="channels" className="text-[10px] font-black uppercase tracking-tighter rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Transmissions</TabsTrigger>
+                <TabsTrigger value="directory" className="text-[10px] font-black uppercase tracking-tighter rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Directory</TabsTrigger>
+              </TabsList>
+              
+              <div className="mt-4">
+                <div className="relative group">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/30 group-focus-within:text-primary transition-colors" />
+                  <Input 
+                    placeholder={sidebarTab === 'channels' ? "Filter channels..." : "Search personnel..."}
+                    className="pl-9 h-11 text-xs bg-background border-border rounded-xl font-bold"
+                    value={sidebarTab === 'channels' ? channelSearchTerm : personnelSearchTerm}
+                    onChange={(e) => sidebarTab === 'channels' ? setChannelSearchTerm(e.target.value) : setPersonnelSearchTerm(e.target.value)}
+                  />
+                </div>
+              </div>
+            </Tabs>
           </div>
+
           <ScrollArea className="flex-1">
-            <div className="p-3 space-y-1">
-              {conversations.length > 0 ? conversations.map(conv => {
-                const isActive = getOtherUserStatus(conv);
-                const isSelected = activeConvId === conv.id;
-                return (
-                  <button
-                    key={conv.id}
-                    onClick={() => setActiveConvId(conv.id)}
-                    className={cn(
-                      "w-full flex items-center gap-3 p-3 rounded-2xl transition-all text-left mb-1 relative border border-transparent",
-                      isSelected ? "bg-primary/5 border-primary/10 shadow-sm" : "hover:bg-muted/50"
-                    )}
-                  >
-                    <div className="relative">
-                      <Avatar className="h-12 w-12 border-2 border-background shadow-sm">
-                        {conv.type === 'group' ? (
-                          <div className="bg-primary/10 h-full w-full flex items-center justify-center"><Users className="h-5 w-5 text-primary" /></div>
-                        ) : (
-                          <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${getConvName(conv)}`} />
+            <div className="p-3">
+              {sidebarTab === 'channels' ? (
+                <div className="space-y-1">
+                  {conversations.length > 0 ? conversations.map(conv => {
+                    const isActive = getOtherUserStatus(conv);
+                    const isSelected = activeConvId === conv.id;
+                    return (
+                      <button
+                        key={conv.id}
+                        onClick={() => setActiveConvId(conv.id)}
+                        className={cn(
+                          "w-full flex items-center gap-3 p-3 rounded-2xl transition-all text-left mb-1 relative border border-transparent",
+                          isSelected ? "bg-primary/5 border-primary/10 shadow-sm" : "hover:bg-muted/50"
                         )}
-                        <AvatarFallback className="font-black text-[10px]">{getConvName(conv).substring(0, 2).toUpperCase()}</AvatarFallback>
-                      </Avatar>
-                      {isActive !== null && (
+                      >
+                        <div className="relative">
+                          <Avatar className="h-12 w-12 border-2 border-background shadow-sm">
+                            {conv.type === 'group' ? (
+                              <div className="bg-primary/10 h-full w-full flex items-center justify-center"><Users className="h-5 w-5 text-primary" /></div>
+                            ) : (
+                              <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${getConvName(conv)}`} />
+                            )}
+                            <AvatarFallback className="font-black text-[10px]">{getConvName(conv).substring(0, 2).toUpperCase()}</AvatarFallback>
+                          </Avatar>
+                          {isActive !== null && (
+                            <span className={cn(
+                              "absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-background",
+                              isActive ? "bg-green-500 animate-pulse" : "bg-muted-foreground/30"
+                            )} />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={cn("text-sm font-black uppercase tracking-tight truncate", isSelected ? "text-primary" : "text-foreground")}>{getConvName(conv)}</p>
+                          <p className="text-[11px] text-muted-foreground truncate font-medium mt-0.5">{conv.lastMessage || 'Link active'}</p>
+                        </div>
+                      </button>
+                    );
+                  }) : (
+                    <div className="py-20 text-center px-6 opacity-20">
+                       <MessageSquare className="h-10 w-10 mx-auto mb-3" />
+                       <p className="text-[10px] font-black uppercase tracking-widest">No active links</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {filteredPersonnel.length > 0 ? filteredPersonnel.map(u => (
+                    <button
+                      key={u.id}
+                      onClick={() => handleOpenDirectMessage(u.id)}
+                      className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-muted/50 transition-all text-left group"
+                    >
+                      <div className="relative">
+                        <Avatar className="h-11 w-11 border-2 border-background shadow-sm">
+                          <AvatarImage src={u.profilePhoto} />
+                          <AvatarFallback className="font-black text-[10px] bg-muted">{u.fullName.substring(0, 2).toUpperCase()}</AvatarFallback>
+                        </Avatar>
                         <span className={cn(
                           "absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-background",
-                          isActive ? "bg-green-500 animate-pulse" : "bg-muted-foreground/30"
+                          u.isDutyActive ? "bg-green-500 animate-pulse" : "bg-muted-foreground/30"
                         )} />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className={cn("text-sm font-black uppercase tracking-tight truncate", isSelected ? "text-primary" : "text-foreground")}>{getConvName(conv)}</p>
                       </div>
-                      <p className="text-[11px] text-muted-foreground truncate font-medium mt-0.5">{conv.lastMessage || 'Link active'}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-black uppercase tracking-tight text-foreground truncate group-hover:text-primary transition-colors">{u.fullName}</p>
+                        <p className="text-[9px] text-muted-foreground font-bold uppercase truncate">{u.role} • {u.region || 'HQ'}</p>
+                      </div>
+                    </button>
+                  )) : (
+                    <div className="py-20 text-center px-6 opacity-20">
+                       <User className="h-10 w-10 mx-auto mb-3" />
+                       <p className="text-[10px] font-black uppercase tracking-widest">No personnel found</p>
                     </div>
-                  </button>
-                );
-              }) : (
-                <div className="py-20 text-center px-6 opacity-20">
-                   <MessageSquare className="h-10 w-10 mx-auto mb-3" />
-                   <p className="text-[10px] font-black uppercase tracking-widest">No active links</p>
+                  )}
                 </div>
               )}
             </div>
@@ -498,7 +558,7 @@ export default function CommunicationPage() {
                       onChange={(e) => setInputText(e.target.value)} 
                       className="flex-1 h-12 border-border bg-muted/30 rounded-2xl text-sm font-medium" 
                     />
-                    <Button type="submit" size="icon" disabled={!inputText.trim()} className="h-12 w-12 bg-primary text-white rounded-2xl shrink-0 shadow-lg shadow-primary/20 transition-transform active:scale-95">
+                    <Button type="submit" size="icon" disabled={!inputText.trim()} className="h-12 w-12 bg-primary text-white rounded-2xl shrink-0 shadow-xl shadow-primary/20 transition-transform active:scale-95">
                       <Send className="h-5 w-5" />
                     </Button>
                   </form>
@@ -515,7 +575,7 @@ export default function CommunicationPage() {
               </div>
               <div className="space-y-2">
                 <p className="text-sm font-black uppercase tracking-[0.3em] text-foreground">Ready for Transmission</p>
-                <p className="text-xs font-medium opacity-60 max-w-xs mx-auto">Select a coordination channel or initialize a new link to begin secure communication.</p>
+                <p className="text-xs font-medium opacity-60 max-w-xs mx-auto leading-relaxed">Select a coordination channel or browse the bureau directory to initialize a new secure transmission link.</p>
               </div>
             </div>
           )}
