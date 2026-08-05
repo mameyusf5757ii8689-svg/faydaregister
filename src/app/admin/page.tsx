@@ -2,8 +2,8 @@
 
 import { useMemo, useState, useEffect } from 'react';
 import { useMemoFirebase, useCollection, useUser, useFirestore, useDoc } from '@/firebase';
-import { collection, query, limit, doc } from 'firebase/firestore';
-import { updateDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { collection, query, limit, doc, orderBy } from 'firebase/firestore';
+import { updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { StatsCards } from '@/components/dashboard/stats-cards';
 import { RegistrationTable } from '@/components/dashboard/registration-table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,19 +17,26 @@ import {
   ShieldCheck, 
   Power, 
   RefreshCcw, 
-  Timer 
+  Timer,
+  ShieldAlert,
+  History,
+  Zap,
+  Fingerprint,
+  ArrowRight,
+  User,
+  Clock
 } from 'lucide-react';
-import { Registration, DashboardStats, UserProfile, DailyReport } from '@/lib/types';
+import { Registration, DashboardStats, UserProfile, DailyReport, AuditLog } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { logAuditAction } from '@/lib/audit';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import Link from 'next/link';
 
 export default function AdminDashboard() {
   const { user } = useUser();
   const db = useFirestore();
   const { toast } = useToast();
-  const [isGenerating, setIsSubmitting] = useState(false);
   const [isTogglingDuty, setIsTogglingDuty] = useState(false);
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -46,7 +53,7 @@ export default function AdminDashboard() {
 
   const registrationsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, 'registrations'), limit(10000));
+    return query(collection(db, 'registrations'), limit(1000));
   }, [db, user]);
 
   const reportsQuery = useMemoFirebase(() => {
@@ -56,12 +63,18 @@ export default function AdminDashboard() {
 
   const usersQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, 'users'), limit(200));
+    return query(collection(db, 'users'), limit(500));
+  }, [db, user]);
+
+  const auditQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'audit_logs'), orderBy('timestamp', 'desc'), limit(6));
   }, [db, user]);
 
   const { data: registrations, isLoading: isRegLoading } = useCollection<Registration>(registrationsQuery);
   const { data: reports, isLoading: isReportsLoading } = useCollection<DailyReport>(reportsQuery);
   const { data: officers, isLoading: isUsersLoading } = useCollection<UserProfile>(usersQuery);
+  const { data: recentAudit, isLoading: isAuditLoading } = useCollection<AuditLog>(auditQuery);
 
   useEffect(() => {
     if (registrations || reports || officers) {
@@ -95,6 +108,14 @@ export default function AdminDashboard() {
       failed: registrations?.filter(r => r.status === 'Failed').length || 0,
     };
   }, [registrations, reports, officers]);
+
+  const criticalPriorities = useMemo(() => {
+    if (!registrations) return [];
+    return registrations.filter(r => 
+      r.status === 'Failed' || 
+      (r.status === 'Rejected' && r.rejectionReason === 'Biometric Match')
+    ).sort((a, b) => new Date(b.submissionDate).getTime() - new Date(a.submissionDate).getTime()).slice(0, 5);
+  }, [registrations]);
 
   const handleToggleDuty = async () => {
     if (!db || !user || !profile || isTogglingDuty) return;
@@ -137,49 +158,20 @@ export default function AdminDashboard() {
     window.location.reload();
   };
 
-  const handleGenerateSampleData = () => {
-    if (!db || !user) return;
-    setIsSubmitting(true);
-
-    const reportSamples = [
-      { id: 'REP-1', ethioCount: 15, safaricomCount: 25, total: 40, date: new Date().toISOString().split('T')[0], officerId: user.uid },
-      { id: 'REP-2', ethioCount: 10, safaricomCount: 20, total: 30, date: new Date().toISOString().split('T')[0], officerId: user.uid }
-    ];
-
-    reportSamples.forEach(sample => {
-      setDocumentNonBlocking(doc(db, 'daily_reports', sample.id), sample, { merge: true });
-    });
-
-    const regSamples = [
-      { id: 'REG-1001', applicantName: 'Adib Ferhad', status: 'Pending Review', location: 'Harar', phone: '0911223344', email: 'adib@example.com', content: 'Industrial expansion application.' },
-      { id: 'REG-1002', applicantName: 'Sara Mohammed', status: 'Processed', location: 'Addis Ababa', phone: '0922334455', email: 'sara@example.com', content: 'New business license.' }
-    ];
-
-    regSamples.forEach(sample => {
-      const data = {
-        ...sample,
-        submissionDate: new Date().toISOString(),
-        assignedReviewerId: user.uid,
-        requiredFieldsFilled: true,
-        attachmentsIncluded: true,
-      };
-      setDocumentNonBlocking(doc(db, 'registrations', sample.id), data, { merge: true });
-    });
-
-    toast({ title: "Sample Data Created", description: "Reports and records have been added." });
-    setTimeout(() => setIsSubmitting(false), 1000);
-  };
-
-  if (isRegLoading || isReportsLoading || isUsersLoading) {
+  if (isRegLoading || isReportsLoading || isUsersLoading || isAuditLoading) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary opacity-20" />
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
+          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground animate-pulse">Initializing Command Home</p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-10 animate-in fade-in duration-700 pb-20">
+      {/* Header Command */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
@@ -189,7 +181,7 @@ export default function AdminDashboard() {
             )} />
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Bureau Administration Hub</p>
           </div>
-          <h1 className="text-4xl font-black tracking-tight text-foreground font-headline">Admin Overview</h1>
+          <h1 className="text-4xl font-black tracking-tight text-foreground font-headline uppercase leading-none">Admin Overview</h1>
           <p className="text-sm text-muted-foreground max-w-lg">Unified Command Center for bureau-wide operations and personnel oversight.</p>
         </div>
 
@@ -239,15 +231,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      <div className="flex justify-end mb-4">
-        {(stats.total === 0) && (
-          <Button variant="outline" size="sm" onClick={handleGenerateSampleData} disabled={isGenerating} className="rounded-xl border-border">
-            <Database className="mr-2 h-4 w-4" /> 
-            {isGenerating ? "Generating..." : "Load Sample Data"}
-          </Button>
-        )}
-      </div>
-
+      {/* Stats Matrix */}
       <section className="space-y-4">
         <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
           <Activity className="h-3 w-3 text-primary" /> Reported Totals (Bureau-wide)
@@ -255,28 +239,128 @@ export default function AdminDashboard() {
         <StatsCards stats={stats} showOfficerCount={true} />
       </section>
 
-      <section className="space-y-4">
-        <Card className="border border-border shadow-sm rounded-[32px] overflow-hidden bg-card">
-          <CardHeader className="bg-muted/30 border-b border-border py-6 flex flex-row items-center justify-between">
-            <div className="space-y-1">
-               <CardTitle className="text-lg font-black text-foreground uppercase tracking-tight">Bureau Detail Ledger</CardTitle>
-               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Consolidated applicant records across all sectors</p>
-            </div>
-            <FileText className="h-5 w-5 text-muted-foreground/30" />
-          </CardHeader>
-          <CardContent className="p-0">
-            {registrations && registrations.length > 0 ? (
-              <RegistrationTable registrations={registrations} isDashboardView={true} />
-            ) : (
-              <div className="py-32 text-center text-muted-foreground/30">
-                <FileText className="h-16 w-16 mx-auto mb-4 opacity-10" />
-                <p className="text-foreground font-black uppercase tracking-widest text-sm">No applicant records detected</p>
-                <p className="text-xs mt-1">System is awaiting detailed applicant data synchronization.</p>
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+        {/* Main Worklist */}
+        <section className="xl:col-span-8 space-y-6">
+          <Card className="border border-border shadow-sm rounded-[32px] overflow-hidden bg-card">
+            <CardHeader className="bg-muted/30 border-b border-border py-6 flex flex-row items-center justify-between">
+              <div className="space-y-1">
+                 <CardTitle className="text-lg font-black text-foreground uppercase tracking-tight">Bureau Detail Ledger</CardTitle>
+                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Consolidated applicant records across all sectors</p>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </section>
+              <FileText className="h-5 w-5 text-muted-foreground/30" />
+            </CardHeader>
+            <CardContent className="p-0">
+              {registrations && registrations.length > 0 ? (
+                <RegistrationTable registrations={registrations} isDashboardView={true} />
+              ) : (
+                <div className="py-32 text-center text-muted-foreground/30">
+                  <FileText className="h-16 w-16 mx-auto mb-4 opacity-10" />
+                  <p className="text-foreground font-black uppercase tracking-widest text-sm">No applicant records detected</p>
+                  <p className="text-xs mt-1 italic">System is awaiting detailed applicant data synchronization.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+
+        {/* Intelligence Sidebars */}
+        <aside className="xl:col-span-4 space-y-8">
+          {/* Critical Priority Monitor */}
+          <section className="space-y-4">
+            <h2 className="text-xs font-black uppercase tracking-[0.2em] text-rose-500 flex items-center gap-2">
+              <ShieldAlert className="h-4 w-4" /> Critical Priority Monitor
+            </h2>
+            <div className="space-y-3">
+              {criticalPriorities.length > 0 ? criticalPriorities.map((item) => (
+                <Card key={item.id} className="border border-rose-500/20 bg-rose-500/[0.02] shadow-sm rounded-2xl overflow-hidden group hover:bg-rose-500/[0.04] transition-all">
+                  <CardContent className="p-4 flex gap-4">
+                    <div className="p-2.5 bg-rose-500/10 rounded-xl h-fit text-rose-600">
+                      <Zap className="h-4 w-4 animate-pulse" />
+                    </div>
+                    <div className="flex-1 space-y-1">
+                       <div className="flex items-center justify-between">
+                          <p className="text-xs font-black text-foreground uppercase leading-none">{item.applicantName}</p>
+                          <span className="text-[8px] font-black px-1.5 py-0.5 bg-rose-500 text-white rounded uppercase tracking-tighter">Urgent</span>
+                       </div>
+                       <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">
+                          {item.status}: {item.rejectionReason || "Protocol Error"}
+                       </p>
+                       <p className="text-[9px] font-mono font-bold text-rose-500/50 pt-1">RID: {item.id.substring(0, 15)}...</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )) : (
+                <div className="p-12 text-center border-2 border-dashed rounded-[32px] border-emerald-500/10 bg-emerald-500/[0.02]">
+                  <ShieldCheck className="h-10 w-10 text-emerald-500/20 mx-auto mb-3" />
+                  <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Operational Calm</p>
+                  <p className="text-[9px] text-muted-foreground/60 uppercase font-bold mt-1">Zero high-risk discrepancies detected</p>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* Recent Forensic Snapshot */}
+          <section className="space-y-4">
+            <h2 className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
+              <History className="h-4 w-4 text-primary" /> Forensic Snapshot
+            </h2>
+            <Card className="border border-border shadow-sm bg-card rounded-[32px] overflow-hidden">
+               <CardContent className="p-0">
+                  <div className="divide-y divide-border">
+                    {recentAudit?.map((log) => (
+                      <div key={log.id} className="p-4 hover:bg-muted/30 transition-colors group">
+                        <div className="flex items-start gap-3">
+                           <div className="p-2 bg-muted rounded-lg text-muted-foreground shrink-0">
+                              <Fingerprint className="h-3.5 w-3.5 opacity-40 group-hover:text-primary group-hover:opacity-100 transition-all" />
+                           </div>
+                           <div className="flex-1 space-y-0.5 min-w-0">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-[11px] font-black text-foreground truncate uppercase tracking-tight">{log.officerName}</p>
+                                <span className="text-[8px] font-mono font-bold text-muted-foreground/30 whitespace-nowrap">
+                                  {log.timestamp?.toDate ? format(log.timestamp.toDate(), 'HH:mm:ss') : 'Just now'}
+                                </span>
+                              </div>
+                              <p className="text-[9px] text-muted-foreground font-medium leading-relaxed italic truncate">
+                                {log.details}
+                              </p>
+                              <div className="pt-1 flex items-center gap-2">
+                                 <span className="text-[7px] font-black uppercase px-1 py-0.5 bg-primary/5 text-primary border border-primary/10 rounded tracking-tighter">
+                                    {log.action.replace(/_/g, ' ')}
+                                 </span>
+                              </div>
+                           </div>
+                        </div>
+                      </div>
+                    ))}
+                    {!recentAudit?.length && (
+                      <div className="p-12 text-center opacity-20">
+                         <Clock className="h-8 w-8 mx-auto mb-2" />
+                         <p className="text-[10px] font-black uppercase">Ledger Empty</p>
+                      </div>
+                    )}
+                  </div>
+               </CardContent>
+               {recentAudit && recentAudit.length > 0 && (
+                 <div className="p-3 border-t border-border bg-muted/10">
+                   <Button variant="ghost" size="sm" className="w-full h-8 rounded-xl font-black text-[9px] uppercase tracking-widest text-muted-foreground hover:text-primary" asChild>
+                     <Link href="/admin/audit-ledger">
+                        View Full Forensic Vault <ArrowRight className="ml-2 h-3 w-3" />
+                     </Link>
+                   </Button>
+                 </div>
+               )}
+            </Card>
+          </section>
+        </aside>
+      </div>
+      
+      <div className="p-6 bg-primary/[0.03] border border-primary/10 rounded-[32px] flex items-center gap-4">
+        <ShieldCheck className="h-6 w-6 text-primary shrink-0 opacity-40" />
+        <p className="text-[10px] text-foreground font-bold uppercase leading-relaxed tracking-widest max-w-5xl">
+          Administrative Command Protocol: You are viewing the global bureau ledger. Every action triggered from this terminal—including mass triage and personnel revocation—is signed into the Forensic Ledger under your official administrative signature. Precision and accountability are mandatory.
+        </p>
+      </div>
     </div>
   );
 }
