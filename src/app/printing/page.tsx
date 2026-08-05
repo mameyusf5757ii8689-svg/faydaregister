@@ -416,17 +416,17 @@ export default function PrintingPage() {
 
         <div className="lg:col-span-3 space-y-4">
           <Card className="border border-border shadow-sm bg-card overflow-hidden rounded-3xl relative min-h-[500px]">
-            {/* Bulk Action Overlay */}
+            {/* Bulk Action Overlay - Hardened Responsiveness */}
             {selectedIds.size > 0 && (
-              <div className="absolute top-0 left-0 right-0 z-30 h-14 bg-primary text-primary-foreground flex items-center px-8 gap-6 animate-in slide-in-from-top duration-300 shadow-xl">
-                <p className="text-[11px] font-black uppercase tracking-widest flex-1">
+              <div className="absolute top-0 left-0 right-0 z-30 min-h-[3.5rem] h-auto bg-primary text-primary-foreground flex flex-col sm:flex-row items-center px-4 sm:px-8 py-3 sm:py-0 gap-4 sm:gap-6 animate-in slide-in-from-top duration-500 shadow-xl">
+                <p className="text-[11px] font-black uppercase tracking-widest flex-1 text-center sm:text-left">
                    {selectedIds.size} Records Selected
                 </p>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center justify-center sm:justify-end gap-2 sm:gap-3 w-full sm:w-auto">
                   <Button variant="ghost" size="sm" className="h-9 px-4 text-[10px] font-black uppercase tracking-widest hover:bg-white/10" onClick={() => setSelectedIds(new Set())}>
                     <X className="mr-2 h-4 w-4" /> Clear
                   </Button>
-                  <div className="w-px h-6 bg-white/20" />
+                  <div className="hidden sm:block w-px h-6 bg-white/20" />
                   <Button 
                     variant="ghost" 
                     size="sm" 
@@ -444,7 +444,7 @@ export default function PrintingPage() {
             <Table>
               <TableHeader className="bg-muted/30">
                 <TableRow className="hover:bg-transparent border-border">
-                  <TableHead className="w-12 pl-8">
+                  <TableHead className="w-12 pl-6 sm:pl-8">
                     <Checkbox checked={allOnPageSelected} onCheckedChange={toggleSelectAll} className="border-muted-foreground/30" />
                   </TableHead>
                   <TableHead className="text-[9px] font-black uppercase tracking-widest py-5 text-muted-foreground">Registry ID</TableHead>
@@ -460,28 +460,28 @@ export default function PrintingPage() {
                     "hover:bg-muted/30 transition-colors border-border h-20",
                     selectedIds.has(reg.id) && "bg-primary/5"
                   )}>
-                    <TableCell className="pl-8">
+                    <TableCell className="pl-6 sm:pl-8">
                       {!reg.isPrinted && (
                         <Checkbox 
                           checked={selectedIds.has(reg.id)} 
                           onCheckedChange={() => toggleSelectRow(reg.id)}
-                          className="border-muted-foreground/30"
+                          className="border-muted-foreground/30 shrink-0"
                         />
                       )}
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2 text-[10px] font-mono font-bold text-muted-foreground/30 uppercase">
+                      <div className="flex items-center gap-2 text-[10px] font-mono font-bold text-muted-foreground/30 uppercase whitespace-nowrap">
                         <FileDigit className="h-3 w-3" />
                         {reg.id.substring(0, 15)}...
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center border border-border">
+                        <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center border border-border shrink-0 hidden sm:flex">
                           <User className="h-4 w-4 text-muted-foreground/50" />
                         </div>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-black text-foreground tracking-tight">{reg.applicantName}</span>
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-sm font-black text-foreground tracking-tight truncate">{reg.applicantName}</span>
                           <span className="text-[9px] font-bold text-muted-foreground/40 uppercase tracking-tighter">
                             Inbound: {format(new Date(reg.submissionDate), 'MMM dd, yyyy')}
                           </span>
@@ -508,7 +508,7 @@ export default function PrintingPage() {
                       {!reg.isPrinted ? (
                         <Button 
                           size="sm" 
-                          className="bg-primary hover:bg-primary/90 text-primary-foreground font-black text-[10px] uppercase tracking-widest rounded-xl h-9 px-4 shadow-lg shadow-primary/10"
+                          className="bg-primary hover:bg-primary/90 text-primary-foreground font-black text-[10px] uppercase tracking-widest rounded-xl h-9 px-4 shadow-lg shadow-primary/10 transition-all active:scale-95"
                           onClick={() => handleMarkPrinted(reg)}
                         >
                           <Printer className="mr-2 h-3.5 w-3.5" /> Printed
@@ -533,11 +533,11 @@ export default function PrintingPage() {
           </Card>
 
           {totalPages > 1 && (
-            <div className="flex items-center justify-between px-6 py-4 bg-card border border-border rounded-2xl shadow-sm">
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+            <div className="flex flex-col sm:flex-row items-center justify-between px-6 py-4 bg-card border border-border rounded-2xl shadow-sm gap-4">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest order-2 sm:order-1">
                 Showing {paginatedItems.length} of {filteredItems.length} Processed Items
               </p>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 order-1 sm:order-2">
                 <Button
                   variant="outline"
                   size="sm"
@@ -547,7 +547,7 @@ export default function PrintingPage() {
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <div className="flex items-center justify-center min-w-[80px] h-9 text-[10px] font-black text-foreground bg-muted/50 border border-border rounded-xl uppercase tracking-widest px-3">
+                <div className="flex items-center justify-center min-w-[100px] h-9 text-[10px] font-black text-foreground bg-muted/50 border border-border rounded-xl uppercase tracking-widest px-3">
                   Page {currentPage} of {totalPages}
                 </div>
                 <Button

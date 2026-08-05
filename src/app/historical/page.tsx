@@ -491,17 +491,17 @@ export default function HistoricalDataPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          {/* Bulk Action Overlay */}
+          {/* Bulk Action Overlay - Hardened Responsiveness */}
           {selectedIds.size > 0 && (
-            <div className="absolute top-0 left-0 right-0 z-30 h-14 bg-primary text-primary-foreground flex items-center px-8 gap-6 animate-in slide-in-from-top duration-300 shadow-xl">
-              <p className="text-[11px] font-black uppercase tracking-widest flex-1">
+            <div className="absolute top-0 left-0 right-0 z-30 min-h-[3.5rem] h-auto bg-primary text-primary-foreground flex flex-col sm:flex-row items-center px-4 sm:px-8 py-3 sm:py-0 gap-4 sm:gap-6 animate-in slide-in-from-top duration-500 shadow-xl">
+              <p className="text-[11px] font-black uppercase tracking-widest flex-1 text-center sm:text-left">
                  {selectedIds.size} Archives Selected
               </p>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center sm:justify-end gap-3 w-full sm:w-auto">
                 <Button variant="ghost" size="sm" className="h-9 px-4 text-[10px] font-black uppercase tracking-widest hover:bg-white/10" onClick={() => setSelectedIds(new Set())}>
                   <X className="mr-2 h-4 w-4" /> Clear
                 </Button>
-                <div className="w-px h-6 bg-white/20" />
+                <div className="hidden sm:block w-px h-6 bg-white/20" />
                 <Button 
                   variant="ghost" 
                   size="sm" 
@@ -517,9 +517,9 @@ export default function HistoricalDataPage() {
           )}
 
           <div className="divide-y divide-border">
-            {/* Header Row for Select All */}
+            {/* Header Row for Select All - Responsive Padding */}
             {paginatedHistory.length > 0 && (
-              <div className="bg-muted/10 px-6 py-2 border-b border-border flex items-center">
+              <div className="bg-muted/10 px-4 sm:px-6 py-3 sm:py-2 border-b border-border flex items-center">
                  <div className="flex items-center gap-3">
                     <Checkbox checked={allOnPageSelected} onCheckedChange={toggleSelectAll} className="border-muted-foreground/30" />
                     <span className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Select All Archives on Page</span>
@@ -537,16 +537,16 @@ export default function HistoricalDataPage() {
                   selectedIds.has(entry.id) && "bg-primary/5"
                 )}>
                   <div className="flex-1 flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-10">
-                    <div className="flex items-center gap-4 min-w-[220px]">
+                    <div className="flex items-center gap-4 min-w-0 lg:min-w-[220px]">
                       <Checkbox 
                         checked={selectedIds.has(entry.id)} 
                         onCheckedChange={() => toggleSelectRow(entry.id)}
-                        className="border-muted-foreground/30"
+                        className="border-muted-foreground/30 shrink-0"
                       />
-                      <div className="p-3 rounded-2xl bg-muted/50 border border-border group-hover:bg-primary/5 group-hover:border-primary/20 transition-all">
+                      <div className="p-3 rounded-2xl bg-muted/50 border border-border group-hover:bg-primary/5 group-hover:border-primary/20 transition-all shrink-0">
                         <Calendar className="h-5 w-5 text-muted-foreground/40 group-hover:text-primary transition-colors" />
                       </div>
-                      <h3 className="text-lg font-black text-foreground tracking-tight">{label}</h3>
+                      <h3 className="text-lg font-black text-foreground tracking-tight truncate">{label}</h3>
                     </div>
                     
                     <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-4 lg:gap-8">
@@ -602,7 +602,7 @@ export default function HistoricalDataPage() {
           </div>
 
           {totalPages > 1 && (
-            <div className="flex items-center justify-between px-8 py-6 bg-muted/5 border-t border-border">
+            <div className="flex flex-col sm:flex-row items-center justify-between px-8 py-6 bg-muted/5 border-t border-border gap-6">
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
                 Showing {paginatedHistory.length} of {history.length} Archives
               </p>
