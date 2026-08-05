@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -327,9 +326,6 @@ export default function LandingPage() {
                     <DialogDescription className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Official Fayda Resident Status Service</DialogDescription>
                  </div>
               </div>
-              <Button variant="ghost" size="icon" onClick={() => setIsLookupOpen(false)} className="h-10 w-10 rounded-xl hover:bg-muted">
-                 <X className="h-5 w-5" />
-              </Button>
            </DialogHeader>
            
            <div className="flex-1 relative bg-card overflow-hidden">
