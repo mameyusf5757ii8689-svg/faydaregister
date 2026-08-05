@@ -17,7 +17,9 @@ import {
   Phone,
   User,
   CheckCircle2,
-  Lock
+  Lock,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import Link from 'next/link';
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
@@ -57,6 +59,10 @@ export default function StatusCheckPage() {
   const [selectedDate, setSelectedDate] = useState('');
   const [activeRid, setActiveRid] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user?.uid) return null;
@@ -109,18 +115,41 @@ export default function StatusCheckPage() {
     });
   }, [registrations, searchTerm, statusFilter, selectedDate]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, selectedDate]);
+
+  const paginatedRegistrations = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredRegistrations.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredRegistrations, currentPage]);
+
+  const totalPages = Math.ceil(filteredRegistrations.length / itemsPerPage);
+
   const activeRegistration = useMemo(() => {
     if (!activeRid || !registrations) return null;
     return registrations.find(r => r.id === activeRid);
   }, [activeRid, registrations]);
 
-  const handleInsertRid = (rid: string) => {
-    setActiveRid(rid);
-    navigator.clipboard.writeText(rid);
+  const handleInsertRid = (reg: Registration) => {
+    setActiveRid(reg.id);
+    navigator.clipboard.writeText(reg.id);
     
+    // Read-Audit Protocol
+    if (db && user && profile) {
+      logAuditAction(
+        db, 
+        user, 
+        profile.fullName, 
+        'VERIFICATION_CHECK', 
+        reg.id, 
+        `Verification Terminal: Initialized check protocol for applicant: ${reg.applicantName}.`
+      );
+    }
+
     toast({
       title: "RID Synchronized",
-      description: `ID ${rid} copied to terminal clipboard. Paste into verification form.`,
+      description: `ID ${reg.id} copied to terminal clipboard. Paste into verification form.`,
     });
   };
 
@@ -246,7 +275,7 @@ export default function StatusCheckPage() {
                 </div>
               </div>
 
-              <div className="border border-border rounded-xl overflow-hidden max-h-[500px] overflow-y-auto">
+              <div className="border border-border rounded-xl overflow-hidden min-h-[400px]">
                 <Table>
                   <TableHeader className="bg-muted/50 sticky top-0 z-10">
                     <TableRow className="hover:bg-transparent border-border">
@@ -261,8 +290,8 @@ export default function StatusCheckPage() {
                           <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary opacity-20" />
                         </TableCell>
                       </TableRow>
-                    ) : filteredRegistrations.length > 0 ? (
-                      filteredRegistrations.slice(0, 50).map((reg) => (
+                    ) : paginatedRegistrations.length > 0 ? (
+                      paginatedRegistrations.map((reg) => (
                         <TableRow key={reg.id} className="hover:bg-muted/30 transition-colors border-border group">
                           <TableCell className="py-3">
                             <div className="space-y-0.5">
@@ -275,7 +304,7 @@ export default function StatusCheckPage() {
                               size="sm" 
                               variant="outline" 
                               className="h-8 px-3 rounded-lg text-[9px] font-black uppercase tracking-widest border-primary/20 text-primary hover:bg-primary hover:text-white transition-all group-hover:shadow-md"
-                              onClick={() => handleInsertRid(reg.id)}
+                              onClick={() => handleInsertRid(reg)}
                             >
                               Verify <ArrowRight className="ml-1.5 h-3 w-3" />
                             </Button>
@@ -292,6 +321,20 @@ export default function StatusCheckPage() {
                   </TableBody>
                 </Table>
               </div>
+
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between pt-2">
+                   <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Page {currentPage} of {totalPages}</p>
+                   <div className="flex items-center gap-1">
+                      <Button variant="outline" size="icon" className="h-7 w-7 rounded-lg border-border" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
+                        <ChevronLeft className="h-3 w-3" />
+                      </Button>
+                      <Button variant="outline" size="icon" className="h-7 w-7 rounded-lg border-border" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
+                        <ChevronRight className="h-3 w-3" />
+                      </Button>
+                   </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

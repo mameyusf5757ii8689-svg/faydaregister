@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useMemo, useEffect } from 'react';
@@ -17,7 +16,9 @@ import {
   Edit2,
   X,
   ShieldAlert,
-  TrendingUp
+  TrendingUp,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import Link from 'next/link';
 import { 
@@ -39,10 +40,10 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, where, serverTimestamp, doc } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
+import { collection, query, where, serverTimestamp, doc, writeBatch } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { MonthlySummary } from '@/lib/types';
+import { MonthlySummary, UserProfile } from '@/lib/types';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -53,6 +54,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Checkbox } from '@/components/ui/checkbox';
+import { logAuditAction } from '@/lib/audit';
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June", 
@@ -68,6 +71,15 @@ export default function HistoricalDataPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   
+  // Selection State
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
+  const [isConfirmBulkPurgeOpen, setIsConfirmBulkPurgeOpen] = useState(false);
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
+
   // Deletion State
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -85,6 +97,12 @@ export default function HistoricalDataPage() {
   const [rejected, setRejected] = useState('0');
   const [failed, setFailed] = useState('0');
   const [pendingReview, setPendingReview] = useState('0');
+
+  const userProfileRef = useMemoFirebase(() => {
+    if (!db || !user?.uid) return null;
+    return doc(db, 'users', user.uid);
+  }, [db, user?.uid]);
+  const { data: profile } = useDoc<UserProfile>(userProfileRef);
 
   // Fetch summaries for this officer
   const summariesQuery = useMemoFirebase(() => {
@@ -107,9 +125,76 @@ export default function HistoricalDataPage() {
     });
   }, [rawHistory]);
 
+  const paginatedHistory = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return history.slice(start, start + itemsPerPage);
+  }, [history, currentPage]);
+
+  const totalPages = Math.ceil(history.length / itemsPerPage);
+
+  const allOnPageSelected = paginatedHistory.length > 0 && paginatedHistory.every(h => selectedIds.has(h.id));
+
+  const toggleSelectAll = () => {
+    const next = new Set(selectedIds);
+    if (allOnPageSelected) {
+      paginatedHistory.forEach(h => next.delete(h.id));
+    } else {
+      paginatedHistory.forEach(h => next.add(h.id));
+    }
+    setSelectedIds(next);
+  };
+
+  const toggleSelectRow = (id: string) => {
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedIds(next);
+  };
+
+  const handleBulkPurge = async () => {
+    if (!db || selectedIds.size === 0 || !user || !profile) return;
+    
+    setIsBulkProcessing(true);
+    const batch = writeBatch(db);
+    const count = selectedIds.size;
+
+    selectedIds.forEach(id => {
+      batch.delete(doc(db, 'monthly_summaries', id));
+    });
+
+    try {
+      await batch.commit();
+      
+      logAuditAction(
+        db,
+        user,
+        profile.fullName,
+        'RECORD_DELETED',
+        'bulk_archival_purge',
+        `Archival Purge: Permanently deleted ${count} monthly summaries from history ledger.`
+      );
+
+      toast({
+        title: "Archives Purged",
+        description: `Successfully removed ${count} summaries from the bureau ledger.`,
+        variant: "destructive"
+      });
+      setSelectedIds(new Set());
+      setIsConfirmBulkPurgeOpen(false);
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Bulk Purge Failed",
+        description: "Clearance error during mass archival deletion.",
+      });
+    } finally {
+      setIsBulkProcessing(false);
+    }
+  };
+
   const handleAddData = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!db || !user) return;
+    if (!db || !user || !profile) return;
 
     const eVal = parseInt(ethio) || 0;
     const sVal = parseInt(safaricom) || 0;
@@ -133,6 +218,15 @@ export default function HistoricalDataPage() {
     
     setDocumentNonBlocking(doc(db, 'monthly_summaries', summaryId), summaryData, { merge: true });
     
+    logAuditAction(
+      db,
+      user,
+      profile.fullName,
+      editingId ? 'STATUS_UPDATE' : 'RECORD_CREATED',
+      summaryId,
+      `${editingId ? 'Modified' : 'Created'} historical summary for ${month} ${year}. Total: ${eVal + sVal}`
+    );
+
     setIsModalOpen(false);
     resetForm();
 
@@ -162,11 +256,21 @@ export default function HistoricalDataPage() {
   };
 
   const confirmDelete = async () => {
-    if (!db || !summaryToDelete) return;
+    if (!db || !summaryToDelete || !user || !profile) return;
     
     setIsDeleting(true);
     try {
       await deleteDocumentNonBlocking(doc(db, 'monthly_summaries', summaryToDelete.id));
+      
+      logAuditAction(
+        db,
+        user,
+        profile.fullName,
+        'RECORD_DELETED',
+        summaryToDelete.id,
+        `Purged historical summary for ${summaryToDelete.label} from the ledger.`
+      );
+
       toast({
         title: "Archive Entry Purged",
         description: `Historical data for ${summaryToDelete.label} has been removed.`,
@@ -306,22 +410,65 @@ export default function HistoricalDataPage() {
         </div>
       </div>
 
-      <Card className="border border-border bg-card overflow-hidden rounded-3xl shadow-sm">
+      <Card className="border border-border bg-card overflow-hidden rounded-3xl shadow-sm relative min-h-[500px]">
         <CardHeader className="bg-muted/30 border-b border-border py-4">
           <CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
             <Database className="h-3.5 w-3.5" /> Bureau Archive Ledger
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
+          {/* Bulk Action Overlay */}
+          {selectedIds.size > 0 && (
+            <div className="absolute top-0 left-0 right-0 z-30 h-14 bg-primary text-primary-foreground flex items-center px-8 gap-6 animate-in slide-in-from-top duration-300 shadow-xl">
+              <p className="text-[11px] font-black uppercase tracking-widest flex-1">
+                 {selectedIds.size} Archives Selected
+              </p>
+              <div className="flex items-center gap-3">
+                <Button variant="ghost" size="sm" className="h-9 px-4 text-[10px] font-black uppercase tracking-widest hover:bg-white/10" onClick={() => setSelectedIds(new Set())}>
+                  <X className="mr-2 h-4 w-4" /> Clear
+                </Button>
+                <div className="w-px h-6 bg-white/20" />
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-9 px-6 text-[10px] font-black uppercase tracking-widest hover:bg-red-500 text-white" 
+                  onClick={() => setIsConfirmBulkPurgeOpen(true)}
+                  disabled={isBulkProcessing}
+                >
+                  {isBulkProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                  Purge Selected
+                </Button>
+              </div>
+            </div>
+          )}
+
           <div className="divide-y divide-border">
+            {/* Header Row for Select All */}
+            {paginatedHistory.length > 0 && (
+              <div className="bg-muted/10 px-6 py-2 border-b border-border flex items-center">
+                 <div className="flex items-center gap-3">
+                    <Checkbox checked={allOnPageSelected} onCheckedChange={toggleSelectAll} className="border-muted-foreground/30" />
+                    <span className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Select All Archives on Page</span>
+                 </div>
+              </div>
+            )}
+
             {isLoading ? (
               <div className="py-24 flex justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary opacity-20" /></div>
-            ) : history.map((entry) => {
+            ) : paginatedHistory.map((entry) => {
               const label = `${entry.month} ${entry.year}`;
               return (
-                <div key={entry.id} className="group flex flex-col lg:flex-row lg:items-center justify-between p-6 hover:bg-muted/30 transition-all border-border border-b last:border-0 lg:h-24 gap-6 lg:gap-0">
+                <div key={entry.id} className={cn(
+                  "group flex flex-col lg:flex-row lg:items-center justify-between p-6 hover:bg-muted/30 transition-all border-border border-b last:border-0 lg:h-24 gap-6 lg:gap-0",
+                  selectedIds.has(entry.id) && "bg-primary/5"
+                )}>
                   <div className="flex-1 flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-10">
-                    <div className="flex items-center gap-4 min-w-[180px]">
+                    <div className="flex items-center gap-4 min-w-[220px]">
+                      <Checkbox 
+                        checked={selectedIds.has(entry.id)} 
+                        onCheckedChange={() => toggleSelectRow(entry.id)}
+                        className="border-muted-foreground/30"
+                      />
                       <div className="p-3 rounded-2xl bg-muted/50 border border-border group-hover:bg-primary/5 group-hover:border-primary/20 transition-all">
                         <Calendar className="h-5 w-5 text-muted-foreground/40 group-hover:text-primary transition-colors" />
                       </div>
@@ -379,6 +526,37 @@ export default function HistoricalDataPage() {
               </div>
             )}
           </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-8 py-6 bg-muted/5 border-t border-border">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                Showing {paginatedHistory.length} of {history.length} Archives
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-11 w-11 p-0 rounded-xl border-border bg-background hover:bg-muted"
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div className="flex items-center justify-center min-w-[120px] h-11 text-[10px] font-black text-foreground bg-muted/50 border border-border rounded-xl uppercase tracking-widest px-3">
+                  Page {currentPage} of {totalPages}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-11 w-11 p-0 rounded-xl border-border bg-background hover:bg-muted"
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
       
@@ -417,6 +595,42 @@ export default function HistoricalDataPage() {
               {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Confirm Purge"}
             </AlertDialogAction>
             {!isDeleting && (
+              <AlertDialogCancel className="w-full h-12 rounded-2xl font-bold uppercase text-[10px] tracking-widest border-none bg-transparent hover:bg-card">
+                Abort Protocol
+              </AlertDialogCancel>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Purge Confirmation */}
+      <AlertDialog open={isConfirmBulkPurgeOpen} onOpenChange={setIsConfirmBulkPurgeOpen}>
+        <AlertDialogContent className="rounded-[32px] border-none shadow-2xl bg-popover max-w-md p-0 overflow-hidden mx-4">
+          <div className="p-10 text-center space-y-6">
+            <div className="mx-auto bg-destructive/10 p-5 rounded-2xl w-fit">
+              {isBulkProcessing ? <Loader2 className="h-10 w-10 text-destructive animate-spin" /> : <ShieldAlert className="h-10 w-10 text-destructive" />}
+            </div>
+            <div className="space-y-2">
+              <AlertDialogTitle className="text-2xl font-black text-foreground tracking-tighter uppercase leading-none">
+                {isBulkProcessing ? "PURGING ARCHIVES..." : "MASS ARCHIVAL PURGE"}
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-sm text-muted-foreground leading-relaxed font-medium">
+                {isBulkProcessing 
+                  ? "Executing bulk archival destruction. Synchronizing with audit ledger..."
+                  : `You are about to permanently purge ${selectedIds.size} monthly summaries from the bureau history. This operation cannot be reversed.`
+                }
+              </AlertDialogDescription>
+            </div>
+          </div>
+          <AlertDialogFooter className="bg-muted/30 p-6 flex-col sm:flex-row gap-3">
+            <AlertDialogAction 
+              onClick={(e) => { e.preventDefault(); handleBulkPurge(); }} 
+              disabled={isBulkProcessing}
+              className="w-full h-14 bg-destructive hover:bg-destructive/90 text-white font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-destructive/10 active:scale-[0.98] transition-all"
+            >
+              {isBulkProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Confirm Destruction"}
+            </AlertDialogAction>
+            {!isBulkProcessing && (
               <AlertDialogCancel className="w-full h-12 rounded-2xl font-bold uppercase text-[10px] tracking-widest border-none bg-transparent hover:bg-card">
                 Abort Protocol
               </AlertDialogCancel>

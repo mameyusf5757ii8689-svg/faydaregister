@@ -21,6 +21,8 @@ import {
   FileSpreadsheet,
   FileText,
   RefreshCcw,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { DailyReport, MonthlySummary, UserProfile } from '@/lib/types';
 import { format, startOfMonth } from 'date-fns';
@@ -69,6 +71,10 @@ export default function FullRegistrationPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'Operational' | 'Finalized'>('all');
   const [isSyncing, setIsSyncing] = useState(false);
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 12;
 
   useEffect(() => {
     setMounted(true);
@@ -240,6 +246,17 @@ export default function FullRegistrationPage() {
       return matchesSearch && matchesStatus;
     });
   }, [rawLedger, searchTerm, statusFilter]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter]);
+
+  const paginatedLedger = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return ledger.slice(startIndex, startIndex + itemsPerPage);
+  }, [ledger, currentPage]);
+
+  const totalPages = Math.ceil(ledger.length / itemsPerPage);
 
   const analysis = useMemo(() => {
     if (!mounted || ledger.length < 1) return null;
@@ -526,7 +543,7 @@ export default function FullRegistrationPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {ledger.length > 0 ? ledger.map((item) => (
+              {paginatedLedger.length > 0 ? paginatedLedger.map((item) => (
                 <TableRow key={item.id} className="hover:bg-muted/30 transition-colors border-border h-20 group">
                   <TableCell className="pl-10">
                     <div className="flex items-center gap-4">
@@ -567,6 +584,37 @@ export default function FullRegistrationPage() {
               )}
             </TableBody>
           </Table>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-10 py-6 bg-muted/5 border-t border-border">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                Showing {paginatedLedger.length} of {ledger.length} Archives
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-11 w-11 p-0 rounded-xl border-border bg-background hover:bg-muted"
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div className="flex items-center justify-center min-w-[120px] h-11 text-[10px] font-black text-foreground bg-muted/50 border border-border rounded-xl uppercase tracking-widest px-3">
+                  Page {currentPage} of {totalPages}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-11 w-11 p-0 rounded-xl border-border bg-background hover:bg-muted"
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

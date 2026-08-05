@@ -2,8 +2,8 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, doc, limit } from 'firebase/firestore';
+import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
+import { collection, query, where, doc, limit, writeBatch } from 'firebase/firestore';
 import { updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,14 +30,18 @@ import {
   History,
   LayoutGrid,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  X,
+  ShieldAlert
 } from 'lucide-react';
 import Link from 'next/link';
 import { format, isSameMonth } from 'date-fns';
-import { Registration } from '@/lib/types';
+import { Registration, UserProfile } from '@/lib/types';
 import { StatusBadge } from '@/components/dashboard/status-badge';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { Checkbox } from '@/components/ui/checkbox';
+import { logAuditAction } from '@/lib/audit';
 
 export default function PrintingPage() {
   const { user, isUserLoading } = useUser();
@@ -49,9 +53,19 @@ export default function PrintingPage() {
   const [filterPrinted, setFilterPrinted] = useState<'all' | 'pending' | 'printed'>('pending');
   const [periodFilter, setPeriodFilter] = useState<'current' | 'all'>('current');
   
+  // Selection State
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
+
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  const userProfileRef = useMemoFirebase(() => {
+    if (!db || !user?.uid) return null;
+    return doc(db, 'users', user.uid);
+  }, [db, user?.uid]);
+  const { data: profile } = useDoc<UserProfile>(userProfileRef);
 
   useEffect(() => {
     if (!isUserLoading && !user) {
@@ -97,6 +111,7 @@ export default function PrintingPage() {
 
   useEffect(() => {
     setCurrentPage(1);
+    setSelectedIds(new Set());
   }, [searchTerm, filterPrinted, periodFilter]);
 
   const paginatedItems = useMemo(() => {
@@ -106,8 +121,74 @@ export default function PrintingPage() {
 
   const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
 
+  const allOnPageSelected = paginatedItems.length > 0 && paginatedItems.every(r => selectedIds.has(r.id));
+
+  const toggleSelectAll = () => {
+    const next = new Set(selectedIds);
+    if (allOnPageSelected) {
+      paginatedItems.forEach(r => next.delete(r.id));
+    } else {
+      paginatedItems.forEach(r => {
+        if (!r.isPrinted) next.add(r.id);
+      });
+    }
+    setSelectedIds(next);
+  };
+
+  const toggleSelectRow = (id: string) => {
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedIds(next);
+  };
+
+  const handleBulkMarkPrinted = async () => {
+    if (!db || selectedIds.size === 0 || !user || !profile) return;
+    
+    setIsBulkProcessing(true);
+    const batch = writeBatch(db);
+    const count = selectedIds.size;
+    const nowTs = format(new Date(), 'MMM dd, HH:mm');
+
+    selectedIds.forEach(id => {
+      const reg = filteredItems.find(r => r.id === id);
+      batch.update(doc(db, 'registrations', id), {
+        isPrinted: true,
+        updatedAt: new Date().toISOString(),
+        remarks: `${reg?.remarks || ''}\n[PRINTING TERMINAL]: Bulk marked as physically printed on ${nowTs}`
+      });
+    });
+
+    try {
+      await batch.commit();
+      
+      logAuditAction(
+        db,
+        user,
+        profile.fullName,
+        'STATUS_UPDATE',
+        'bulk_printing',
+        `Bulk Printing: Marked ${count} processed records as physically issued.`
+      );
+
+      toast({
+        title: "Bulk Issuance Complete",
+        description: `Successfully marked ${count} IDs as printed.`,
+      });
+      setSelectedIds(new Set());
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Bulk Operation Failed",
+        description: "Protocol error during mass printing synchronization.",
+      });
+    } finally {
+      setIsBulkProcessing(false);
+    }
+  };
+
   const handleMarkPrinted = async (reg: Registration) => {
-    if (!db) return;
+    if (!db || !user || !profile) return;
     
     try {
       await updateDocumentNonBlocking(doc(db, 'registrations', reg.id), {
@@ -115,6 +196,15 @@ export default function PrintingPage() {
         updatedAt: new Date().toISOString(),
         remarks: `${reg.remarks || ''}\n[PRINTING TERMINAL]: Marked as physically printed on ${format(new Date(), 'MMM dd, HH:mm')}`
       });
+
+      logAuditAction(
+        db,
+        user,
+        profile.fullName,
+        'STATUS_UPDATE',
+        reg.id,
+        `Printing Terminal: Marked ID for ${reg.applicantName} as physically issued.`
+      );
       
       toast({
         title: "ID Issued",
@@ -251,11 +341,39 @@ export default function PrintingPage() {
         </div>
 
         <div className="lg:col-span-3 space-y-4">
-          <Card className="border border-border shadow-sm bg-card overflow-hidden rounded-3xl">
+          <Card className="border border-border shadow-sm bg-card overflow-hidden rounded-3xl relative min-h-[500px]">
+            {/* Bulk Action Overlay */}
+            {selectedIds.size > 0 && (
+              <div className="absolute top-0 left-0 right-0 z-30 h-14 bg-primary text-primary-foreground flex items-center px-8 gap-6 animate-in slide-in-from-top duration-300 shadow-xl">
+                <p className="text-[11px] font-black uppercase tracking-widest flex-1">
+                   {selectedIds.size} Records Selected
+                </p>
+                <div className="flex items-center gap-3">
+                  <Button variant="ghost" size="sm" className="h-9 px-4 text-[10px] font-black uppercase tracking-widest hover:bg-white/10" onClick={() => setSelectedIds(new Set())}>
+                    <X className="mr-2 h-4 w-4" /> Clear
+                  </Button>
+                  <div className="w-px h-6 bg-white/20" />
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-9 px-6 text-[10px] font-black uppercase tracking-widest hover:bg-white/20 bg-white/10" 
+                    onClick={handleBulkMarkPrinted}
+                    disabled={isBulkProcessing}
+                  >
+                    {isBulkProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Printer className="mr-2 h-4 w-4" />}
+                    Mark All as Printed
+                  </Button>
+                </div>
+              </div>
+            )}
+
             <Table>
               <TableHeader className="bg-muted/30">
                 <TableRow className="hover:bg-transparent border-border">
-                  <TableHead className="text-[9px] font-black uppercase tracking-widest py-5 pl-8 text-muted-foreground">Registry ID</TableHead>
+                  <TableHead className="w-12 pl-8">
+                    <Checkbox checked={allOnPageSelected} onCheckedChange={toggleSelectAll} className="border-muted-foreground/30" />
+                  </TableHead>
+                  <TableHead className="text-[9px] font-black uppercase tracking-widest py-5 text-muted-foreground">Registry ID</TableHead>
                   <TableHead className="text-[9px] font-black uppercase tracking-widest py-5 text-muted-foreground">Applicant Name</TableHead>
                   <TableHead className="text-[9px] font-black uppercase tracking-widest py-5 text-muted-foreground text-center">Status</TableHead>
                   <TableHead className="text-[9px] font-black uppercase tracking-widest py-5 text-muted-foreground text-center">Production</TableHead>
@@ -264,8 +382,20 @@ export default function PrintingPage() {
               </TableHeader>
               <TableBody>
                 {paginatedItems.length > 0 ? paginatedItems.map((reg) => (
-                  <TableRow key={reg.id} className="hover:bg-muted/30 transition-colors border-border h-20">
+                  <TableRow key={reg.id} className={cn(
+                    "hover:bg-muted/30 transition-colors border-border h-20",
+                    selectedIds.has(reg.id) && "bg-primary/5"
+                  )}>
                     <TableCell className="pl-8">
+                      {!reg.isPrinted && (
+                        <Checkbox 
+                          checked={selectedIds.has(reg.id)} 
+                          onCheckedChange={() => toggleSelectRow(reg.id)}
+                          className="border-muted-foreground/30"
+                        />
+                      )}
+                    </TableCell>
+                    <TableCell>
                       <div className="flex items-center gap-2 text-[10px] font-mono font-bold text-muted-foreground/30 uppercase">
                         <FileDigit className="h-3 w-3" />
                         {reg.id.substring(0, 15)}...
@@ -316,7 +446,7 @@ export default function PrintingPage() {
                   </TableRow>
                 )) : (
                   <TableRow>
-                    <TableCell colSpan={5} className="h-60 text-center">
+                    <TableCell colSpan={6} className="h-60 text-center">
                       <div className="flex flex-col items-center justify-center gap-3 opacity-20">
                         <Printer className="h-12 w-12 text-muted-foreground" />
                         <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">No processed records found for current queue</p>
