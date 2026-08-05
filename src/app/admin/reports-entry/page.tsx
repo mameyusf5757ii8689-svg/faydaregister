@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,11 +9,27 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useCollection, useMemoFirebase, useFirestore, useUser, useDoc } from '@/firebase';
-import { collection, query, limit, doc, serverTimestamp } from 'firebase/firestore';
-import { UserProfile } from '@/lib/types';
+import { collection, query, limit, doc, serverTimestamp, orderBy, where } from 'firebase/firestore';
+import { UserProfile, DailyReport, MonthlySummary } from '@/lib/types';
 import { addDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { ClipboardEdit, History, Loader2, Save, CheckCircle2 } from 'lucide-react';
+import { 
+  ClipboardEdit, 
+  History, 
+  Loader2, 
+  Save, 
+  CheckCircle2, 
+  AlertCircle, 
+  Activity, 
+  Search, 
+  Clock, 
+  User,
+  ArrowRight,
+  ShieldAlert,
+  Zap
+} from 'lucide-react';
 import { logAuditAction } from '@/lib/audit';
+import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June", 
@@ -44,7 +59,9 @@ export default function AdminReportsEntryPage() {
   const [histProcessed, setHistProcessed] = useState('0');
   const [histRejected, setHistRejected] = useState('0');
 
-  // Defer initialization to useEffect to prevent hydration mismatch
+  // Session Log state for recent entries
+  const [sessionEntries, setSessionEntries] = useState<any[]>([]);
+
   useEffect(() => {
     const now = new Date();
     setDailyDate(now.toISOString().split('T')[0]);
@@ -62,8 +79,24 @@ export default function AdminReportsEntryPage() {
     if (!db || !user) return null;
     return query(collection(db, 'users'), limit(500));
   }, [db, user]);
-
   const { data: officers, isLoading: isOfficersLoading } = useCollection<UserProfile>(officersQuery);
+
+  // Load existing reports to check for duplicates and context
+  const reportsQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'daily_reports'), orderBy('date', 'desc'), limit(1000));
+  }, [db, user]);
+  const { data: existingReports } = useCollection<DailyReport>(reportsQuery);
+
+  const officerDailyContext = useMemo(() => {
+    if (!dailyOfficerId || !existingReports) return null;
+    return existingReports.find(r => r.officerId === dailyOfficerId);
+  }, [dailyOfficerId, existingReports]);
+
+  const isDailyDuplicate = useMemo(() => {
+    if (!dailyOfficerId || !dailyDate || !existingReports) return false;
+    return existingReports.some(r => r.officerId === dailyOfficerId && r.date === dailyDate);
+  }, [dailyOfficerId, dailyDate, existingReports]);
 
   const handleDailySubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,6 +104,7 @@ export default function AdminReportsEntryPage() {
 
     const ethio = parseInt(dailyEthio) || 0;
     const safaricom = parseInt(dailySafaricom) || 0;
+    const total = ethio + safaricom;
     const targetOfficer = officers?.find(o => o.id === dailyOfficerId);
 
     const reportData = {
@@ -78,7 +112,7 @@ export default function AdminReportsEntryPage() {
       date: dailyDate,
       ethioCount: ethio,
       safaricomCount: safaricom,
-      total: ethio + safaricom,
+      total,
       remarks: `ADMIN PROXY: ${dailyRemarks}`,
       timestamp: serverTimestamp(),
     };
@@ -91,8 +125,16 @@ export default function AdminReportsEntryPage() {
       profile.fullName,
       'STATUS_UPDATE', 
       dailyOfficerId, 
-      `Logged proxy daily report for ${targetOfficer?.fullName} on ${dailyDate}. Total: ${ethio + safaricom}.`
+      `Logged proxy daily report for ${targetOfficer?.fullName} on ${dailyDate}. Total: ${total}.`
     );
+
+    setSessionEntries(prev => [{
+      id: Date.now(),
+      officer: targetOfficer?.fullName,
+      type: 'Daily',
+      date: dailyDate,
+      total
+    }, ...prev]);
 
     toast({
       title: "Proxy Report Logged",
@@ -110,6 +152,7 @@ export default function AdminReportsEntryPage() {
 
     const ethio = parseInt(histEthio) || 0;
     const safaricom = parseInt(histSafaricom) || 0;
+    const total = ethio + safaricom;
     const targetOfficer = officers?.find(o => o.id === histOfficerId);
 
     const summaryData = {
@@ -118,7 +161,7 @@ export default function AdminReportsEntryPage() {
       year: histYear,
       ethio,
       safaricom,
-      total: ethio + safaricom,
+      total,
       processed: parseInt(histProcessed) || 0,
       rejected: parseInt(histRejected) || 0,
       timestamp: serverTimestamp(),
@@ -133,8 +176,16 @@ export default function AdminReportsEntryPage() {
       profile.fullName,
       'STATUS_UPDATE', 
       summaryId, 
-      `Archived historical proxy data for ${targetOfficer?.fullName} (${histMonth} ${histYear}). Total Intake: ${ethio + safaricom}.`
+      `Archived historical proxy data for ${targetOfficer?.fullName} (${histMonth} ${histYear}). Total Intake: ${total}.`
     );
+
+    setSessionEntries(prev => [{
+      id: Date.now(),
+      officer: targetOfficer?.fullName,
+      type: 'Historical',
+      date: `${histMonth} ${histYear}`,
+      total
+    }, ...prev]);
 
     toast({
       title: "Monthly Data Archived",
@@ -150,155 +201,281 @@ export default function AdminReportsEntryPage() {
     );
   }
 
+  const sessionTotal = sessionEntries.reduce((acc, curr) => acc + curr.total, 0);
+
   return (
     <div className="space-y-8 animate-in fade-in duration-700 pb-20">
-      <div className="space-y-1">
-        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Bureau Administration</p>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Proxy Ledger Entry</h1>
-        <p className="text-sm text-muted-foreground">Log reports or archive historical data on behalf of field officers.</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="space-y-1">
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Bureau Administration</p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground font-headline uppercase leading-none">Proxy Ledger Entry</h1>
+          <p className="text-sm text-muted-foreground">Log reports or archive historical data on behalf of field officers.</p>
+        </div>
+        
+        <div className="flex items-center gap-4 bg-card p-3 rounded-2xl border shadow-sm">
+           <div className="flex items-center gap-3 px-4 border-r border-border">
+              <div className="p-2 bg-primary/10 rounded-xl"><Activity className="h-4 w-4 text-primary" /></div>
+              <div className="flex flex-col">
+                <span className="text-[9px] font-black text-muted-foreground uppercase tracking-tighter">Session Intake</span>
+                <span className="text-sm font-black text-foreground">{sessionTotal} Records</span>
+              </div>
+           </div>
+           <div className="flex items-center gap-3 px-2">
+              <div className="p-2 bg-emerald-500/10 rounded-xl"><User className="h-4 w-4 text-emerald-500" /></div>
+              <div className="flex flex-col">
+                <span className="text-[9px] font-black text-muted-foreground uppercase tracking-tighter">Units Digitized</span>
+                <span className="text-sm font-black text-foreground">{sessionEntries.length}</span>
+              </div>
+           </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-        <Card className="border-none shadow-sm bg-card overflow-hidden">
-          <CardHeader className="bg-muted/30 border-b border-border">
-            <CardTitle className="text-lg font-bold text-foreground flex items-center gap-2">
-              <ClipboardEdit className="h-5 w-5 text-primary" />
-              Manual Daily Log
-            </CardTitle>
-            <CardDescription>Enter counts for a specific officer's daily activity.</CardDescription>
-          </CardHeader>
-          <CardContent className="p-6">
-            <form onSubmit={handleDailySubmit} className="space-y-6">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Select Officer</Label>
-                <Select value={dailyOfficerId} onValueChange={setDailyOfficerId}>
-                  <SelectTrigger className="h-11 bg-background border-border">
-                    <SelectValue placeholder="Select official..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {officers?.map(o => (
-                      <SelectItem key={o.id} value={o.id}>{o.fullName} ({o.region})</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Reporting Date</Label>
-                  <Input type="date" value={dailyDate} onChange={e => setDailyDate(e.target.value)} className="h-11 bg-background border-border" />
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+        <div className="xl:col-span-8 space-y-8">
+          <Card className="border-none shadow-sm bg-card overflow-hidden rounded-[32px]">
+            <CardHeader className="bg-muted/30 border-b border-border p-6 md:p-8">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg font-bold text-foreground flex items-center gap-2 uppercase tracking-tight">
+                    <ClipboardEdit className="h-5 w-5 text-primary" />
+                    Manual Daily Log
+                  </CardTitle>
+                  <CardDescription className="text-xs">Enter counts for a specific officer's daily activity.</CardDescription>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Ethio</Label>
-                    <Input type="number" value={dailyEthio} onChange={e => setDailyEthio(e.target.value)} className="h-11 bg-background border-border" />
+                {isDailyDuplicate && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-rose-500/10 text-rose-600 rounded-xl border border-rose-500/20 animate-in zoom-in duration-300">
+                    <ShieldAlert className="h-4 w-4" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Entry Exists</span>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Safaricom</Label>
-                    <Input type="number" value={dailySafaricom} onChange={e => setDailySafaricom(e.target.value)} className="h-11 bg-background border-border" />
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="p-6 md:p-8">
+              <form onSubmit={handleDailySubmit} className="space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1">Select Officer</Label>
+                      <Select value={dailyOfficerId} onValueChange={setDailyOfficerId}>
+                        <SelectTrigger className="h-12 bg-background border-border rounded-xl font-bold">
+                          <SelectValue placeholder="Select official..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {officers?.map(o => (
+                            <SelectItem key={o.id} value={o.id} className="font-bold">{o.fullName} ({o.region})</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {officerDailyContext && (
+                      <div className="p-4 bg-primary/[0.03] border border-primary/10 rounded-2xl space-y-2 animate-in fade-in slide-in-from-top-1">
+                        <p className="text-[9px] font-black text-primary uppercase tracking-[0.2em] flex items-center gap-1.5">
+                          <Zap className="h-3 w-3" /> Unit Context
+                        </p>
+                        <div className="grid grid-cols-2 gap-4">
+                           <div>
+                             <p className="text-[8px] font-bold text-muted-foreground uppercase">Last Logged</p>
+                             <p className="text-xs font-black text-foreground">{officerDailyContext.date}</p>
+                           </div>
+                           <div>
+                             <p className="text-[8px] font-bold text-muted-foreground uppercase">Last Intake</p>
+                             <p className="text-xs font-black text-foreground">{officerDailyContext.total} Units</p>
+                           </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1">Reporting Date</Label>
+                      <Input type="date" value={dailyDate} onChange={e => setDailyDate(e.target.value)} className={cn("h-12 bg-background border-border rounded-xl font-bold", isDailyDuplicate && "border-rose-500/50")} />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider ml-1">Ethio</Label>
+                        <Input type="number" value={dailyEthio} onChange={e => setDailyEthio(e.target.value)} className="h-12 bg-background border-border rounded-xl font-black text-emerald-600" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider ml-1">Safaricom</Label>
+                        <Input type="number" value={dailySafaricom} onChange={e => setDailySafaricom(e.target.value)} className="h-12 bg-background border-border rounded-xl font-black text-orange-600" />
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="p-4 bg-muted/50 rounded-xl border border-dashed border-border text-center">
-                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Calculated Aggregate</p>
-                <p className="text-3xl font-black text-foreground">
-                  {(parseInt(dailyEthio) || 0) + (parseInt(dailySafaricom) || 0)}
-                </p>
-              </div>
+                <div className="flex flex-col md:flex-row items-center gap-6">
+                  <div className="flex-1 w-full space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1">Session Notes</Label>
+                    <Textarea value={dailyRemarks} onChange={e => setDailyRemarks(e.target.value)} placeholder="Administrative reason for proxy entry..." className="resize-none min-h-[100px] bg-background border-border rounded-2xl text-xs font-medium" />
+                  </div>
+                  <div className="w-full md:w-64 space-y-4">
+                    <div className="p-6 bg-muted/50 rounded-[28px] border border-border text-center shadow-inner">
+                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Calculated Intake</p>
+                      <p className="text-5xl font-black text-foreground tracking-tighter">
+                        {(parseInt(dailyEthio) || 0) + (parseInt(dailySafaricom) || 0)}
+                      </p>
+                    </div>
+                    <Button type="submit" disabled={isDailyDuplicate || !dailyOfficerId} className="w-full h-14 bg-primary hover:bg-primary/90 text-primary-foreground font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/10 transition-all active:scale-[0.98]">
+                      <Save className="mr-2 h-4 w-4" /> Commit Protocol
+                    </Button>
+                  </div>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
 
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Notes (Admin)</Label>
-                <Textarea value={dailyRemarks} onChange={e => setDailyRemarks(e.target.value)} placeholder="Reason for proxy entry..." className="resize-none min-h-[100px] bg-background border-border" />
-              </div>
-
-              <Button type="submit" className="w-full h-12 bg-primary hover:bg-primary/90 font-bold">
-                <Save className="mr-2 h-4 w-4" /> Commit Proxy Report
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-
-        <Card className="border-none shadow-sm bg-card overflow-hidden">
-          <CardHeader className="bg-muted/30 border-b border-border">
-            <CardTitle className="text-lg font-bold text-foreground flex items-center gap-2">
-              <History className="h-5 w-5 text-amber-500" />
-              Monthly Data Archival
-            </CardTitle>
-            <CardDescription>Digitize aggregate monthly totals for historical tracking.</CardDescription>
-          </CardHeader>
-          <CardContent className="p-6">
-            <form onSubmit={handleHistSubmit} className="space-y-6">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Officer Profile</Label>
-                <Select value={histOfficerId} onValueChange={setHistOfficerId}>
-                  <SelectTrigger className="h-11 bg-background border-border">
-                    <SelectValue placeholder="Select official..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {officers?.map(o => (
-                      <SelectItem key={o.id} value={o.id}>{o.fullName}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Reporting Period</Label>
-                  <div className="flex gap-2">
-                    <Select value={histMonth} onValueChange={setHistMonth}>
-                      <SelectTrigger className="h-11 bg-background border-border">
-                        <SelectValue />
+          <Card className="border-none shadow-sm bg-card overflow-hidden rounded-[32px]">
+            <CardHeader className="bg-muted/30 border-b border-border p-6 md:p-8">
+              <CardTitle className="text-lg font-bold text-foreground flex items-center gap-2 uppercase tracking-tight">
+                <History className="h-5 w-5 text-amber-500" />
+                Monthly Data Archival
+              </CardTitle>
+              <CardDescription className="text-xs">Digitize aggregate monthly totals for historical tracking.</CardDescription>
+            </CardHeader>
+            <CardContent className="p-6 md:p-8">
+              <form onSubmit={handleHistSubmit} className="space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1">Officer Profile</Label>
+                    <Select value={histOfficerId} onValueChange={setHistOfficerId}>
+                      <SelectTrigger className="h-12 bg-background border-border rounded-xl font-bold">
+                        <SelectValue placeholder="Select official..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {MONTHS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <Select value={histYear} onValueChange={setHistYear}>
-                      <SelectTrigger className="h-11 bg-background border-border">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {YEARS.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
+                        {officers?.map(o => (
+                          <SelectItem key={o.id} value={o.id} className="font-bold">{o.fullName}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Historical Total</Label>
-                  <div className="h-11 flex items-center justify-center bg-amber-500/10 rounded-lg border border-amber-500/20 text-xl font-black text-amber-500">
-                    {(parseInt(histEthio) || 0) + (parseInt(histSafaricom) || 0)}
+
+                  <div className="md:col-span-2 space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1">Reporting Period</Label>
+                    <div className="flex gap-2">
+                      <Select value={histMonth} onValueChange={setHistMonth}>
+                        <SelectTrigger className="h-12 bg-background border-border rounded-xl font-bold">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {MONTHS.map(m => <SelectItem key={m} value={m} className="font-bold">{m}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <Select value={histYear} onValueChange={setHistYear}>
+                        <SelectTrigger className="h-12 bg-background border-border rounded-xl font-bold">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {YEARS.map(y => <SelectItem key={y} value={y} className="font-bold">{y}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-[9px] font-bold text-muted-foreground uppercase">Ethio</Label>
-                  <Input type="number" value={histEthio} onChange={e => setHistEthio(e.target.value)} className="h-10 bg-background border-border" />
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                  <ProxyField label="Ethio Intake" value={histEthio} onChange={setHistEthio} color="emerald" />
+                  <ProxyField label="Safaricom Intake" value={histSafaricom} onChange={setHistSafaricom} color="orange" />
+                  <ProxyField label="Processed" value={histProcessed} onChange={setHistProcessed} color="blue" />
+                  <ProxyField label="Rejected" value={histRejected} onChange={setHistRejected} color="rose" />
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-[9px] font-bold text-muted-foreground uppercase">Safaricom</Label>
-                  <Input type="number" value={histSafaricom} onChange={e => setHistSafaricom(e.target.value)} className="h-10 bg-background border-border" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[9px] font-bold text-muted-foreground uppercase">Processed</Label>
-                  <Input type="number" value={histProcessed} onChange={e => setHistProcessed(e.target.value)} className="h-10 bg-background border-border" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[9px] font-bold text-muted-foreground uppercase">Rejected</Label>
-                  <Input type="number" value={histRejected} onChange={e => setHistRejected(e.target.value)} className="h-10 bg-background border-border" />
-                </div>
-              </div>
 
-              <Button type="submit" className="w-full h-12 bg-amber-600 hover:bg-amber-700 font-bold text-white shadow-md">
-                <CheckCircle2 className="mr-2 h-4 w-4" /> Finalize Archive Record
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+                <div className="flex items-center justify-between p-6 bg-amber-500/5 border border-amber-500/10 rounded-[28px]">
+                   <div className="space-y-0.5">
+                     <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Calculated Aggregate</p>
+                     <p className="text-3xl font-black text-amber-700">
+                        {(parseInt(histEthio) || 0) + (parseInt(histSafaricom) || 0)}
+                     </p>
+                   </div>
+                   <Button type="submit" disabled={!histOfficerId} className="h-14 px-10 bg-amber-600 hover:bg-amber-700 text-white font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-amber-600/10 transition-all active:scale-[0.98]">
+                      <CheckCircle2 className="mr-2 h-4 w-4" /> Finalize Archive
+                   </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="xl:col-span-4 space-y-6">
+          <Card className="border border-border bg-card overflow-hidden rounded-[32px] shadow-sm h-full">
+            <CardHeader className="bg-muted/30 border-b border-border py-4">
+              <CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] flex items-center gap-2">
+                <Clock className="h-3 w-3" /> Live Session Activity
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {sessionEntries.length > 0 ? (
+                <div className="divide-y divide-border">
+                   {sessionEntries.map((entry) => (
+                     <div key={entry.id} className="p-5 flex items-center justify-between hover:bg-muted/30 transition-colors animate-in slide-in-from-right-4 duration-500">
+                        <div className="space-y-1">
+                           <p className="text-xs font-black text-foreground uppercase tracking-tight line-clamp-1">{entry.officer}</p>
+                           <div className="flex items-center gap-2">
+                              <span className={cn(
+                                "text-[8px] font-black uppercase px-1.5 py-0.5 rounded",
+                                entry.type === 'Daily' ? 'bg-primary/10 text-primary' : 'bg-amber-500/10 text-amber-600'
+                              )}>
+                                {entry.type}
+                              </span>
+                              <span className="text-[8px] font-bold text-muted-foreground uppercase">{entry.date}</span>
+                           </div>
+                        </div>
+                        <div className="text-right">
+                           <p className="text-sm font-black text-foreground tabular-nums">{entry.total}</p>
+                           <p className="text-[7px] font-black text-muted-foreground uppercase tracking-widest">Units</p>
+                        </div>
+                     </div>
+                   ))}
+                </div>
+              ) : (
+                <div className="py-40 flex flex-col items-center justify-center text-center px-8 opacity-20">
+                  <Activity className="h-12 w-12 mb-4" />
+                  <p className="text-[10px] font-black uppercase tracking-[0.3em] leading-relaxed">
+                    Session Monitor Empty <br/> Commit a Protocol to Begin Tracking
+                  </p>
+                </div>
+              )}
+            </CardContent>
+            {sessionEntries.length > 0 && (
+              <div className="p-4 border-t border-border bg-muted/10">
+                <Button variant="ghost" onClick={() => setSessionEntries([])} className="w-full h-10 font-bold text-[9px] uppercase tracking-widest text-muted-foreground hover:text-rose-500">
+                   Clear Session Record
+                </Button>
+              </div>
+            )}
+          </Card>
+        </div>
       </div>
+      
+      <div className="p-6 bg-primary/[0.03] border border-primary/10 rounded-[32px] flex items-center gap-4">
+        <ShieldAlert className="h-6 w-6 text-primary shrink-0 opacity-40" />
+        <p className="text-[10px] text-foreground font-bold uppercase leading-relaxed tracking-widest max-w-5xl">
+          Authorized Administrative Protocol: Entries committed via this terminal are recorded in the central ledger under your official administrative signature. High-fidelity forensic auditing is active. Ensure all counts are verified against physical intake documents prior to synchronization.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ProxyField({ label, value, onChange, color }: any) {
+  const colorClasses: any = {
+    emerald: "focus-within:border-emerald-500/50 text-emerald-600",
+    orange: "focus-within:border-orange-500/50 text-orange-600",
+    blue: "focus-within:border-blue-500/50 text-blue-600",
+    rose: "focus-within:border-rose-500/50 text-rose-600",
+  };
+
+  return (
+    <div className={cn("p-4 bg-muted/50 rounded-2xl border border-border transition-all", colorClasses[color])}>
+      <Label className="text-[8px] font-black uppercase tracking-tighter text-muted-foreground mb-1 block">{label}</Label>
+      <Input 
+        type="number" 
+        value={value} 
+        onChange={e => onChange(e.target.value)} 
+        className="h-8 border-none bg-transparent p-0 text-lg font-black focus-visible:ring-0 tabular-nums" 
+      />
     </div>
   );
 }
