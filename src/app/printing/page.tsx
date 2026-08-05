@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -32,7 +33,9 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
-  ShieldAlert
+  ShieldAlert,
+  FileSpreadsheet,
+  FileText
 } from 'lucide-react';
 import Link from 'next/link';
 import { format, isSameMonth } from 'date-fns';
@@ -43,6 +46,10 @@ import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { logAuditAction } from '@/lib/audit';
 
+import * as XLSX from 'xlsx';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+
 export default function PrintingPage() {
   const { user, isUserLoading } = useUser();
   const db = useFirestore();
@@ -52,6 +59,7 @@ export default function PrintingPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPrinted, setFilterPrinted] = useState<'all' | 'pending' | 'printed'>('pending');
   const [periodFilter, setPeriodFilter] = useState<'current' | 'all'>('current');
+  const [isExporting, setIsExporting] = useState(false);
   
   // Selection State
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -219,6 +227,64 @@ export default function PrintingPage() {
     }
   };
 
+  const handleExportExcel = () => {
+    if (filteredItems.length === 0 || !profile) return;
+    setIsExporting(true);
+    
+    const exportData = filteredItems.map(r => ({
+      'Registry ID': r.id,
+      'Applicant': r.applicantName,
+      'Inbound Date': format(new Date(r.submissionDate), 'yyyy-MM-dd'),
+      'Phone': r.phone,
+      'Location': r.location,
+      'Issuance Status': r.isPrinted ? 'PRINTED' : 'PENDING'
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Production_Queue");
+    XLSX.writeFile(wb, `Bureau_Production_Queue_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+
+    logAuditAction(db, user!, profile.fullName, 'PERFORMANCE_REVIEW', 'printing_terminal', `Exported XLSX production report for ${filteredItems.length} IDs.`);
+    
+    toast({ title: "Excel Queue Generated", description: "Issuance manifest has been downloaded." });
+    setTimeout(() => setIsExporting(false), 800);
+  };
+
+  const handleExportPDF = () => {
+    if (filteredItems.length === 0 || !profile) return;
+    setIsExporting(true);
+
+    const doc = new jsPDF('l', 'mm', 'a4');
+    doc.text("Official Bureau Production & Issuance Manifest", 14, 15);
+    doc.setFontSize(10);
+    doc.text(`Issuer: ${profile.fullName} | Queue: ${filteredItems.length} Units | Date: ${format(new Date(), 'yyyy-MM-dd HH:mm')}`, 14, 22);
+
+    const rows = filteredItems.map(r => [
+      r.id.substring(0, 15) + '...',
+      r.applicantName,
+      format(new Date(r.submissionDate), 'MMM dd, yyyy'),
+      r.phone,
+      r.location.split(',')[0],
+      r.isPrinted ? 'PRINTED' : 'PENDING'
+    ]);
+
+    autoTable(doc, {
+      startY: 30,
+      head: [['Registry ID', 'Applicant Name', 'Inbound Date', 'Phone', 'Sector', 'Status']],
+      body: rows,
+      theme: 'striped',
+      headStyles: { fillColor: [15, 23, 42] }
+    });
+
+    doc.save(`Bureau_Issuance_Manifest_${format(new Date(), 'yyyyMMdd')}.pdf`);
+    
+    logAuditAction(db, user!, profile.fullName, 'PERFORMANCE_REVIEW', 'printing_terminal', `Exported PDF production report for ${filteredItems.length} IDs.`);
+    
+    toast({ title: "PDF Manifest Generated", description: "High-fidelity production document saved." });
+    setTimeout(() => setIsExporting(false), 800);
+  };
+
   if (isUserLoading || isLoading || !user) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
@@ -248,7 +314,15 @@ export default function PrintingPage() {
           </div>
         </div>
         
-        <div className="flex items-center gap-4 bg-card p-4 rounded-2xl border shadow-sm">
+        <div className="flex flex-col sm:flex-row items-center gap-4 bg-card p-2.5 rounded-2xl border shadow-sm">
+          <div className="flex items-center gap-2 px-3 border-r border-border h-10">
+            <Button onClick={handleExportExcel} disabled={isExporting} variant="outline" className="h-8 px-3 border-emerald-500/20 text-emerald-600 hover:bg-emerald-500/5 font-bold text-[9px] uppercase tracking-widest rounded-lg">
+               <FileSpreadsheet className="mr-1 h-3.5 w-3.5" /> XLS
+            </Button>
+            <Button onClick={handleExportPDF} disabled={isExporting} variant="outline" className="h-8 px-3 border-rose-500/20 text-rose-600 hover:bg-rose-500/5 font-bold text-[9px] uppercase tracking-widest rounded-lg">
+               <FileText className="mr-1 h-3.5 w-3.5" /> PDF
+            </Button>
+          </div>
           <div className="flex items-center gap-3 px-2">
             <div className="p-2 bg-emerald-500/10 rounded-xl">
               {periodFilter === 'current' ? <Calendar className="h-5 w-5 text-emerald-500" /> : <History className="h-5 w-5 text-amber-500" />}

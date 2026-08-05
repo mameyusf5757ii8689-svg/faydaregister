@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useMemo, useEffect } from 'react';
@@ -11,6 +12,7 @@ import {
   Calendar,
   Save,
   FileSpreadsheet,
+  FileText,
   Loader2,
   AlertCircle,
   Edit2,
@@ -56,6 +58,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Checkbox } from '@/components/ui/checkbox';
 import { logAuditAction } from '@/lib/audit';
+import { format } from 'date-fns';
+
+import * as XLSX from 'xlsx';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June", 
@@ -70,6 +77,7 @@ export default function HistoricalDataPage() {
   const { toast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
   
   // Selection State
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -302,6 +310,67 @@ export default function HistoricalDataPage() {
     setPendingReview('0');
   };
 
+  const handleExportExcel = () => {
+    if (history.length === 0 || !profile) return;
+    setIsExporting(true);
+    
+    const exportData = history.map(h => ({
+      'Period': `${h.month} ${h.year}`,
+      'Ethio Intake': h.ethio,
+      'Safaricom Intake': h.safaricom,
+      'Total Intake': h.total,
+      'Processed': h.processed || 0,
+      'Rejected': h.rejected || 0,
+      'Failed': h.failed || 0,
+      'Pending': h.pendingReview || 0
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Bureau_Historical");
+    XLSX.writeFile(wb, `Bureau_Historical_Ledger_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+
+    logAuditAction(db, user!, profile.fullName, 'PERFORMANCE_REVIEW', 'historical_ledger', `Exported XLSX historical ledger archive for ${history.length} months.`);
+    
+    toast({ title: "Excel Archive Generated", description: "Official historical ledger downloaded." });
+    setTimeout(() => setIsExporting(false), 800);
+  };
+
+  const handleExportPDF = () => {
+    if (history.length === 0 || !profile) return;
+    setIsExporting(true);
+
+    const doc = new jsPDF('l', 'mm', 'a4');
+    doc.text("Official Bureau Historical Data Ledger", 14, 15);
+    doc.setFontSize(10);
+    doc.text(`Official: ${profile.fullName} | Records: ${history.length} Months | Generated: ${format(new Date(), 'yyyy-MM-dd HH:mm')}`, 14, 22);
+
+    const rows = history.map(h => [
+      `${h.month} ${h.year}`,
+      h.ethio.toLocaleString(),
+      h.safaricom.toLocaleString(),
+      h.total.toLocaleString(),
+      (h.processed || 0).toLocaleString(),
+      (h.rejected || 0).toLocaleString(),
+      (h.failed || 0).toLocaleString()
+    ]);
+
+    autoTable(doc, {
+      startY: 30,
+      head: [['Period', 'Ethio', 'Safaricom', 'Grand Total', 'Processed', 'Rejected', 'Failed']],
+      body: rows,
+      theme: 'striped',
+      headStyles: { fillColor: [15, 23, 42] }
+    });
+
+    doc.save(`Bureau_Historical_Archive_${format(new Date(), 'yyyyMMdd')}.pdf`);
+    
+    logAuditAction(db, user!, profile.fullName, 'PERFORMANCE_REVIEW', 'historical_ledger', `Exported PDF historical ledger archive for ${history.length} months.`);
+    
+    toast({ title: "PDF Archive Generated", description: "High-fidelity historical document saved." });
+    setTimeout(() => setIsExporting(false), 800);
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-700 pb-20">
       <Link href="/registrations" className="flex items-center text-[10px] font-black text-muted-foreground hover:text-primary transition-colors uppercase tracking-widest gap-1.5">
@@ -315,9 +384,14 @@ export default function HistoricalDataPage() {
         </div>
         
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
-           <Button variant="outline" className="w-full sm:w-auto font-bold border-border bg-card text-foreground h-11 px-6 rounded-xl text-[10px] uppercase tracking-widest">
-            <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-500" /> Export Archive
-          </Button>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Button onClick={handleExportExcel} disabled={isExporting} variant="outline" className="flex-1 h-11 px-4 border-emerald-500/20 text-emerald-600 hover:bg-emerald-500/5 font-bold text-[10px] uppercase tracking-widest rounded-xl bg-card">
+              <FileSpreadsheet className="mr-1.5 h-4 w-4" /> XLS
+            </Button>
+            <Button onClick={handleExportPDF} disabled={isExporting} variant="outline" className="flex-1 h-11 px-4 border-rose-500/20 text-rose-600 hover:bg-rose-500/5 font-bold text-[10px] uppercase tracking-widest rounded-xl bg-card">
+              <FileText className="mr-1.5 h-4 w-4" /> PDF
+            </Button>
+          </div>
           <Dialog open={isModalOpen} onOpenChange={(o) => { if(!o) resetForm(); setIsModalOpen(o); }}>
             <DialogTrigger asChild>
               <Button className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground font-black text-[10px] uppercase tracking-widest h-11 px-8 rounded-xl shadow-xl shadow-primary/10">
