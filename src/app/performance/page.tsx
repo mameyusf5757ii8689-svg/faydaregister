@@ -1,8 +1,8 @@
 
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useMemo, useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useMemoFirebase, useCollection, useUser, useFirestore, useDoc } from '@/firebase';
 import { collection, query, where, limit, doc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -80,16 +80,21 @@ import { cn } from '@/lib/utils';
 
 const START_DATE = new Date(2025, 6, 1); // July 1, 2025
 
-export default function PerformancePage() {
+function PerformanceContent() {
   const { user, isUserLoading } = useUser();
   const db = useFirestore();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMonth, setSelectedMonth] = useState('');
   const [selectedRejection, setSelectedRejection] = useState<Registration | null>(null);
   const [mounted, setMounted] = useState(false);
+
+  // Determine target officer (Remote audit vs Self-audit)
+  const targetOfficerId = searchParams.get('officerId') || user?.uid;
+  const isRemoteAudit = targetOfficerId !== user?.uid;
 
   useEffect(() => {
     setMounted(true);
@@ -104,20 +109,20 @@ export default function PerformancePage() {
     }
   }, [mounted, selectedMonth]);
 
-  const userProfileRef = useMemoFirebase(() => {
-    if (!db || !user?.uid) return null;
-    return doc(db, 'users', user.uid);
-  }, [db, user?.uid]);
-  const { data: profile } = useDoc<UserProfile>(userProfileRef);
+  const targetProfileRef = useMemoFirebase(() => {
+    if (!db || !targetOfficerId) return null;
+    return doc(db, 'users', targetOfficerId);
+  }, [db, targetOfficerId]);
+  const { data: targetProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(targetProfileRef);
 
   const registrationsQuery = useMemoFirebase(() => {
-    if (!db || !user) return null;
+    if (!db || !targetOfficerId) return null;
     return query(
       collection(db, 'registrations'),
-      where('assignedReviewerId', '==', user.uid),
+      where('assignedReviewerId', '==', targetOfficerId),
       limit(10000)
     );
-  }, [db, user]);
+  }, [db, targetOfficerId]);
 
   const { data: registrations, isLoading } = useCollection<Registration>(registrationsQuery);
 
@@ -207,28 +212,28 @@ export default function PerformancePage() {
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Performance");
-    XLSX.writeFile(wb, `Performance_${selectedMonth}.xlsx`);
+    XLSX.writeFile(wb, `Performance_${targetProfile?.fullName}_${selectedMonth}.xlsx`);
     toast({ title: "Excel Intelligence Exported", description: "Monthly performance registry generated." });
   };
 
   const handleExportPDF = () => {
     if (filteredByMonth.length === 0) return;
     const doc = new jsPDF();
-    doc.text(`Performance Review: ${profile?.fullName || 'Official'}`, 14, 15);
+    doc.text(`Performance Review: ${targetProfile?.fullName || 'Official'}`, 14, 15);
     const rows = filteredByMonth.map(r => [r.id.substring(0, 15)+'...', r.applicantName, format(new Date(r.submissionDate), 'MMM dd'), r.status, r.rejectionReason || '-']);
     autoTable(doc, { startY: 30, head: [['RID', 'Applicant', 'Date', 'Status', 'Detail']], body: rows, theme: 'striped' });
-    doc.save(`Performance_${selectedMonth}.pdf`);
+    doc.save(`Performance_${targetProfile?.fullName}_${selectedMonth}.pdf`);
     toast({ title: "PDF Ledger Generated", description: "Official documentation saved." });
   };
 
   const handleOpenForensicRecord = (reg: Registration) => {
     setSelectedRejection(reg);
-    if (db && user && profile) {
-      logAuditAction(db, user, profile.fullName, 'VERIFICATION_CHECK', reg.id, `Forensic Audit: Reviewed rejection for ${reg.applicantName}.`);
+    if (db && user && targetProfile) {
+      logAuditAction(db, user, targetProfile.fullName, 'VERIFICATION_CHECK', reg.id, `Forensic Audit: Reviewed rejection for ${reg.applicantName}.`);
     }
   };
 
-  if (isUserLoading || isLoading || !selectedMonth || !user) {
+  if (isUserLoading || isLoading || isProfileLoading || !selectedMonth || !user) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary opacity-20" />
@@ -243,8 +248,12 @@ export default function PerformancePage() {
           <div className="flex items-center justify-center md:justify-start gap-3">
             <div className="bg-primary/10 p-2.5 rounded-xl border border-primary/20"><TrendingUp className="h-6 w-6 md:h-7 md:w-7 text-primary" /></div>
             <div>
-              <h1 className="text-3xl md:text-4xl font-black tracking-tight text-foreground font-headline uppercase leading-none">Bureau Quality</h1>
-              <p className="text-[10px] md:text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Personnel Accuracy Matrix</p>
+              <h1 className="text-3xl md:text-4xl font-black tracking-tight text-foreground font-headline uppercase leading-none">
+                {isRemoteAudit ? 'Unit Intelligence' : 'Bureau Quality'}
+              </h1>
+              <p className="text-[10px] md:text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">
+                {isRemoteAudit ? `Auditing: ${targetProfile?.fullName}` : 'Personnel Accuracy Matrix'}
+              </p>
             </div>
           </div>
         </div>
@@ -442,5 +451,13 @@ export default function PerformancePage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function PerformancePage() {
+  return (
+    <Suspense fallback={<div className="flex h-[60vh] items-center justify-center"><Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" /></div>}>
+      <PerformanceContent />
+    </Suspense>
   );
 }

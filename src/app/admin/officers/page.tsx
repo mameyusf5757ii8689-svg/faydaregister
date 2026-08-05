@@ -479,7 +479,7 @@ export default function OfficerManagementPage() {
                           <TableCell className="pr-8 text-right">
                             <div className="flex items-center justify-end gap-2 lg:opacity-0 lg:group-hover:opacity-100 transition-all">
                               <Button variant="ghost" size="sm" className="h-9 px-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-xl" asChild>
-                                <Link href={`/performance`}>
+                                <Link href={`/performance?officerId=${officer.id}`}>
                                    <TrendingUp className="mr-1.5 h-3.5 w-3.5" /> Intelligence
                                 </Link>
                               </Button>
@@ -608,7 +608,7 @@ export default function OfficerManagementPage() {
               </AlertDialogDescription>
             </div>
           </div>
-          <AlertDialogFooter className="bg-muted/30 p-6 flex-col sm:flex-col gap-3">
+          <AlertDialogFooter className="bg-muted/30 p-6 flex-col sm:flex-row gap-3">
             <AlertDialogAction 
               onClick={(e) => { e.preventDefault(); handleBulkPurge(); }} 
               disabled={isBulkProcessing}
