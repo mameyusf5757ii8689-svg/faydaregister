@@ -33,7 +33,8 @@ import {
   FileText,
   ChevronLeft,
   ChevronRight,
-  Filter
+  Filter,
+  MoreVertical
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -466,83 +467,103 @@ export default function DailyRegistrationsPage() {
                 "border-none shadow-sm overflow-hidden group transition-all bg-card",
                 editingId === entry.id ? "ring-2 ring-primary bg-primary/5" : "hover:shadow-md"
               )}>
-                <CardContent className="p-5 flex items-center gap-6">
-                  <div className="flex flex-col items-center justify-center min-w-[80px] py-2.5 px-4 bg-muted/50 rounded-xl border border-border">
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase">{format(new Date(entry.date), 'MMM')}</span>
-                    <span className="text-2xl font-black text-foreground">{format(new Date(entry.date), 'dd')}</span>
-                  </div>
-                  
-                  <div className="flex-1 grid grid-cols-3 gap-4">
-                    <div className="space-y-0.5">
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Ethio</p>
-                      <p className="text-lg font-bold text-foreground/80">{entry.ethioCount}</p>
+                <CardContent className="p-0">
+                  <div className="flex flex-col sm:flex-row sm:items-center p-5 gap-6">
+                    <div className="flex items-center gap-4 sm:flex-col sm:justify-center sm:min-w-[100px] sm:py-2.5 sm:px-4 sm:bg-muted/50 sm:rounded-xl sm:border sm:border-border">
+                      <div className="flex flex-col items-center justify-center min-w-[60px] py-1.5 px-3 bg-muted/50 rounded-lg border border-border sm:border-none sm:bg-transparent sm:p-0">
+                        <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{format(new Date(entry.date), 'MMM')}</span>
+                        <span className="text-2xl font-black text-foreground tabular-nums">{format(new Date(entry.date), 'dd')}</span>
+                      </div>
+                      <div className="sm:hidden h-8 w-px bg-border" />
+                      <div className="flex-1 sm:hidden">
+                        <p className="text-[10px] font-black text-primary uppercase tracking-widest">Daily Intake</p>
+                        <p className="text-xl font-black text-foreground tabular-nums">{entry.total}</p>
+                      </div>
                     </div>
-                    <div className="space-y-0.5">
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Safaricom</p>
-                      <p className="text-lg font-bold text-foreground/80">{entry.safaricomCount}</p>
+                    
+                    <div className="flex-1 grid grid-cols-3 gap-4 border-t border-border pt-4 sm:border-none sm:pt-0">
+                      <div className="space-y-1">
+                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-tighter flex items-center gap-1">
+                          <Phone className="h-2.5 w-2.5 text-emerald-500" /> Ethio
+                        </p>
+                        <p className="text-base font-bold text-foreground/80 tabular-nums">{entry.ethioCount}</p>
+                      </div>
+                      <div className="space-y-1 border-x border-border/50 px-2 sm:px-4">
+                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-tighter flex items-center gap-1">
+                          <Smartphone className="h-2.5 w-2.5 text-orange-500" /> Safaricom
+                        </p>
+                        <p className="text-base font-bold text-foreground/80 tabular-nums">{entry.safaricomCount}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[9px] font-black text-primary uppercase tracking-tighter">Aggregate</p>
+                        <p className="text-lg font-black text-primary tabular-nums">{entry.total}</p>
+                      </div>
                     </div>
-                    <div className="space-y-0.5">
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Total</p>
-                      <p className="text-xl font-black text-primary">{entry.total}</p>
-                    </div>
-                  </div>
 
-                  <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-9 w-9 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg"
-                      onClick={() => handleEdit(entry)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg"
-                      onClick={() => {
-                        setReportToDelete({id: entry.id, date: entry.date});
-                        setIsDeleteDialogOpen(true);
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center justify-end gap-2 pt-4 border-t border-border sm:border-none sm:pt-0 sm:opacity-0 sm:group-hover:opacity-100 transition-all">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="flex-1 sm:flex-none h-10 sm:h-9 px-4 sm:px-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-xl sm:rounded-lg border border-border sm:border-none"
+                        onClick={() => handleEdit(entry)}
+                      >
+                        <Pencil className="h-3.5 w-3.5 mr-2 sm:mr-1.5" /> Edit
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-10 sm:h-9 w-10 sm:w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl sm:rounded-lg border border-border sm:border-none"
+                        onClick={() => {
+                          setReportToDelete({id: entry.id, date: entry.date});
+                          setIsDeleteDialogOpen(true);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
+                  {entry.remarks && (
+                    <div className="px-5 pb-4 sm:ml-[116px] animate-in fade-in slide-in-from-top-1">
+                       <p className="text-[10px] text-muted-foreground/60 italic border-l-2 border-muted pl-3 leading-relaxed">
+                         "{entry.remarks}"
+                       </p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}
 
             {!isLoading && history.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-24 bg-card rounded-2xl border border-dashed border-border text-muted-foreground/30">
+              <div className="flex flex-col items-center justify-center py-24 bg-card rounded-[32px] border border-dashed border-border text-muted-foreground/30">
                 <CalendarPlus className="h-16 w-16 mb-4 opacity-10" />
-                <p className="text-lg font-bold">No records found</p>
-                <p className="text-sm">Submit your first report or adjust your search.</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.4em]">Ledger Stream Empty</p>
+                <p className="text-xs mt-2 italic">Synchronize your first report to begin performance tracking.</p>
               </div>
             )}
           </div>
 
           {totalPages > 1 && (
-            <div className="flex items-center justify-between px-2 py-4 border-t border-border">
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                Showing {paginatedHistory.length} of {history.length} records
+            <div className="flex flex-col sm:flex-row items-center justify-between px-2 py-6 border-t border-border gap-4">
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest order-2 sm:order-1">
+                Visualizing {paginatedHistory.length} of {history.length} Bureau Documents
               </p>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 order-1 sm:order-2 w-full sm:w-auto">
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-9 w-9 p-0 rounded-xl border-border bg-background hover:bg-muted"
+                  className="flex-1 sm:flex-none h-11 sm:h-9 px-4 sm:px-0 sm:w-9 rounded-xl border-border bg-background hover:bg-muted"
                   onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                   disabled={currentPage === 1}
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <div className="flex items-center justify-center min-w-[100px] h-9 text-[10px] font-black text-foreground bg-muted/50 border border-border rounded-xl uppercase tracking-widest px-3">
-                  Page {currentPage} of {totalPages}
+                <div className="flex-1 sm:flex-none flex items-center justify-center min-w-[120px] h-11 sm:h-9 text-[10px] font-black text-foreground bg-muted/50 border border-border rounded-xl uppercase tracking-widest px-3">
+                  Page {currentPage} / {totalPages}
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-9 w-9 p-0 rounded-xl border-border bg-background hover:bg-muted"
+                  className="flex-1 sm:flex-none h-11 sm:h-9 px-4 sm:px-0 sm:w-9 rounded-xl border-border bg-background hover:bg-muted"
                   onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                   disabled={currentPage === totalPages}
                 >
@@ -555,37 +576,37 @@ export default function DailyRegistrationsPage() {
       </div>
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent className="bg-popover border-border rounded-3xl overflow-hidden p-0">
-          <div className="p-8 text-center space-y-4">
-             <div className="mx-auto bg-destructive/10 p-4 rounded-2xl w-fit">
-              {isDeleting ? <Loader2 className="h-8 w-8 text-destructive animate-spin" /> : <Trash2 className="h-8 w-8 text-destructive" />}
+        <AlertDialogContent className="rounded-[32px] border-none shadow-2xl bg-popover max-w-md p-0 overflow-hidden mx-4">
+          <div className="p-10 text-center space-y-6">
+             <div className="mx-auto bg-destructive/10 p-5 rounded-2xl w-fit">
+              {isDeleting ? <Loader2 className="h-10 w-10 text-destructive animate-spin" /> : <Trash2 className="h-10 w-10 text-destructive" />}
             </div>
-            <AlertDialogHeader>
-              <AlertDialogTitle className="text-foreground text-center font-black uppercase tracking-tight">
-                {isDeleting ? "PURGING REPORT..." : "ARE YOU SURE?"}
+            <div className="space-y-2">
+              <AlertDialogTitle className="text-2xl font-black text-foreground tracking-tighter uppercase leading-none">
+                {isDeleting ? "PURGING REPORT..." : "PURGE PROTOCOL?"}
               </AlertDialogTitle>
-              <AlertDialogDescription className="text-muted-foreground text-center">
+              <AlertDialogDescription className="text-sm text-muted-foreground leading-relaxed font-medium">
                 {isDeleting 
-                  ? "Updating operational ledger. Please wait..."
-                  : `This will permanently delete the report for ${reportToDelete && format(new Date(reportToDelete.date), 'MMMM dd, yyyy')}.`
+                  ? "Updating the official bureau ledger. Please wait..."
+                  : `You are about to permanently delete the report for ${reportToDelete && format(new Date(reportToDelete.date), 'MMMM dd, yyyy')}. This action is final and subject to audit.`
                 }
               </AlertDialogDescription>
-            </AlertDialogHeader>
+            </div>
           </div>
-          <AlertDialogFooter className="bg-muted/30 p-6 flex-col sm:flex-col gap-2">
+          <AlertDialogFooter className="bg-muted/30 p-6 flex-col sm:flex-col gap-3">
             <AlertDialogAction 
               onClick={(e) => { e.preventDefault(); confirmDelete(); }} 
               disabled={isDeleting}
-              className="w-full h-12 bg-destructive hover:bg-destructive/90 text-white font-bold rounded-xl"
+              className="w-full h-14 bg-destructive hover:bg-destructive/90 text-white font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-destructive/10 active:scale-[0.98] transition-all"
             >
-              {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Purge Report"}
+              {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Confirm Destruction"}
             </AlertDialogAction>
             {!isDeleting && (
               <AlertDialogCancel 
                 onClick={() => setReportToDelete(null)} 
-                className="w-full h-10 border-none bg-transparent font-bold text-muted-foreground hover:text-foreground"
+                className="w-full h-12 rounded-2xl font-bold uppercase text-[10px] tracking-widest border-none bg-transparent hover:bg-card"
               >
-                Cancel
+                Abort Protocol
               </AlertDialogCancel>
             )}
           </AlertDialogFooter>
