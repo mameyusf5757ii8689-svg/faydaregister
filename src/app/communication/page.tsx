@@ -25,7 +25,10 @@ import {
   PinOff,
   ChevronLeft,
   User,
-  Activity
+  Activity,
+  Shield,
+  Zap,
+  Command
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -120,14 +123,20 @@ export default function CommunicationPage() {
 
   const { data: allUsers } = useCollection<UserProfile>(usersQuery);
 
-  const filteredPersonnel = useMemo(() => {
-    if (!allUsers || !user) return [];
-    return allUsers.filter(u => 
+  const directorySections = useMemo(() => {
+    if (!allUsers || !user) return { command: [], units: [] };
+    
+    const filtered = allUsers.filter(u => 
       u.id !== user.uid && 
       (u.fullName.toLowerCase().includes(personnelSearchTerm.toLowerCase()) || 
        u.email.toLowerCase().includes(personnelSearchTerm.toLowerCase()) ||
        u.region?.toLowerCase().includes(personnelSearchTerm.toLowerCase()))
     );
+
+    return {
+      command: filtered.filter(u => u.role === 'admin'),
+      units: filtered.filter(u => u.role !== 'admin')
+    };
   }, [allUsers, personnelSearchTerm, user]);
 
   const messagesQuery = useMemoFirebase(() => {
@@ -327,15 +336,19 @@ export default function CommunicationPage() {
 
                 <ScrollArea className="flex-1 border border-border rounded-2xl bg-muted/10 p-2">
                   <div className="space-y-1">
-                    {filteredPersonnel.length > 0 ? filteredPersonnel.map(u => (
+                    {allUsers && allUsers.filter(u => u.id !== user.uid).length > 0 ? (
+                      allUsers.filter(u => u.id !== user.uid).map(u => (
                       <div key={u.id} className="flex items-center justify-between p-3 hover:bg-background rounded-xl transition-all group">
                         <div className="flex items-center gap-3">
                           <Avatar className="h-10 w-10 border border-border/50 shadow-sm">
                             <AvatarImage src={u.profilePhoto} />
-                            <AvatarFallback className="text-[10px] font-black bg-muted">{u.fullName.substring(0, 2).toUpperCase()}</AvatarFallback>
+                            <AvatarFallback className={cn("text-[10px] font-black", u.role === 'admin' ? "bg-primary text-primary-foreground" : "bg-muted")}>{u.fullName.substring(0, 2).toUpperCase()}</AvatarFallback>
                           </Avatar>
                           <div className="min-w-0">
-                            <p className="text-xs font-black text-foreground uppercase tracking-tight">{u.fullName}</p>
+                            <p className="text-xs font-black text-foreground uppercase tracking-tight flex items-center gap-1.5">
+                              {u.fullName}
+                              {u.role === 'admin' && <Shield className="h-2.5 w-2.5 text-primary" />}
+                            </p>
                             <p className="text-[9px] text-muted-foreground font-bold uppercase truncate max-w-[180px]">{u.role} • {u.region || 'HQ'}</p>
                           </div>
                         </div>
@@ -345,7 +358,7 @@ export default function CommunicationPage() {
                           className="rounded-full h-5 w-5"
                         />
                       </div>
-                    )) : (
+                    ))) : (
                       <div className="py-20 text-center opacity-30">
                         <Search className="h-8 w-8 mx-auto mb-2" />
                         <p className="text-[10px] font-black uppercase tracking-widest">No matching personnel</p>
@@ -441,29 +454,32 @@ export default function CommunicationPage() {
                   )}
                 </div>
               ) : (
-                <div className="space-y-1">
-                  {filteredPersonnel.length > 0 ? filteredPersonnel.map(u => (
-                    <button
-                      key={u.id}
-                      onClick={() => handleOpenDirectMessage(u.id)}
-                      className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-muted/50 transition-all text-left group"
-                    >
-                      <div className="relative">
-                        <Avatar className="h-11 w-11 border-2 border-background shadow-sm">
-                          <AvatarImage src={u.profilePhoto} />
-                          <AvatarFallback className="font-black text-[10px] bg-muted">{u.fullName.substring(0, 2).toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                        <span className={cn(
-                          "absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-background",
-                          u.isDutyActive ? "bg-green-500 animate-pulse" : "bg-muted-foreground/30"
-                        )} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-black uppercase tracking-tight text-foreground truncate group-hover:text-primary transition-colors">{u.fullName}</p>
-                        <p className="text-[9px] text-muted-foreground font-bold uppercase truncate">{u.role} • {u.region || 'HQ'}</p>
-                      </div>
-                    </button>
-                  )) : (
+                <div className="space-y-6">
+                  {/* Command Section */}
+                  {directorySections.command.length > 0 && (
+                    <div className="space-y-2">
+                       <p className="text-[9px] font-black text-primary uppercase tracking-[0.2em] px-3 flex items-center gap-1.5">
+                          <Shield className="h-3 w-3" /> Bureau Command
+                       </p>
+                       {directorySections.command.map(u => (
+                        <DirectoryRow key={u.id} user={u} onOpen={handleOpenDirectMessage} />
+                       ))}
+                    </div>
+                  )}
+
+                  {/* Field Units Section */}
+                  {directorySections.units.length > 0 && (
+                    <div className="space-y-2">
+                       <p className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.2em] px-3 flex items-center gap-1.5">
+                          <User className="h-3 w-3" /> Field Units
+                       </p>
+                       {directorySections.units.map(u => (
+                        <DirectoryRow key={u.id} user={u} onOpen={handleOpenDirectMessage} />
+                       ))}
+                    </div>
+                  )}
+
+                  {directorySections.command.length === 0 && directorySections.units.length === 0 && (
                     <div className="py-20 text-center px-6 opacity-20">
                        <User className="h-10 w-10 mx-auto mb-3" />
                        <p className="text-[10px] font-black uppercase tracking-widest">No personnel found</p>
@@ -595,5 +611,39 @@ export default function CommunicationPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+function DirectoryRow({ user, onOpen }: { user: UserProfile, onOpen: (id: string) => void }) {
+  return (
+    <button
+      onClick={() => onOpen(user.id)}
+      className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-muted/50 transition-all text-left group"
+    >
+      <div className="relative">
+        <Avatar className="h-11 w-11 border-2 border-background shadow-sm">
+          <AvatarImage src={user.profilePhoto} />
+          <AvatarFallback className={cn("text-[10px] font-black", user.role === 'admin' ? "bg-primary text-primary-foreground" : "bg-muted")}>
+            {user.fullName.substring(0, 2).toUpperCase()}
+          </AvatarFallback>
+        </Avatar>
+        <span className={cn(
+          "absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-background",
+          user.isDutyActive ? "bg-green-500 animate-pulse" : "bg-muted-foreground/30"
+        )} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-2">
+           <p className="text-xs font-black uppercase tracking-tight text-foreground truncate group-hover:text-primary transition-colors flex items-center gap-1.5">
+             {user.fullName}
+             {user.role === 'admin' && <Shield className="h-2.5 w-2.5 text-primary" />}
+           </p>
+           {user.role === 'admin' && (
+             <span className="text-[7px] font-black bg-primary text-primary-foreground px-1.5 py-0.5 rounded tracking-widest uppercase">Command</span>
+           )}
+        </div>
+        <p className="text-[9px] text-muted-foreground font-bold uppercase truncate">{user.role} • {user.region || 'HQ'}</p>
+      </div>
+    </button>
   );
 }
