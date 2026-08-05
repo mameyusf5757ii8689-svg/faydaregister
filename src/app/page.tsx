@@ -1,6 +1,7 @@
 
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { 
@@ -18,18 +19,35 @@ import {
   MapPin,
   Activity,
   Timer,
-  Activity as ActivityIcon
+  Activity as ActivityIcon,
+  Search,
+  CheckCircle2,
+  Globe,
+  Loader2,
+  X
 } from 'lucide-react';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import Image from 'next/image';
 import { doc } from 'firebase/firestore';
 import { SystemSettings } from '@/lib/types';
+import { Input } from '@/components/ui/input';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogDescription,
+  DialogTrigger
+} from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
 
 const DEFAULT_LOGO = "https://imgs.search.brave.com/hbAJSw_uYBZxF3ww4Xys7njKWsrlOTeqfxCjk7DHf0A/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9wbGF5/LWxoLmdvb2dsZXVz/ZXJjb250ZW50LmNv/bS90eDFxcnBHZTBi/NnVCVGFkSnFMcUY2/NF9IVy1laHFuSF8w/MEo1TDVDeGp0RFB1/ODRlRGduRHZTRDVk/OU9USGUzU3V3PXcy/NDAtaDQ4MC1ydw";
 
 export default function LandingPage() {
   const { user } = useUser();
   const db = useFirestore();
+  const [publicRid, setPublicRid] = useState('');
+  const [isLookupOpen, setIsLookupOpen] = useState(false);
 
   const brandingRef = useMemoFirebase(() => {
     if (!db) return null;
@@ -40,6 +58,14 @@ export default function LandingPage() {
   const bureauName = branding?.bureauName || 'FaydaTrack';
   const logoUrl = branding?.logoUrl || DEFAULT_LOGO;
   const systemProtocol = branding?.systemProtocol || 'Protocol v4.2';
+  const publicEnabled = branding?.publicLookupEnabled !== false;
+
+  const handleLookup = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (publicRid.length >= 20) {
+      setIsLookupOpen(true);
+    }
+  };
 
   return (
     <div className="flex flex-col min-h-screen -mt-8 -mx-4 sm:-mx-6 lg:-mx-8 bg-background selection:bg-primary/20">
@@ -92,6 +118,45 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Public Verification Gateway (Dynamic) */}
+      {publicEnabled && (
+        <section className="relative z-30 -mt-12 mb-20 px-4 sm:px-6 lg:px-8">
+          <div className="max-w-4xl mx-auto">
+            <div className="bg-card border border-border shadow-2xl rounded-[32px] p-6 sm:p-10 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-8 opacity-[0.03] pointer-events-none">
+                <Globe className="h-32 w-32" />
+              </div>
+              
+              <div className="flex flex-col lg:flex-row items-center gap-8 relative z-10">
+                <div className="space-y-2 text-center lg:text-left flex-1">
+                   <div className="flex items-center justify-center lg:justify-start gap-2 text-primary">
+                      <Search className="h-5 w-5" />
+                      <h3 className="text-xl font-black uppercase tracking-tight">Resident Status Gateway</h3>
+                   </div>
+                   <p className="text-sm text-muted-foreground font-medium">Verify your registration ID status directly with the official portal.</p>
+                </div>
+
+                <form onSubmit={handleLookup} className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
+                  <div className="relative w-full sm:w-80 group">
+                    <Fingerprint className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/30 group-focus-within:text-primary transition-colors" />
+                    <Input 
+                      placeholder="Enter 29-digit RID..." 
+                      className="h-14 pl-12 bg-muted/20 border-border focus:border-primary/30 rounded-2xl text-xs font-black tracking-widest uppercase placeholder:font-bold placeholder:tracking-normal"
+                      value={publicRid}
+                      onChange={(e) => setPublicRid(e.target.value)}
+                      maxLength={29}
+                    />
+                  </div>
+                  <Button type="submit" className="w-full sm:w-auto h-14 px-8 bg-primary hover:bg-primary/90 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-primary/20">
+                    Verify Registration
+                  </Button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Capabilities Matrix */}
       <section className="w-full py-20 lg:py-40 bg-muted/10 relative">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -142,8 +207,8 @@ export default function LandingPage() {
                  </div>
                  
                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-8">
-                    <StatBox label="Uptime Target" value="99.9%" icon={ShieldCheck} />
-                    <StatBox label="Sync Latency" value="< 1.0s" icon={Zap} />
+                    <StatBox label="Uptime Target" value="99.9%" icon={ShieldCheck} isLive />
+                    <StatBox label="Sync Latency" value="< 1.0s" icon={Zap} isLive />
                  </div>
 
                  <div className="pt-4">
@@ -249,6 +314,48 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+
+      {/* Resident Lookup Dialog */}
+      <Dialog open={isLookupOpen} onOpenChange={setIsLookupOpen}>
+        <DialogContent className="sm:max-w-4xl p-0 overflow-hidden rounded-[32px] border-none shadow-2xl bg-popover max-h-[90vh] flex flex-col">
+           <DialogHeader className="p-6 sm:p-8 bg-muted/30 border-b border-border flex flex-row items-center justify-between">
+              <div className="flex items-center gap-4">
+                 <div className="p-3 bg-primary/10 rounded-2xl">
+                    <Globe className="h-6 w-6 text-primary" />
+                 </div>
+                 <div>
+                    <DialogTitle className="text-xl font-black text-foreground uppercase tracking-tight leading-none">Public Verification Gateway</DialogTitle>
+                    <DialogDescription className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Official Fayda Resident Status Service</DialogDescription>
+                 </div>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setIsLookupOpen(false)} className="h-10 w-10 rounded-xl hover:bg-muted">
+                 <X className="h-5 w-5" />
+              </Button>
+           </DialogHeader>
+           
+           <div className="flex-1 relative bg-card min-h-[600px]">
+              <div className="absolute inset-0 flex items-center justify-center -z-10">
+                 <div className="flex flex-col items-center gap-3 opacity-20">
+                    <Loader2 className="h-10 w-10 text-primary animate-spin" />
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Synchronizing with Government Portal...</p>
+                 </div>
+              </div>
+              <iframe 
+                src={`https://resident.fayda.et/status?rid=${publicRid}`} 
+                className="w-full h-full border-none"
+                title="Resident Portal"
+                loading="lazy"
+              />
+           </div>
+
+           <div className="p-4 bg-muted/30 border-t border-border flex justify-center">
+              <div className="flex items-center gap-2 px-4 py-1.5 bg-background border border-border rounded-full shadow-sm">
+                 <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+                 <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">End-to-End Encrypted Tunnel Established</span>
+              </div>
+           </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -271,15 +378,24 @@ function InfoCard({ title, description, icon: Icon, index }: any) {
   );
 }
 
-function StatBox({ label, value, icon: Icon }: any) {
+function StatBox({ label, value, icon: Icon, isLive = false }: any) {
   return (
-    <div className="flex items-center gap-4 md:gap-5 p-4 md:p-6 rounded-2xl bg-muted/30 border border-border/50 group transition-all hover:bg-card">
+    <div className="flex items-center gap-4 md:gap-5 p-4 md:p-6 rounded-2xl bg-muted/30 border border-border/50 group transition-all hover:bg-card relative">
+      {isLive && (
+        <div className="absolute top-4 right-4 flex items-center gap-1.5 px-2 py-0.5 bg-emerald-500/10 rounded-full border border-emerald-500/20">
+           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+           <span className="text-[7px] font-black text-emerald-600 uppercase tracking-tighter">Live</span>
+        </div>
+      )}
       <div className="p-2.5 md:p-3 bg-background rounded-xl border border-border group-hover:border-primary/20 group-hover:shadow-lg transition-all">
         <Icon className="h-5 w-5 md:h-6 md:w-6 text-primary" />
       </div>
       <div className="space-y-0.5">
          <p className="text-2xl md:text-3xl font-black text-foreground tracking-tighter">{value}</p>
-         <p className="text-[9px] md:text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">{label}</p>
+         <div className="flex items-center gap-1.5">
+            <p className="text-[9px] md:text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">{label}</p>
+            {isLive && <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500 opacity-40" />}
+         </div>
       </div>
     </div>
   );
