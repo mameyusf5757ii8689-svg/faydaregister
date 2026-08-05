@@ -2,8 +2,8 @@
 
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, query, limit, serverTimestamp, where, doc, arrayUnion, arrayRemove } from 'firebase/firestore';
-import { addDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { collection, query, limit, serverTimestamp, where, doc, arrayUnion } from 'firebase/firestore';
+import { setDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,22 +16,13 @@ import {
   Users, 
   Plus, 
   Search, 
-  UserPlus,
-  ShieldCheck,
-  Check,
-  MoreHorizontal,
-  Pencil,
+  ShieldCheck, 
+  Check, 
+  MoreHorizontal, 
   Trash2,
   X,
-  ShieldAlert,
-  User,
-  Mic,
-  Square,
-  Volume2,
   Pin,
   PinOff,
-  UserMinus,
-  Settings2,
   ChevronLeft
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -48,14 +39,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -69,18 +53,17 @@ export default function CommunicationPage() {
   const { user, isUserLoading } = useUser();
   const db = useFirestore();
   const { toast } = useToast();
+  
   const [inputText, setInputText] = useState('');
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [channelSearchTerm, setChannelSearchTerm] = useState('');
-  const [messageSearchTerm, setMessageSearchTerm] = useState('');
-  const [isMsgSearchActive, setIsMsgSearchActive] = useState(false);
+  const [personnelSearchTerm, setPersonnelSearchTerm] = useState('');
   
   const [newGroupName, setNewGroupName] = useState('');
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
   
-  const [editingMsg, setEditingMsg] = useState<Message | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [msgToDelete, setMsgToDelete] = useState<Message | null>(null);
 
@@ -92,13 +75,14 @@ export default function CommunicationPage() {
   }, [db, user]);
   const { data: currentUserProfile } = useDoc<UserProfile>(userProfileRef);
 
+  // Sync "Read" status on mount or active channel change
   useEffect(() => {
     if (db && user?.uid) {
       updateDocumentNonBlocking(doc(db, 'users', user.uid), {
         lastMessageReadAt: new Date().toISOString()
       });
     }
-  }, [db, user?.uid]);
+  }, [db, user?.uid, activeConvId]);
 
   const convsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -115,8 +99,8 @@ export default function CommunicationPage() {
     return [...rawConversations]
       .filter(c => {
         if (!channelSearchTerm) return true;
-        const name = c.type === 'group' ? c.name : 'Direct Message';
-        return name?.toLowerCase().includes(channelSearchTerm.toLowerCase());
+        const name = c.type === 'group' ? (c.name || '') : 'Direct Message';
+        return name.toLowerCase().includes(channelSearchTerm.toLowerCase());
       })
       .sort((a, b) => {
         const timeA = a.lastTimestamp?.toDate ? a.lastTimestamp.toDate().getTime() : 0;
@@ -127,10 +111,19 @@ export default function CommunicationPage() {
 
   const usersQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, 'users'), limit(100));
+    return query(collection(db, 'users'), limit(500));
   }, [db, user]);
 
   const { data: allUsers } = useCollection<UserProfile>(usersQuery);
+
+  const filteredPersonnel = useMemo(() => {
+    if (!allUsers || !user) return [];
+    return allUsers.filter(u => 
+      u.id !== user.uid && 
+      (u.fullName.toLowerCase().includes(personnelSearchTerm.toLowerCase()) || 
+       u.email.toLowerCase().includes(personnelSearchTerm.toLowerCase()))
+    );
+  }, [allUsers, personnelSearchTerm, user]);
 
   const messagesQuery = useMemoFirebase(() => {
     if (!db || !activeConvId || !user) return null;
@@ -155,103 +148,95 @@ export default function CommunicationPage() {
 
   const filteredMessages = useMemo(() => {
     if (!messages || !user) return [];
-    let list = messages.filter(m => !m.deletedFor?.includes(user.uid));
-    if (messageSearchTerm) {
-      list = list.filter(m => m.text?.toLowerCase().includes(messageSearchTerm.toLowerCase()));
-    }
-    return list;
-  }, [messages, user, messageSearchTerm]);
+    return messages.filter(m => !m.deletedFor?.includes(user.uid));
+  }, [messages, user]);
 
   useEffect(() => {
-    if (scrollRef.current && !messageSearchTerm) {
+    if (scrollRef.current) {
       const viewport = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
       if (viewport) viewport.scrollTop = viewport.scrollHeight;
     }
-  }, [filteredMessages, messageSearchTerm]);
+  }, [filteredMessages]);
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputText.trim() || !user || !db || !activeConvId) return;
-    performSendMessage(inputText.trim());
+
+    const messageData = {
+      conversationId: activeConvId,
+      text: inputText.trim(),
+      senderId: user.uid,
+      senderName: currentUserProfile?.fullName || user.email?.split('@')[0] || 'Official',
+      senderEmail: user.email || '',
+      timestamp: serverTimestamp(),
+      deletedFor: []
+    };
+
+    const msgRef = doc(collection(db, 'messages'));
+    setDocumentNonBlocking(msgRef, messageData, { merge: true });
+
+    updateDocumentNonBlocking(doc(db, 'conversations', activeConvId), {
+      lastMessage: inputText.trim(),
+      lastTimestamp: serverTimestamp(),
+    });
+    
     setInputText('');
   };
 
-  const performSendMessage = (text?: string, audioUrl?: string) => {
-    if (!user || !db || !activeConvId) return;
+  const handleCreateConversation = async () => {
+    if (!db || !user || selectedUserIds.length === 0) return;
 
-    if (editingMsg && text) {
-      updateDocumentNonBlocking(doc(db, 'messages', editingMsg.id), {
-        text,
-        isEdited: true,
-        updatedAt: serverTimestamp(),
-      });
-      setEditingMsg(null);
-    } else {
-      const messageData = {
-        conversationId: activeConvId,
-        text: text || null,
-        audioUrl: audioUrl || null,
-        senderId: user.uid,
-        senderName: currentUserProfile?.fullName || user.email?.split('@')[0] || 'Official',
-        senderEmail: user.email || '',
-        timestamp: serverTimestamp(),
-        deletedFor: []
-      };
-
-      addDocumentNonBlocking(collection(db, 'messages'), messageData);
-      setDocumentNonBlocking(doc(db, 'conversations', activeConvId), {
-        lastMessage: audioUrl ? 'Voice Message' : text,
-        lastTimestamp: serverTimestamp(),
-      }, { merge: true });
-      
-      updateDocumentNonBlocking(doc(db, 'users', user.uid), {
-        lastMessageReadAt: new Date().toISOString()
-      });
-    }
-  };
-
-  const handleDeleteForMe = async () => {
-    if (!db || !user || !msgToDelete) return;
-    const targetId = msgToDelete.id;
-    setIsDeleting(true);
+    setIsCreating(true);
     try {
-      await updateDocumentNonBlocking(doc(db, 'messages', targetId), {
-        deletedFor: arrayUnion(user.uid)
-      });
-      setIsDeleteDialogOpen(false);
-    } catch (error) {
-      toast({ title: "Error", description: "Could not remove message.", variant: "destructive" });
-    } finally {
-      setIsDeleting(false);
-      setMsgToDelete(null);
-    }
-  };
+      if (selectedUserIds.length === 1) {
+        const otherId = selectedUserIds[0];
+        const existingDm = rawConversations?.find(c => 
+          c.type === 'dm' && 
+          c.members.includes(user.uid) && 
+          c.members.includes(otherId)
+        );
 
-  const handleDeleteForEveryone = async () => {
-    if (!db || !msgToDelete || !activeConvId) return;
-    const targetId = msgToDelete.id;
-    setIsDeleting(true);
-    try {
-      await deleteDocumentNonBlocking(doc(db, 'messages', targetId));
-      setIsDeleteDialogOpen(false);
-    } catch (error) {
-      toast({ title: "Error", description: "Could not purge message.", variant: "destructive" });
-    } finally {
-      setIsDeleting(false);
-      setMsgToDelete(null);
-    }
-  };
+        if (existingDm) {
+          setActiveConvId(existingDm.id);
+          setIsCreateGroupOpen(false);
+          return;
+        }
 
-  const togglePin = (msgId: string) => {
-    if (!db || !activeConvId) return;
-    const isAlreadyPinned = activeConv?.pinnedMessageId === msgId;
-    updateDocumentNonBlocking(doc(db, 'conversations', activeConvId), {
-      pinnedMessageId: isAlreadyPinned ? null : msgId
-    });
-    toast({
-      title: isAlreadyPinned ? "Transmission Unpinned" : "Protocol Pinned",
-      description: isAlreadyPinned ? "Instruction removed from header." : "Added to operational pinned view."
-    });
+        const newDmRef = doc(collection(db, 'conversations'));
+        const dmData = {
+          type: 'dm',
+          members: [user.uid, otherId],
+          lastMessage: 'Secure link established.',
+          lastTimestamp: serverTimestamp(),
+          createdBy: user.uid
+        };
+        await setDocumentNonBlocking(newDmRef, dmData, { merge: true });
+        setActiveConvId(newDmRef.id);
+        toast({ title: "Secure Link Established", description: "You can now transmit direct instructions." });
+      } else {
+        const newGroupRef = doc(collection(db, 'conversations'));
+        const groupData = {
+          type: 'group',
+          name: newGroupName || 'Tactical Coordination Group',
+          members: [user.uid, ...selectedUserIds],
+          lastMessage: 'Tactical group initialized.',
+          lastTimestamp: serverTimestamp(),
+          createdBy: user.uid
+        };
+        await setDocumentNonBlocking(newGroupRef, groupData, { merge: true });
+        setActiveConvId(newGroupRef.id);
+        toast({ title: "Group Assembled", description: `"${groupData.name}" is now online.` });
+      }
+
+      setIsCreateGroupOpen(false);
+      setSelectedUserIds([]);
+      setNewGroupName('');
+      setPersonnelSearchTerm('');
+    } catch (err) {
+      toast({ title: "Handshake Failed", description: "Could not initialize channel.", variant: "destructive" });
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   const activeConv = conversations.find(c => c.id === activeConvId);
@@ -261,7 +246,7 @@ export default function CommunicationPage() {
     if (!conv) return '...';
     if (conv.type === 'group') return conv.name || 'Bureau Group';
     const otherId = conv.members?.find(m => m !== user?.uid);
-    if (!otherId) return 'Private Notes';
+    if (!otherId) return 'Private Vault';
     const otherUser = allUsers?.find(u => u.id === otherId);
     return otherUser?.fullName || 'Bureau Official';
   };
@@ -290,43 +275,76 @@ export default function CommunicationPage() {
         </div>
         <Dialog open={isCreateGroupOpen} onOpenChange={setIsCreateGroupOpen}>
           <DialogTrigger asChild>
-            <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-4 md:px-5 font-bold text-[10px] uppercase tracking-widest">
+            <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-4 md:px-5 font-bold text-[10px] uppercase tracking-widest shadow-lg shadow-primary/10">
               <Plus className="mr-2 h-3.5 w-3.5" /> Assemble
             </Button>
           </DialogTrigger>
-          <DialogContent className="w-[calc(100%-2rem)] sm:max-w-[450px] p-0 overflow-hidden rounded-2xl border-border bg-popover max-h-[90vh] overflow-y-auto">
+          <DialogContent className="w-[calc(100%-2rem)] sm:max-w-[450px] p-0 overflow-hidden rounded-[32px] border-none shadow-2xl bg-popover max-h-[90vh] flex flex-col">
             <DialogHeader className="p-6 border-b bg-muted/30">
-              <DialogTitle className="text-lg font-bold text-foreground">Initialize Field Group</DialogTitle>
+              <DialogTitle className="text-lg font-black text-foreground uppercase tracking-tight">Initialize Secure Link</DialogTitle>
             </DialogHeader>
-            <div className="p-6 space-y-6">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Group Designation</Label>
-                <Input placeholder="e.g. Regional Response A" value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)} className="h-11 rounded-xl bg-background" />
-              </div>
-              <div className="space-y-3">
-                <Label className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Select Personnel</Label>
-                <ScrollArea className="h-[200px] border border-border rounded-xl p-2 bg-muted/20">
+            <div className="p-6 space-y-6 flex-1 overflow-hidden flex flex-col">
+              {selectedUserIds.length > 1 && (
+                <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1">Group Designation</Label>
+                  <Input placeholder="e.g. Sector A Response" value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)} className="h-11 rounded-xl bg-background border-border font-bold" />
+                </div>
+              )}
+              
+              <div className="space-y-3 flex-1 overflow-hidden flex flex-col">
+                <div className="flex items-center justify-between">
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1">Select Personnel</Label>
+                  <span className="text-[9px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">{selectedUserIds.length} Selected</span>
+                </div>
+                
+                <div className="relative mb-2">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/40" />
+                  <Input 
+                    placeholder="Search name or terminal address..." 
+                    className="pl-9 h-10 text-xs bg-muted/20 border-border rounded-xl font-medium"
+                    value={personnelSearchTerm}
+                    onChange={(e) => setPersonnelSearchTerm(e.target.value)}
+                  />
+                </div>
+
+                <ScrollArea className="flex-1 border border-border rounded-2xl bg-muted/10 p-2">
                   <div className="space-y-1">
-                    {allUsers?.filter(u => u.id !== user?.uid).map(u => (
-                      <div key={u.id} className="flex items-center justify-between p-2 hover:bg-background rounded-lg transition-all">
+                    {filteredPersonnel.length > 0 ? filteredPersonnel.map(u => (
+                      <div key={u.id} className="flex items-center justify-between p-3 hover:bg-background rounded-xl transition-all group">
                         <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8">
-                            <AvatarFallback className="text-[10px]">{u.fullName.substring(0, 2).toUpperCase()}</AvatarFallback>
+                          <Avatar className="h-10 w-10 border border-border/50">
+                            <AvatarImage src={u.profilePhoto} />
+                            <AvatarFallback className="text-[10px] font-black bg-muted">{u.fullName.substring(0, 2).toUpperCase()}</AvatarFallback>
                           </Avatar>
-                          <div>
-                            <p className="text-xs font-bold text-foreground">{u.fullName}</p>
-                            <p className="text-[9px] text-muted-foreground uppercase">{u.role}</p>
+                          <div className="min-w-0">
+                            <p className="text-xs font-black text-foreground uppercase tracking-tight">{u.fullName}</p>
+                            <p className="text-[9px] text-muted-foreground font-bold uppercase truncate max-w-[180px]">{u.role} • {u.email}</p>
                           </div>
                         </div>
-                        <Checkbox checked={selectedUserIds.includes(u.id)} onCheckedChange={(c) => setSelectedUserIds(prev => c ? [...prev, u.id] : prev.filter(id => id !== u.id))} />
+                        <Checkbox 
+                          checked={selectedUserIds.includes(u.id)} 
+                          onCheckedChange={(c) => setSelectedUserIds(prev => c ? [...prev, u.id] : prev.filter(id => id !== u.id))} 
+                          className="rounded-full h-5 w-5"
+                        />
                       </div>
-                    ))}
+                    )) : (
+                      <div className="py-20 text-center opacity-30">
+                        <Search className="h-8 w-8 mx-auto mb-2" />
+                        <p className="text-[10px] font-black uppercase tracking-widest">No matching personnel</p>
+                      </div>
+                    )}
                   </div>
                 </ScrollArea>
               </div>
             </div>
             <DialogFooter className="p-6 bg-muted/30 border-t">
-              <Button onClick={() => setIsCreateGroupOpen(false)} className="w-full sm:w-auto rounded-xl font-bold px-8">Initialize Channel</Button>
+              <Button 
+                onClick={handleCreateConversation} 
+                disabled={selectedUserIds.length === 0 || isCreating}
+                className="w-full h-12 bg-primary hover:bg-primary/90 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-primary/10 transition-all active:scale-[0.98]"
+              >
+                {isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Initialize Transmission'}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -335,169 +353,169 @@ export default function CommunicationPage() {
       <div className="flex-1 flex flex-col lg:flex-row gap-4 overflow-hidden relative">
         {/* Channel Sidebar */}
         <Card className={cn(
-          "w-full lg:w-80 flex flex-col border-border shadow-sm bg-card overflow-hidden rounded-2xl transition-all duration-300",
+          "w-full lg:w-80 flex flex-col border-border shadow-sm bg-card overflow-hidden rounded-3xl transition-all duration-300",
           activeConvId ? "hidden lg:flex" : "flex"
         )}>
-          <div className="p-4 border-b border-border">
+          <div className="p-4 border-b border-border bg-muted/10">
             <div className="relative group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/30 group-focus-within:text-primary transition-colors" />
               <Input 
                 placeholder="Filter channels..." 
-                className="pl-9 h-10 text-xs bg-muted/30 border-none rounded-xl"
+                className="pl-9 h-11 text-xs bg-background border-border rounded-xl font-bold"
                 value={channelSearchTerm}
                 onChange={(e) => setChannelSearchTerm(e.target.value)}
               />
             </div>
           </div>
           <ScrollArea className="flex-1">
-            <div className="p-2 space-y-1">
-              {conversations.map(conv => {
+            <div className="p-3 space-y-1">
+              {conversations.length > 0 ? conversations.map(conv => {
                 const isActive = getOtherUserStatus(conv);
+                const isSelected = activeConvId === conv.id;
                 return (
                   <button
                     key={conv.id}
                     onClick={() => setActiveConvId(conv.id)}
                     className={cn(
-                      "w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left mb-1 relative",
-                      activeConvId === conv.id ? "bg-muted shadow-inner" : "hover:bg-muted/50"
+                      "w-full flex items-center gap-3 p-3 rounded-2xl transition-all text-left mb-1 relative border border-transparent",
+                      isSelected ? "bg-primary/5 border-primary/10 shadow-sm" : "hover:bg-muted/50"
                     )}
                   >
                     <div className="relative">
-                      <Avatar className="h-11 w-11 border-2 border-background">
+                      <Avatar className="h-12 w-12 border-2 border-background shadow-sm">
                         {conv.type === 'group' ? (
                           <div className="bg-primary/10 h-full w-full flex items-center justify-center"><Users className="h-5 w-5 text-primary" /></div>
                         ) : (
                           <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${getConvName(conv)}`} />
                         )}
-                        <AvatarFallback>{getConvName(conv).substring(0, 2).toUpperCase()}</AvatarFallback>
+                        <AvatarFallback className="font-black text-[10px]">{getConvName(conv).substring(0, 2).toUpperCase()}</AvatarFallback>
                       </Avatar>
                       {isActive !== null && (
                         <span className={cn(
-                          "absolute bottom-0.5 right-0.5 h-2.5 w-2.5 rounded-full border-2 border-background",
-                          isActive ? "bg-green-500" : "bg-muted-foreground/30"
+                          "absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-background",
+                          isActive ? "bg-green-500 animate-pulse" : "bg-muted-foreground/30"
                         )} />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-bold text-foreground truncate">{getConvName(conv)}</p>
+                        <p className={cn("text-sm font-black uppercase tracking-tight truncate", isSelected ? "text-primary" : "text-foreground")}>{getConvName(conv)}</p>
                       </div>
-                      <p className="text-[11px] text-muted-foreground truncate font-medium">{conv.lastMessage || 'No transmissions'}</p>
+                      <p className="text-[11px] text-muted-foreground truncate font-medium mt-0.5">{conv.lastMessage || 'Link active'}</p>
                     </div>
                   </button>
                 );
-              })}
+              }) : (
+                <div className="py-20 text-center px-6 opacity-20">
+                   <MessageSquare className="h-10 w-10 mx-auto mb-3" />
+                   <p className="text-[10px] font-black uppercase tracking-widest">No active links</p>
+                </div>
+              )}
             </div>
           </ScrollArea>
         </Card>
 
         {/* Message Viewport */}
         <Card className={cn(
-          "flex-1 flex flex-col border-border shadow-sm bg-card overflow-hidden rounded-2xl transition-all duration-300",
+          "flex-1 flex flex-col border-border shadow-sm bg-card overflow-hidden rounded-3xl transition-all duration-300",
           !activeConvId ? "hidden lg:flex" : "flex"
         )}>
           {activeConvId && activeConv ? (
             <>
-              <CardHeader className="py-3 px-4 md:px-6 border-b flex flex-row items-center justify-between bg-card">
-                <div className="flex items-center gap-3 md:gap-4">
-                  <Button variant="ghost" size="icon" className="lg:hidden h-8 w-8 -ml-2" onClick={() => setActiveConvId(null)}>
+              <CardHeader className="py-4 px-6 border-b flex flex-row items-center justify-between bg-card">
+                <div className="flex items-center gap-4">
+                  <Button variant="ghost" size="icon" className="lg:hidden h-9 w-9 -ml-2 rounded-xl" onClick={() => setActiveConvId(null)}>
                     <ChevronLeft className="h-5 w-5" />
                   </Button>
-                  <Avatar className="h-9 w-9 md:h-10 md:w-10">
+                  <Avatar className="h-10 w-10 border border-border shadow-sm">
                     {activeConv.type === 'group' ? (
                       <div className="bg-primary/10 h-full w-full flex items-center justify-center"><Users className="h-5 w-5 text-primary" /></div>
                     ) : (
                       <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${getConvName(activeConv)}`} />
                     )}
+                    <AvatarFallback className="font-black text-[10px]">{getConvName(activeConv).substring(0, 2).toUpperCase()}</AvatarFallback>
                   </Avatar>
                   <div>
-                    <CardTitle className="text-sm md:text-base font-black text-foreground leading-none">{getConvName(activeConv)}</CardTitle>
-                    <div className="flex items-center gap-1.5 mt-1">
+                    <CardTitle className="text-base font-black text-foreground leading-none uppercase tracking-tight">{getConvName(activeConv)}</CardTitle>
+                    <div className="flex items-center gap-1.5 mt-1.5">
                       <span className={cn(
                         "h-1.5 w-1.5 rounded-full",
-                        activeConv.type === 'group' || getOtherUserStatus(activeConv) ? "bg-green-500" : "bg-muted-foreground/30"
+                        activeConv.type === 'group' || getOtherUserStatus(activeConv) ? "bg-green-500 animate-pulse" : "bg-muted-foreground/30"
                       )} />
-                      <p className="text-[9px] md:text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                        {activeConv.type === 'group' ? `${activeConv.members?.length || 0} Personnel` : getOtherUserStatus(activeConv) ? 'Active Duty' : 'Signal Offline'}
+                      <p className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.1em]">
+                        {activeConv.type === 'group' ? `${activeConv.members?.length || 0} Personnel Online` : getOtherUserStatus(activeConv) ? 'Active Duty' : 'Terminal Offline'}
                       </p>
                     </div>
                   </div>
                 </div>
-                
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="icon" onClick={() => setIsMsgSearchActive(!isMsgSearchActive)} className={cn("h-8 w-8 md:h-9 md:w-9 rounded-xl", isMsgSearchActive && "text-primary bg-primary/5")}>
-                    <Search className="h-4 w-4" />
-                  </Button>
-                </div>
               </CardHeader>
 
-              {pinnedMessage && (
-                <div className="bg-primary/5 border-b border-primary/10 px-4 md:px-6 py-2 flex items-center justify-between group/pinned">
-                  <div className="flex items-center gap-3 overflow-hidden">
-                    <Pin className="h-3.5 w-3.5 text-primary shrink-0" />
+              {activeConv.pinnedMessageId && pinnedMessage && (
+                <div className="bg-primary/[0.03] border-b border-primary/10 px-6 py-3 flex items-center justify-between group/pinned animate-in slide-in-from-top-1">
+                  <div className="flex items-center gap-4 overflow-hidden">
+                    <div className="p-2 bg-primary/10 rounded-lg"><Pin className="h-3.5 w-3.5 text-primary shrink-0" /></div>
                     <div className="overflow-hidden">
-                      <p className="text-[10px] font-black text-primary uppercase tracking-widest leading-none mb-1">Pinned Intelligence</p>
-                      <p className="text-xs text-foreground truncate font-medium">"{pinnedMessage.text}"</p>
+                      <p className="text-[9px] font-black text-primary uppercase tracking-[0.2em] leading-none mb-1">Pinned Intelligence</p>
+                      <p className="text-xs text-foreground truncate font-bold">"{pinnedMessage.text}"</p>
                     </div>
                   </div>
-                  <Button variant="ghost" size="icon" onClick={() => togglePin(pinnedMessage.id)} className="h-7 w-7 opacity-0 group-hover/pinned:opacity-100 transition-opacity">
-                    <PinOff className="h-3 w-3" />
-                  </Button>
                 </div>
               )}
 
               <CardContent className="flex-1 p-0 flex flex-col min-h-0 bg-muted/5">
-                <ScrollArea ref={scrollRef} className="flex-1 p-4 md:p-6">
-                  <div className="space-y-6">
+                <ScrollArea ref={scrollRef} className="flex-1 p-6">
+                  <div className="space-y-8">
                     {isMessagesLoading ? (
-                      <div className="flex justify-center py-20 opacity-20"><Loader2 className="h-6 w-6 animate-spin" /></div>
+                      <div className="flex justify-center py-20 opacity-20"><Loader2 className="h-8 w-8 animate-spin" /></div>
                     ) : filteredMessages.map((msg) => {
                       const isMe = msg.senderId === user?.uid;
-                      const isPinned = activeConv.pinnedMessageId === msg.id;
                       return (
-                        <div key={msg.id} className={cn("flex flex-col max-w-[90%] md:max-w-[80%] group/msg", isMe ? "ml-auto items-end" : "mr-auto items-start")}>
-                          <div className="flex items-center gap-2 mb-1.5 w-full">
-                            <p className="text-[9px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">{msg.senderName}</p>
+                        <div key={msg.id} className={cn("flex flex-col max-w-[85%] group/msg", isMe ? "ml-auto items-end" : "mr-auto items-start")}>
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">{msg.senderName}</p>
+                            <span className="text-[8px] font-mono text-muted-foreground/30">
+                              {msg.timestamp?.toDate ? format(msg.timestamp.toDate(), 'HH:mm') : '...'}
+                            </span>
                           </div>
                           <div className={cn(
-                            "px-4 py-3 rounded-[18px] md:rounded-[20px] text-sm shadow-sm transition-all relative",
-                            isMe ? "bg-primary text-primary-foreground rounded-tr-none" : "bg-card text-foreground border border-border rounded-tl-none",
-                            isPinned && "ring-2 ring-primary/20 ring-offset-2"
+                            "px-5 py-3.5 rounded-[22px] text-sm shadow-sm transition-all border",
+                            isMe 
+                              ? "bg-primary text-primary-foreground border-primary/10 rounded-tr-none" 
+                              : "bg-card text-foreground border-border rounded-tl-none"
                           )}>
-                            {isPinned && <Pin className="absolute -top-1 -right-1 h-3 w-3 text-primary bg-background rounded-full p-0.5 border shadow-sm" />}
                             {msg.text}
                           </div>
-                          <p className={cn("text-[8px] font-black text-muted-foreground mt-1.5 uppercase", isMe ? "mr-1" : "ml-1")}>
-                            {msg.timestamp?.toDate ? format(msg.timestamp.toDate(), 'HH:mm') : '...'}
-                          </p>
                         </div>
                       );
                     })}
                   </div>
                 </ScrollArea>
-                <div className="p-3 md:p-4 bg-card border-t">
-                  <form onSubmit={handleSendMessage} className="flex gap-2 md:gap-3 items-center">
+                <div className="p-4 bg-card border-t border-border">
+                  <form onSubmit={handleSendMessage} className="flex gap-3 items-center">
                     <Input 
-                      placeholder="Secure message..."
+                      placeholder="Secure transmission payload..."
                       value={inputText} 
                       onChange={(e) => setInputText(e.target.value)} 
-                      className="flex-1 h-11 md:h-12 border-border bg-muted/30 rounded-xl text-xs md:text-sm" 
+                      className="flex-1 h-12 border-border bg-muted/30 rounded-2xl text-sm font-medium" 
                     />
-                    <Button type="submit" size="icon" disabled={!inputText.trim()} className="h-11 w-11 md:h-12 md:w-12 bg-primary text-primary-foreground rounded-xl shrink-0">
-                      <Send className="h-4 w-4 md:h-5 md:w-5" />
+                    <Button type="submit" size="icon" disabled={!inputText.trim()} className="h-12 w-12 bg-primary text-white rounded-2xl shrink-0 shadow-lg shadow-primary/20 transition-transform active:scale-95">
+                      <Send className="h-5 w-5" />
                     </Button>
                   </form>
                 </div>
               </CardContent>
             </>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground space-y-4 p-8 text-center">
-              <div className="p-6 bg-muted/50 rounded-full border border-border/40">
-                <MessageSquare className="h-10 w-10 md:h-12 md:w-12 opacity-20" />
+            <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground space-y-6 p-12 text-center">
+              <div className="relative">
+                <div className="absolute inset-0 bg-primary/5 rounded-full blur-3xl opacity-50" />
+                <div className="p-10 bg-muted/50 rounded-full border-2 border-dashed border-border/40 relative z-10">
+                  <MessageSquare className="h-16 w-16 opacity-10" />
+                </div>
               </div>
-              <div className="space-y-1">
-                <p className="text-xs font-black uppercase tracking-[0.2em]">Ready for Transmission</p>
-                <p className="text-[10px] font-medium opacity-60">Select a coordination channel to begin secure team communication.</p>
+              <div className="space-y-2">
+                <p className="text-sm font-black uppercase tracking-[0.3em] text-foreground">Ready for Transmission</p>
+                <p className="text-xs font-medium opacity-60 max-w-xs mx-auto">Select a coordination channel or initialize a new link to begin secure communication.</p>
               </div>
             </div>
           )}
@@ -505,18 +523,15 @@ export default function CommunicationPage() {
       </div>
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent className="rounded-3xl max-w-sm mx-4">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-center font-black uppercase tracking-tight">Purge Transmission?</AlertDialogTitle>
-            <AlertDialogDescription className="text-center">Select deletion scope for this record.</AlertDialogDescription>
+        <AlertDialogContent className="rounded-[32px] border-none shadow-2xl bg-popover max-w-sm mx-4">
+          <AlertDialogHeader className="p-6 text-center">
+            <AlertDialogTitle className="text-xl font-black uppercase tracking-tight">Purge Transmission?</AlertDialogTitle>
+            <AlertDialogDescription className="text-xs font-medium text-muted-foreground mt-2">Permanently remove this record from your local terminal viewport.</AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="flex flex-col gap-2 mt-4">
-             <Button variant="outline" className="rounded-xl font-bold uppercase text-[10px] tracking-widest h-11" onClick={handleDeleteForMe}>Delete for Me</Button>
-             <Button variant="destructive" className="rounded-xl font-bold uppercase text-[10px] tracking-widest h-11" onClick={handleDeleteForEveryone}>Delete for Everyone</Button>
+          <div className="p-6 pt-0 bg-muted/30 flex flex-col gap-3">
+             <Button variant="destructive" className="w-full h-12 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-destructive/10" onClick={() => setIsDeleteDialogOpen(false)}>Purge Record</Button>
+             <AlertDialogCancel className="w-full h-12 rounded-2xl font-bold uppercase text-[10px] tracking-widest border-none bg-transparent">Abort</AlertDialogCancel>
           </div>
-          <AlertDialogFooter className="mt-2">
-            <AlertDialogCancel className="w-full rounded-xl font-bold uppercase text-[10px] tracking-widest border-none">Cancel</AlertDialogCancel>
-          </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
