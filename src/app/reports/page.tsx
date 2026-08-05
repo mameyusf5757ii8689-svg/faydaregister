@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useMemo, useEffect } from 'react';
@@ -38,28 +37,43 @@ import {
   Loader2,
   TrendingUp,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Download
 } from 'lucide-react';
 import { StatusBadge } from '@/components/dashboard/status-badge';
 import { format, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, limit, where } from 'firebase/firestore';
-import { Registration } from '@/lib/types';
+import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
+import { collection, query, limit, where, doc } from 'firebase/firestore';
+import { Registration, UserProfile } from '@/lib/types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { useToast } from '@/hooks/use-toast';
+import { logAuditAction } from '@/lib/audit';
+
+import * as XLSX from 'xlsx';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export default function ReportsPage() {
   const { user } = useUser();
   const db = useFirestore();
+  const { toast } = useToast();
   
   const [startDate, setStartDate] = useState(format(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  const userProfileRef = useMemoFirebase(() => {
+    if (!db || !user?.uid) return null;
+    return doc(db, 'users', user.uid);
+  }, [db, user?.uid]);
+  const { data: profile } = useDoc<UserProfile>(userProfileRef);
 
   const registrationsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -129,6 +143,64 @@ export default function ReportsPage() {
 
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
 
+  const handleExportExcel = () => {
+    if (filteredData.length === 0 || !user || !profile) return;
+    setIsExporting(true);
+    
+    const exportData = filteredData.map(r => ({
+      'Registry ID': r.id,
+      'Applicant': r.applicantName,
+      'Submission Date': format(new Date(r.submissionDate), 'yyyy-MM-dd HH:mm'),
+      'Status': r.status,
+      'Phone': r.phone,
+      'Location': r.location
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Operational_Report");
+    XLSX.writeFile(wb, `Bureau_Report_${profile.fullName.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+
+    logAuditAction(db, user, profile.fullName, 'PERFORMANCE_REVIEW', 'operational_report', `Exported operational intelligence XLS ledger for ${filteredData.length} records.`);
+    
+    toast({ title: "Excel Ledger Generated", description: "Your filtered operational report is ready." });
+    setTimeout(() => setIsExporting(false), 800);
+  };
+
+  const handleExportPDF = () => {
+    if (filteredData.length === 0 || !user || !profile) return;
+    setIsExporting(true);
+
+    const doc = new jsPDF('l', 'mm', 'a4');
+    doc.text(`Official Bureau Operational Report: ${profile.fullName}`, 14, 15);
+    doc.setFontSize(10);
+    doc.text(`Period: ${startDate} to ${endDate} | Total Records: ${filteredData.length}`, 14, 22);
+
+    const rows = filteredData.map(r => [
+      r.id.substring(0, 15) + '...',
+      r.applicantName,
+      format(new Date(r.submissionDate), 'MMM dd, yyyy'),
+      r.status,
+      r.phone,
+      r.location.split(',')[0]
+    ]);
+
+    autoTable(doc, {
+      startY: 30,
+      head: [['RID', 'Applicant', 'Submission', 'Status', 'Phone', 'Sector']],
+      body: rows,
+      theme: 'striped',
+      headStyles: { fillColor: [15, 23, 42] }
+    });
+
+    doc.save(`Bureau_Report_${format(new Date(), 'yyyyMMdd')}.pdf`);
+    
+    logAuditAction(db, user, profile.fullName, 'PERFORMANCE_REVIEW', 'operational_report', `Exported operational intelligence PDF ledger for ${filteredData.length} records.`);
+    
+    toast({ title: "PDF Document Generated", description: "Official documentation has been saved to your local terminal." });
+    setTimeout(() => setIsExporting(false), 800);
+  };
+
   if (isLoading) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
@@ -195,9 +267,21 @@ export default function ReportsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <Button variant="outline" className="w-full h-11 rounded-xl font-black text-[10px] uppercase tracking-widest border-border text-muted-foreground hover:text-foreground" onClick={() => { setSearchTerm(''); setStatusFilter('all'); }}>
-                Reset Matrix
-              </Button>
+
+              <div className="pt-4 space-y-3">
+                 <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1 mb-2">Export Intelligence</p>
+                 <div className="grid grid-cols-2 gap-2">
+                    <Button onClick={handleExportExcel} disabled={isExporting} variant="outline" className="h-10 border-emerald-500/20 text-emerald-600 hover:bg-emerald-500/5 font-bold text-[10px] uppercase tracking-widest rounded-xl">
+                       <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" /> XLS
+                    </Button>
+                    <Button onClick={handleExportPDF} disabled={isExporting} variant="outline" className="h-10 border-rose-500/20 text-rose-600 hover:bg-rose-500/5 font-bold text-[10px] uppercase tracking-widest rounded-xl">
+                       <FileText className="mr-1.5 h-3.5 w-3.5" /> PDF
+                    </Button>
+                 </div>
+                 <Button variant="ghost" className="w-full h-10 rounded-xl font-black text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground" onClick={resetFilters}>
+                    Reset Matrix
+                  </Button>
+              </div>
             </CardContent>
           </Card>
           
@@ -215,7 +299,7 @@ export default function ReportsPage() {
 
         <div className="lg:col-span-3 space-y-8">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            <StatCard label="Intake" value={stats.total} color="blue" icon={FileText} />
+            <StatCard label="Intake" value={stats.total} color="blue" icon={TrendingUp} />
             <StatCard label="Finalized" value={stats.processed} color="green" icon={CheckCircle2} />
             <StatCard label="Active" value={stats.processing} color="indigo" icon={Clock} />
             <StatCard label="Purged" value={stats.rejected} color="red" icon={XCircle} />
@@ -277,7 +361,7 @@ export default function ReportsPage() {
             <div className="p-6 border-b border-border flex items-center justify-between bg-muted/10">
                <h3 className="text-sm font-black text-foreground uppercase tracking-widest">Detail Registry Ledger</h3>
                <div className="flex items-center gap-2">
-                  <Button variant="outline" className="h-9 rounded-xl font-black text-[9px] uppercase tracking-widest border-border bg-background">
+                  <Button onClick={handleExportExcel} disabled={isExporting} variant="outline" className="h-9 rounded-xl font-black text-[9px] uppercase tracking-widest border-border bg-background">
                     <FileSpreadsheet className="mr-2 h-3.5 w-3.5 text-emerald-500" /> Export XLS
                   </Button>
                </div>
@@ -370,6 +454,14 @@ export default function ReportsPage() {
       </div>
     </div>
   );
+
+  function resetFilters() {
+    setSearchTerm('');
+    setStatusFilter('all');
+    setStartDate(format(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'));
+    setEndDate(format(new Date(), 'yyyy-MM-dd'));
+    setCurrentPage(1);
+  }
 }
 
 function StatCard({ label, value, color, icon: Icon }: any) {
@@ -394,3 +486,4 @@ function StatCard({ label, value, color, icon: Icon }: any) {
     </Card>
   );
 }
+
