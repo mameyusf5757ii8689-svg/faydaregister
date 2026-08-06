@@ -15,7 +15,11 @@ import {
   Loader2,
   Megaphone,
   MessageSquare,
-  ArrowRight
+  ArrowRight,
+  ChevronLeft,
+  ChevronRight,
+  Activity,
+  ShieldCheck
 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Notification, Announcement, Conversation, UserProfile } from '@/lib/types';
@@ -26,12 +30,17 @@ import { collection, query, doc, where } from 'firebase/firestore';
 import { updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { format } from 'date-fns';
 import Link from 'next/link';
+import { logAuditAction } from '@/lib/audit';
 
 export default function NotificationsPage() {
   const { user, isUserLoading } = useUser();
   const db = useFirestore();
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
   const { toast } = useToast();
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user?.uid) return null;
@@ -122,6 +131,17 @@ export default function NotificationsPage() {
     );
   }, [combinedItems, filter]);
 
+  // Pagination Logic
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter]);
+
+  const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+  const paginatedItems = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredItems.slice(start, start + itemsPerPage);
+  }, [filteredItems, currentPage]);
+
   const unreadCount = combinedItems.filter(n => !n.isRead).length;
 
   const markAllRead = () => {
@@ -152,8 +172,10 @@ export default function NotificationsPage() {
   };
 
   const clearAll = () => {
-    if (!notifications || !user?.uid || !db) return;
+    if (!notifications || !user?.uid || !db || !profile) return;
     
+    const count = notifications.length;
+
     // Clear personal history
     notifications.forEach(n => {
       deleteDocumentNonBlocking(doc(db, 'users', user.uid, 'notifications', n.id));
@@ -167,9 +189,19 @@ export default function NotificationsPage() {
       updatedAt: now
     });
 
+    // Forensic Signature
+    logAuditAction(
+      db,
+      user,
+      profile.fullName,
+      'RECORD_DELETED',
+      'notifications_purge',
+      `Intelligence Feed: Purged local notification history (${count} records).`
+    );
+
     toast({
       title: "Archive Purged",
-      description: "Intelligence feed history has been cleared.",
+      description: "Intelligence feed history has been cleared and signed into the ledger.",
     });
   };
 
@@ -241,8 +273,8 @@ export default function NotificationsPage() {
       </div>
 
       <div className="space-y-4">
-        {filteredItems.length > 0 ? (
-          filteredItems.map((item) => (
+        {paginatedItems.length > 0 ? (
+          paginatedItems.map((item) => (
             <Card key={item.id} className={cn(
               "border-none shadow-sm transition-all hover:shadow-md bg-card overflow-hidden group",
               !item.isRead && "ring-1 ring-primary/20",
@@ -302,6 +334,49 @@ export default function NotificationsPage() {
             <p className="text-sm text-muted-foreground font-medium italic">No pending alerts or notifications for your unit.</p>
           </div>
         )}
+
+        {totalPages > 1 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between px-6 py-6 bg-card border border-border rounded-[32px] shadow-sm gap-6 mt-8">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Activity className="h-4 w-4 text-primary" />
+              </div>
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                Visualizing {paginatedItems.length} of {filteredItems.length} Intelligence Items
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-11 w-11 p-0 rounded-xl border-border bg-background hover:bg-muted"
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <div className="flex items-center justify-center min-w-[120px] h-11 text-[10px] font-black text-foreground bg-muted/50 border border-border rounded-xl uppercase tracking-widest px-4">
+                Page {currentPage} of {totalPages}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-11 w-11 p-0 rounded-xl border-border bg-background hover:bg-muted"
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="p-6 bg-primary/[0.03] border border-primary/10 rounded-[32px] flex items-center gap-4">
+        <ShieldCheck className="h-6 w-6 text-primary shrink-0 opacity-40" />
+        <p className="text-[10px] text-foreground font-bold uppercase leading-relaxed tracking-widest">
+          Intelligence Protocol: The feed above integrates real-time signals from bureau response channels, personal system alerts, and central command broadcasts. Bulk clearing actions are signed into the forensic audit ledger to maintain operational accountability.
+        </p>
       </div>
     </div>
   );
