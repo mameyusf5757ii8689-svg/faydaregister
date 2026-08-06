@@ -93,6 +93,7 @@ function PerformanceContent() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMonth, setSelectedMonth] = useState('');
   const [selectedRejection, setSelectedRejection] = useState<Registration | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   // Pagination for Rejection Audit
@@ -243,26 +244,74 @@ function PerformanceContent() {
   const totalPages = Math.ceil(rejectedRegistrations.length / itemsPerPage);
 
   const handleExportExcel = () => {
-    if (!stats?.currItems || stats.currItems.length === 0) return;
+    if (!stats?.currItems || stats.currItems.length === 0 || !user || !targetProfile) return;
+    setIsExporting(true);
+    
     const exportData = stats.currItems.map(r => ({
-      'ID': r.id, 'Applicant': r.applicantName, 'Date': format(new Date(r.submissionDate), 'yyyy-MM-dd'),
-      'Status': r.status, 'Rejection Reason': r.rejectionReason || 'N/A', 'Location': r.location
+      'ID': r.id, 
+      'Applicant': r.applicantName, 
+      'Date': format(new Date(r.submissionDate), 'yyyy-MM-dd'),
+      'Status': r.status, 
+      'Rejection Reason': r.rejectionReason || 'N/A', 
+      'Location': r.location
     }));
+
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Performance");
-    XLSX.writeFile(wb, `Performance_${targetProfile?.fullName}_${selectedMonth}.xlsx`);
+    XLSX.writeFile(wb, `Performance_${targetProfile.fullName.replace(/\s+/g, '_')}_${selectedMonth}.xlsx`);
+
+    logAuditAction(
+      db, 
+      user, 
+      targetProfile.fullName, 
+      'PERFORMANCE_REVIEW', 
+      targetOfficerId!, 
+      `Exported XLSX Performance Intelligence for period: ${selectedMonth}.`
+    );
+
     toast({ title: "Excel Intelligence Exported", description: "Monthly performance registry generated." });
+    setTimeout(() => setIsExporting(false), 800);
   };
 
   const handleExportPDF = () => {
-    if (!stats?.currItems || stats.currItems.length === 0) return;
+    if (!stats?.currItems || stats.currItems.length === 0 || !user || !targetProfile) return;
+    setIsExporting(true);
+
     const doc = new jsPDF();
-    doc.text(`Performance Review: ${targetProfile?.fullName || 'Official'}`, 14, 15);
-    const rows = stats.currItems.map(r => [r.id.substring(0, 15)+'...', r.applicantName, format(new Date(r.submissionDate), 'MMM dd'), r.status, r.rejectionReason || '-']);
-    autoTable(doc, { startY: 30, head: [['RID', 'Applicant', 'Date', 'Status', 'Detail']], body: rows, theme: 'striped' });
-    doc.save(`Performance_${targetProfile?.fullName}_${selectedMonth}.pdf`);
+    doc.text(`Performance Review: ${targetProfile.fullName}`, 14, 15);
+    doc.setFontSize(10);
+    doc.text(`Period: ${selectedMonth} | Accuracy: ${stats.successRate}%`, 14, 22);
+
+    const rows = stats.currItems.map(r => [
+      r.id.substring(0, 15)+'...', 
+      r.applicantName, 
+      format(new Date(r.submissionDate), 'MMM dd'), 
+      r.status, 
+      r.rejectionReason || '-'
+    ]);
+
+    autoTable(doc, { 
+      startY: 30, 
+      head: [['RID', 'Applicant', 'Date', 'Status', 'Detail']], 
+      body: rows, 
+      theme: 'striped',
+      headStyles: { fillColor: [37, 99, 235] }
+    });
+
+    doc.save(`Performance_${targetProfile.fullName.replace(/\s+/g, '_')}_${selectedMonth}.pdf`);
+
+    logAuditAction(
+      db, 
+      user, 
+      targetProfile.fullName, 
+      'PERFORMANCE_REVIEW', 
+      targetOfficerId!, 
+      `Exported PDF Performance Archive for period: ${selectedMonth}.`
+    );
+
     toast({ title: "PDF Ledger Generated", description: "Official documentation saved." });
+    setTimeout(() => setIsExporting(false), 800);
   };
 
   const handleOpenForensicRecord = (reg: Registration) => {
@@ -275,7 +324,7 @@ function PerformanceContent() {
   if (isUserLoading || isLoading || isProfileLoading || !selectedMonth || !user) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary opacity-20" />
+        <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
       </div>
     );
   }
@@ -465,8 +514,12 @@ function PerformanceContent() {
               <Input placeholder="Filter records..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-11 pl-10 border-border bg-background rounded-xl text-xs" />
             </div>
             <div className="flex items-center gap-2 w-full sm:w-auto">
-              <Button onClick={handleExportExcel} variant="outline" className="flex-1 h-11 px-4 rounded-xl border-emerald-500/20 text-emerald-500 font-bold text-[10px] uppercase tracking-widest bg-background">XLS</Button>
-              <Button onClick={handleExportPDF} variant="outline" className="flex-1 h-11 px-4 rounded-xl border-rose-500/20 text-rose-500 font-bold text-[10px] uppercase tracking-widest bg-background">PDF</Button>
+              <Button onClick={handleExportExcel} disabled={isExporting} variant="outline" className="flex-1 h-11 px-4 rounded-xl border-emerald-500/20 text-emerald-600 hover:bg-emerald-500/5 font-bold text-[10px] uppercase tracking-widest bg-background">
+                {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'XLS'}
+              </Button>
+              <Button onClick={handleExportPDF} disabled={isExporting} variant="outline" className="flex-1 h-11 px-4 rounded-xl border-rose-500/20 text-rose-600 hover:bg-rose-500/5 font-bold text-[10px] uppercase tracking-widest bg-background">
+                {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'PDF'}
+              </Button>
             </div>
           </div>
         </div>
