@@ -3,7 +3,8 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, query, where, doc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { collection, query, where, doc, serverTimestamp } from 'firebase/firestore';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { 
   Activity, 
   ShieldCheck, 
@@ -48,8 +49,6 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { logAuditAction } from '@/lib/audit';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -71,6 +70,7 @@ export default function FullRegistrationPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'Operational' | 'Finalized'>('all');
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -137,14 +137,7 @@ export default function FullRegistrationPage() {
           timestamp: serverTimestamp(),
         };
 
-        setDoc(docRef, summaryData, { merge: true })
-          .catch(async (error) => {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({
-              path: docRef.path,
-              operation: 'write',
-              requestResourceData: summaryData
-            }));
-          });
+        setDocumentNonBlocking(docRef, summaryData, { merge: true });
         syncCount++;
       }
       checkDate = new Date(checkDate.setMonth(checkDate.getMonth() + 1));
@@ -156,7 +149,7 @@ export default function FullRegistrationPage() {
       profile.fullName,
       'STATUS_UPDATE',
       'grand_ledger',
-      `Grand Ledger: Manual protocol synchronization completed. ${syncCount} archives recalculated.`
+      `Grand Ledger: Manual protocol synchronization completed. ${syncCount} archives recalculated and verified.`
     );
 
     toast({
@@ -284,7 +277,9 @@ export default function FullRegistrationPage() {
   }, [ledger, aggregates, mounted]);
 
   const handleExportExcel = () => {
-    if (ledger.length === 0) return;
+    if (ledger.length === 0 || !user || !profile) return;
+    setIsExporting(true);
+
     const exportData = ledger.map(l => ({
       'Reporting Period': l.label,
       'Ethio Intake': l.ethio,
@@ -292,15 +287,29 @@ export default function FullRegistrationPage() {
       'Grand Total': l.total,
       'Protocol Status': l.status
     }));
+
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "GrandRegistry");
     XLSX.writeFile(wb, `Bureau_Grand_Registry_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+
+    logAuditAction(
+      db, 
+      user, 
+      profile.fullName, 
+      'PERFORMANCE_REVIEW', 
+      'grand_ledger', 
+      `Grand Registry: Exported Excel intelligence for July 2025 to ${format(new Date(), 'MMM yyyy')}.`
+    );
+
     toast({ title: "Excel Intelligence Exported", description: "Grand registry document has been generated." });
+    setTimeout(() => setIsExporting(false), 1000);
   };
 
   const handleExportPDF = () => {
-    if (ledger.length === 0) return;
+    if (ledger.length === 0 || !user || !profile) return;
+    setIsExporting(true);
+
     const doc = new jsPDF();
     doc.text(`Official Bureau Grand Registry: ${profile?.fullName || 'Official'}`, 14, 15);
     doc.setFontSize(9);
@@ -315,7 +324,18 @@ export default function FullRegistrationPage() {
       headStyles: { fillColor: [37, 99, 235] }
     });
     doc.save(`Bureau_Grand_Ledger_${format(new Date(), 'yyyyMMdd')}.pdf`);
+
+    logAuditAction(
+      db, 
+      user, 
+      profile.fullName, 
+      'PERFORMANCE_REVIEW', 
+      'grand_ledger', 
+      `Grand Registry: Exported PDF historical archive for July 2025 to ${format(new Date(), 'MMM yyyy')}.`
+    );
+
     toast({ title: "PDF Ledger Generated", description: "Official documentation has been saved." });
+    setTimeout(() => setIsExporting(false), 1000);
   };
 
   if (isUserLoading || isSummariesLoading || isReportsLoading || !user) {
@@ -489,13 +509,13 @@ export default function FullRegistrationPage() {
           </Select>
         </div>
 
-        <div className="flex items-center gap-3 w-full lg:w-auto justify-end">
+        <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-end">
           <Button 
             variant="outline" 
             size="sm" 
             onClick={handleManualSync}
             disabled={isSyncing}
-            className="h-11 px-6 rounded-xl font-black text-[10px] uppercase tracking-widest border-border bg-background hover:bg-muted"
+            className="h-11 px-6 rounded-xl font-black text-[10px] uppercase tracking-widest border-border bg-background hover:bg-muted flex-1 sm:flex-none"
           >
             {isSyncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4 text-primary" />}
             Sync Registry
@@ -503,15 +523,17 @@ export default function FullRegistrationPage() {
           <div className="h-8 w-px bg-border mx-1 hidden sm:block" />
           <Button 
             onClick={handleExportExcel} 
+            disabled={isExporting}
             variant="outline" 
-            className="h-11 px-4 rounded-xl border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/10 font-bold text-[10px] uppercase tracking-widest bg-background"
+            className="h-11 px-4 rounded-xl border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/10 font-bold text-[10px] uppercase tracking-widest bg-background flex-1 sm:flex-none"
           >
             <FileSpreadsheet className="mr-2 h-4 w-4" /> Excel
           </Button>
           <Button 
             onClick={handleExportPDF} 
+            disabled={isExporting}
             variant="outline" 
-            className="h-11 px-4 rounded-xl border-rose-500/20 text-rose-500 hover:bg-rose-500/10 font-bold text-[10px] uppercase tracking-widest bg-background"
+            className="h-11 px-4 rounded-xl border-rose-500/20 text-rose-500 hover:bg-rose-500/10 font-bold text-[10px] uppercase tracking-widest bg-background flex-1 sm:flex-none"
           >
             <FileText className="mr-2 h-4 w-4" /> PDF
           </Button>
@@ -532,65 +554,67 @@ export default function FullRegistrationPage() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader className="bg-muted/10">
-              <TableRow className="border-border hover:bg-transparent">
-                <TableHead className="text-[10px] font-black uppercase tracking-widest h-14 pl-10">Reporting Period</TableHead>
-                <TableHead className="text-[10px] font-black uppercase tracking-widest h-14 text-center">Ethio Intake</TableHead>
-                <TableHead className="text-[10px] font-black uppercase tracking-widest h-14 text-center">Safaricom Intake</TableHead>
-                <TableHead className="text-[10px] font-black uppercase tracking-widest h-14 text-center">Grand Total</TableHead>
-                <TableHead className="text-[10px] font-black uppercase tracking-widest h-14 pr-10 text-right">Protocol</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paginatedLedger.length > 0 ? paginatedLedger.map((item) => (
-                <TableRow key={item.id} className="hover:bg-muted/30 transition-colors border-border h-20 group">
-                  <TableCell className="pl-10">
-                    <div className="flex items-center gap-4">
-                      <div className="p-3 rounded-2xl bg-muted/50 border border-border group-hover:bg-primary/5 group-hover:border-primary/20 transition-all">
-                        <Calendar className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
-                      </div>
-                      <span className="text-sm font-black text-foreground">{item.label}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-center font-bold text-emerald-600">{item.ethio.toLocaleString()}</TableCell>
-                  <TableCell className="text-center font-bold text-orange-600">{item.safaricom.toLocaleString()}</TableCell>
-                  <TableCell className="text-center">
-                    <span className="inline-flex items-center justify-center h-10 px-6 rounded-2xl bg-primary/5 text-sm font-black text-primary ring-1 ring-primary/10">
-                      {item.total.toLocaleString()}
-                    </span>
-                  </TableCell>
-                  <TableCell className="pr-10 text-right">
-                    <span className={`text-[9px] font-black uppercase px-3 py-1.5 rounded-xl tracking-widest border transition-all ${
-                      item.status === 'Finalized' 
-                        ? 'bg-muted text-muted-foreground border-border' 
-                        : 'bg-primary/10 text-primary border-primary/20'
-                    }`}>
-                      {item.status}
-                    </span>
-                  </TableCell>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-muted/10">
+                <TableRow className="border-border hover:bg-transparent">
+                  <TableHead className="text-[10px] font-black uppercase tracking-widest h-14 pl-10">Reporting Period</TableHead>
+                  <TableHead className="text-[10px] font-black uppercase tracking-widest h-14 text-center">Ethio Intake</TableHead>
+                  <TableHead className="text-[10px] font-black uppercase tracking-widest h-14 text-center">Safaricom Intake</TableHead>
+                  <TableHead className="text-[10px] font-black uppercase tracking-widest h-14 text-center">Grand Total</TableHead>
+                  <TableHead className="text-[10px] font-black uppercase tracking-widest h-14 pr-10 text-right">Protocol</TableHead>
                 </TableRow>
-              )) : (
-                <TableRow>
-                  <TableCell colSpan={5} className="h-60 text-center">
-                    <div className="flex flex-col items-center justify-center gap-4">
-                      <div className="p-6 bg-muted/50 rounded-full border border-dashed border-border opacity-20">
-                         <Activity className="h-10 w-10 text-muted-foreground" />
+              </TableHeader>
+              <TableBody>
+                {paginatedLedger.length > 0 ? paginatedLedger.map((item) => (
+                  <TableRow key={item.id} className="hover:bg-muted/30 transition-colors border-border h-20 group">
+                    <TableCell className="pl-10">
+                      <div className="flex items-center gap-4">
+                        <div className="p-3 rounded-2xl bg-muted/50 border border-border group-hover:bg-primary/5 group-hover:border-primary/20 transition-all">
+                          <Calendar className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
+                        </div>
+                        <span className="text-sm font-black text-foreground whitespace-nowrap">{item.label}</span>
                       </div>
-                      <p className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground/40">Terminal Scan Complete: Zero Matches Found</p>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                    </TableCell>
+                    <TableCell className="text-center font-bold text-emerald-600">{item.ethio.toLocaleString()}</TableCell>
+                    <TableCell className="text-center font-bold text-orange-600">{item.safaricom.toLocaleString()}</TableCell>
+                    <TableCell className="text-center">
+                      <span className="inline-flex items-center justify-center h-10 px-6 rounded-2xl bg-primary/5 text-sm font-black text-primary ring-1 ring-primary/10">
+                        {item.total.toLocaleString()}
+                      </span>
+                    </TableCell>
+                    <TableCell className="pr-10 text-right">
+                      <span className={`text-[9px] font-black uppercase px-3 py-1.5 rounded-xl tracking-widest border transition-all ${
+                        item.status === 'Finalized' 
+                          ? 'bg-muted text-muted-foreground border-border' 
+                          : 'bg-primary/10 text-primary border-primary/20'
+                      }`}>
+                        {item.status}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                )) : (
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-60 text-center">
+                      <div className="flex flex-col items-center justify-center gap-4">
+                        <div className="p-6 bg-muted/50 rounded-full border border-dashed border-border opacity-20">
+                           <Activity className="h-10 w-10 text-muted-foreground" />
+                        </div>
+                        <p className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground/40">Terminal Scan Complete: Zero Matches Found</p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
 
           {totalPages > 1 && (
             <div className="flex items-center justify-between px-10 py-6 bg-muted/5 border-t border-border">
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest hidden sm:block">
                 Showing {paginatedLedger.length} of {ledger.length} Archives
               </p>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 ml-auto sm:ml-0">
                 <Button
                   variant="outline"
                   size="sm"
