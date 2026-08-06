@@ -81,6 +81,7 @@ export default function DailyRegistrationsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -268,9 +269,10 @@ export default function DailyRegistrationsPage() {
     });
   };
 
-  // Export Intelligence
   const handleExportExcel = () => {
-    if (history.length === 0) return;
+    if (history.length === 0 || !user || !profile) return;
+    setIsExporting(true);
+
     const exportData = history.map(h => ({
       'Date': h.date,
       'Ethio Intake': h.ethioCount,
@@ -278,26 +280,52 @@ export default function DailyRegistrationsPage() {
       'Total': h.total,
       'Remarks': h.remarks || ''
     }));
+
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "DailyReports");
     XLSX.writeFile(wb, `Bureau_Daily_Reports_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+
+    logAuditAction(
+      db,
+      user,
+      profile.fullName,
+      'PERFORMANCE_REVIEW',
+      'daily_reporting_ledger',
+      `Exported XLSX Daily Throughput Ledger for ${history.length} records.`
+    );
+
     toast({ title: "Excel Synchronized", description: "Operational throughput data downloaded." });
+    setTimeout(() => setIsExporting(false), 800);
   };
 
   const handleExportPDF = () => {
-    if (history.length === 0) return;
+    if (history.length === 0 || !user || !profile) return;
+    setIsExporting(true);
+
     const doc = new jsPDF();
-    doc.text(`Official Bureau Ledger: ${profile?.fullName || 'Official'}`, 14, 15);
+    doc.text(`Official Bureau Ledger: ${profile.fullName}`, 14, 15);
     const rows = history.map(h => [h.date, h.ethioCount, h.safaricomCount, h.total, h.remarks || '']);
     autoTable(doc, {
       startY: 25,
       head: [['Date', 'Ethio', 'Safaricom', 'Total', 'Remarks']],
       body: rows,
-      theme: 'striped'
+      theme: 'striped',
+      headStyles: { fillColor: [15, 23, 42] }
     });
     doc.save(`Bureau_Daily_Ledger_${format(new Date(), 'yyyyMMdd')}.pdf`);
+
+    logAuditAction(
+      db,
+      user,
+      profile.fullName,
+      'PERFORMANCE_REVIEW',
+      'daily_reporting_ledger',
+      `Exported PDF Daily Throughput Archive for ${history.length} records.`
+    );
+
     toast({ title: "PDF Ledger Generated", description: "Official documentation saved." });
+    setTimeout(() => setIsExporting(false), 800);
   };
 
   return (
@@ -450,11 +478,11 @@ export default function DailyRegistrationsPage() {
                   className="pl-10 h-10 border-border bg-card rounded-xl text-xs font-bold"
                 />
               </div>
-              <Button onClick={handleExportExcel} variant="outline" size="icon" className="h-10 w-10 border-border bg-card text-emerald-500 hover:bg-emerald-500/10">
-                <FileSpreadsheet className="h-4 w-4" />
+              <Button onClick={handleExportExcel} disabled={isExporting} variant="outline" size="icon" className="h-10 w-10 border-border bg-card text-emerald-500 hover:bg-emerald-500/10">
+                {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
               </Button>
-              <Button onClick={handleExportPDF} variant="outline" size="icon" className="h-10 w-10 border-border bg-card text-rose-500 hover:bg-rose-500/10">
-                <FileText className="h-4 w-4" />
+              <Button onClick={handleExportPDF} disabled={isExporting} variant="outline" size="icon" className="h-10 w-10 border-border bg-card text-rose-500 hover:bg-rose-500/10">
+                {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
               </Button>
             </div>
           </div>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -275,7 +276,7 @@ export default function StatusCheckPage() {
                 </div>
               </div>
 
-              <div className="border border-border rounded-xl overflow-hidden min-h-[400px]">
+              <div className="border border-border rounded-xl overflow-x-auto min-h-[400px]">
                 <Table>
                   <TableHeader className="bg-muted/50 sticky top-0 z-10">
                     <TableRow className="hover:bg-transparent border-border">

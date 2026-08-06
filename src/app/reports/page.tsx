@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useMemo, useEffect } from 'react';
@@ -366,57 +367,59 @@ export default function ReportsPage() {
                   </Button>
                </div>
             </div>
-            <Table>
-              <TableHeader className="bg-muted/30">
-                <TableRow className="hover:bg-transparent border-border">
-                  <TableHead className="text-[9px] font-black uppercase tracking-widest py-5 pl-8 text-muted-foreground">Registry ID</TableHead>
-                  <TableHead className="text-[9px] font-black uppercase tracking-widest py-5 text-muted-foreground">Official Name</TableHead>
-                  <TableHead className="text-[9px] font-black uppercase tracking-widest py-5 text-muted-foreground">Submission</TableHead>
-                  <TableHead className="text-[9px] font-black uppercase tracking-widest py-5 text-muted-foreground">Category</TableHead>
-                  <TableHead className="text-[9px] font-black uppercase tracking-widest py-5 pr-8 text-right text-muted-foreground">Region</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paginatedData.map((reg) => (
-                  <TableRow key={reg.id} className="hover:bg-muted/30 transition-colors border-border h-16">
-                    <TableCell className="pl-8">
-                      <div className="flex items-center gap-2 text-[10px] font-mono font-bold text-muted-foreground/30">
-                        <FileDigit className="h-3 w-3" />
-                        {reg.id.substring(0, 12)}...
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm font-black text-foreground tracking-tight">
-                        {reg.applicantName}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-[11px] font-bold text-muted-foreground">
-                        {format(new Date(reg.submissionDate), 'MMM dd, yyyy')}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge status={reg.status} className="scale-75 origin-left" />
-                    </TableCell>
-                    <TableCell className="pr-8 text-right">
-                      <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
-                        {reg.location.split(',')[0]}
-                      </div>
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader className="bg-muted/30">
+                  <TableRow className="hover:bg-transparent border-border">
+                    <TableHead className="text-[9px] font-black uppercase tracking-widest py-5 pl-8 text-muted-foreground">Registry ID</TableHead>
+                    <TableHead className="text-[9px] font-black uppercase tracking-widest py-5 text-muted-foreground">Official Name</TableHead>
+                    <TableHead className="text-[9px] font-black uppercase tracking-widest py-5 text-muted-foreground">Submission</TableHead>
+                    <TableHead className="text-[9px] font-black uppercase tracking-widest py-5 text-muted-foreground">Category</TableHead>
+                    <TableHead className="text-[9px] font-black uppercase tracking-widest py-5 pr-8 text-right text-muted-foreground">Region</TableHead>
                   </TableRow>
-                ))}
-                {filteredData.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={5} className="h-60 text-center">
-                      <div className="flex flex-col items-center justify-center gap-3">
-                        <Filter className="h-10 w-10 text-muted-foreground/20" />
-                        <p className="text-xs font-black uppercase tracking-widest text-muted-foreground/40">Terminal Scan Complete: Zero Matches</p>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {paginatedData.map((reg) => (
+                    <TableRow key={reg.id} className="hover:bg-muted/30 transition-colors border-border h-16">
+                      <TableCell className="pl-8">
+                        <div className="flex items-center gap-2 text-[10px] font-mono font-bold text-muted-foreground/30">
+                          <FileDigit className="h-3 w-3" />
+                          {reg.id.substring(0, 12)}...
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm font-black text-foreground tracking-tight">
+                          {reg.applicantName}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-[11px] font-bold text-muted-foreground">
+                          {format(new Date(reg.submissionDate), 'MMM dd, yyyy')}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge status={reg.status} className="scale-75 origin-left" />
+                      </TableCell>
+                      <TableCell className="pr-8 text-right">
+                        <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                          {reg.location.split(',')[0]}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {filteredData.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={5} className="h-60 text-center">
+                        <div className="flex flex-col items-center justify-center gap-3">
+                          <Filter className="h-10 w-10 text-muted-foreground/20" />
+                          <p className="text-xs font-black uppercase tracking-widest text-muted-foreground/40">Terminal Scan Complete: Zero Matches</p>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
 
             {/* Pagination Controls */}
             {totalPages > 1 && (
@@ -486,4 +489,3 @@ function StatCard({ label, value, color, icon: Icon }: any) {
     </Card>
   );
 }
-
