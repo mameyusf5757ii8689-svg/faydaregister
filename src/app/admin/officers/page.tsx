@@ -83,6 +83,7 @@ export default function OfficerManagementPage() {
   const [regionFilter, setRegionFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const [isExporting, setIsExporting] = useState(false);
   
   // Selection State
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -206,7 +207,9 @@ export default function OfficerManagementPage() {
   };
 
   const handleExportExcel = () => {
-    if (filteredOfficers.length === 0) return;
+    if (filteredOfficers.length === 0 || !currentUser || !profile) return;
+    setIsExporting(true);
+
     const exportData = filteredOfficers.map(o => ({
       'Full Name': o.fullName,
       'Email': o.email,
@@ -215,20 +218,35 @@ export default function OfficerManagementPage() {
       'Cluster': o.cluster,
       'Last Active': o.updatedAt ? format(new Date(o.updatedAt), 'yyyy-MM-dd HH:mm') : 'N/A'
     }));
+
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Personnel");
     XLSX.writeFile(wb, `Bureau_Personnel_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+
+    logAuditAction(
+      db, 
+      currentUser, 
+      profile.fullName, 
+      'PERFORMANCE_REVIEW', 
+      'personnel_management', 
+      `Personnel: Generated XLS employee archive for ${filteredOfficers.length} records.`
+    );
+
     toast({ title: "Excel Ledger Generated", description: "Official personnel registry exported." });
+    setTimeout(() => setIsExporting(false), 800);
   };
 
   const handleExportPDF = () => {
-    if (filteredOfficers.length === 0) return;
+    if (filteredOfficers.length === 0 || !currentUser || !profile) return;
+    setIsExporting(true);
+
     const doc = new jsPDF('l', 'mm', 'a4');
     doc.text("Official Bureau Personnel Ledger", 14, 15);
     const rows = filteredOfficers.map(o => [
       o.fullName, o.email, o.role, o.region, o.cluster, o.updatedAt ? format(new Date(o.updatedAt), 'MMM dd') : '-'
     ]);
+
     autoTable(doc, {
       startY: 25,
       head: [['Signature', 'Email', 'Clearance', 'Region', 'Sector', 'Last Sync']],
@@ -236,8 +254,20 @@ export default function OfficerManagementPage() {
       theme: 'striped',
       headStyles: { fillColor: [15, 23, 42] }
     });
+
     doc.save(`Bureau_Personnel_Ledger_${format(new Date(), 'yyyyMMdd')}.pdf`);
+
+    logAuditAction(
+      db, 
+      currentUser, 
+      profile.fullName, 
+      'PERFORMANCE_REVIEW', 
+      'personnel_management', 
+      `Personnel: Generated PDF employee archive for ${filteredOfficers.length} records.`
+    );
+
     toast({ title: "PDF Record Saved", description: "High-fidelity personnel document generated." });
+    setTimeout(() => setIsExporting(false), 800);
   };
 
   const initiateDelete = (officer: UserProfile) => {
@@ -301,11 +331,11 @@ export default function OfficerManagementPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-           <Button onClick={handleExportExcel} variant="outline" className="h-11 px-4 rounded-xl border-emerald-500/20 text-emerald-500 font-bold text-[10px] uppercase tracking-widest bg-card">
-            <FileSpreadsheet className="h-4 w-4" />
+           <Button onClick={handleExportExcel} disabled={isExporting} variant="outline" className="h-11 px-4 rounded-xl border-emerald-500/20 text-emerald-500 font-bold text-[10px] uppercase tracking-widest bg-card">
+            {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
           </Button>
-          <Button onClick={handleExportPDF} variant="outline" className="h-11 px-4 rounded-xl border-rose-500/20 text-rose-500 font-bold text-[10px] uppercase tracking-widest bg-card">
-            <FileText className="h-4 w-4" />
+          <Button onClick={handleExportPDF} disabled={isExporting} variant="outline" className="h-11 px-4 rounded-xl border-rose-500/20 text-rose-500 font-bold text-[10px] uppercase tracking-widest bg-card">
+            {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
           </Button>
           <OfficerFormModal mode="add" />
         </div>
@@ -365,17 +395,17 @@ export default function OfficerManagementPage() {
 
         {/* Bulk Command Matrix - Responsive Overlay */}
         {selectedIds.size > 0 && (
-          <div className="absolute top-0 left-0 right-0 z-30 min-h-[4rem] h-auto bg-primary text-primary-foreground flex flex-col sm:flex-row items-center px-6 py-3 sm:py-0 gap-4 animate-in slide-in-from-top duration-500 shadow-2xl">
-            <p className="text-[11px] font-black uppercase tracking-widest flex-1">
+          <div className="absolute top-0 left-0 right-0 z-30 min-h-[4rem] h-auto bg-primary text-primary-foreground flex flex-col sm:flex-row items-center px-6 py-3 sm:py-0 gap-4 sm:gap-6 animate-in slide-in-from-top duration-500 shadow-2xl">
+            <p className="text-[11px] font-black uppercase tracking-widest flex-1 text-center sm:text-left">
               {selectedIds.size} Personnel Selected
             </p>
-            <div className="flex flex-wrap items-center justify-center gap-3">
+            <div className="flex flex-wrap items-center justify-center sm:justify-end gap-3 w-full sm:w-auto">
               <Button variant="ghost" size="sm" className="h-9 px-4 text-[10px] font-black uppercase tracking-widest hover:bg-white/10" onClick={() => setSelectedIds(new Set())}>
                 <X className="mr-2 h-4 w-4" /> Cancel
               </Button>
               <div className="hidden sm:block w-px h-6 bg-white/20" />
               <Button variant="ghost" size="sm" className="h-9 px-6 text-[10px] font-black uppercase tracking-widest hover:bg-red-500 text-white" onClick={() => setIsConfirmBulkPurgeOpen(true)} disabled={isBulkProcessing}>
-                <Trash2 className="mr-2 h-4 w-4" /> Purge Access
+                {isBulkProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />} Purge Access
               </Button>
             </div>
           </div>

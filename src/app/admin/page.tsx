@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
@@ -24,7 +25,9 @@ import {
   Fingerprint,
   ArrowRight,
   User,
-  Clock
+  Clock,
+  FileSpreadsheet,
+  FileText as FileTextIcon
 } from 'lucide-react';
 import { Registration, DashboardStats, UserProfile, DailyReport, AuditLog } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -33,6 +36,10 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
+import * as XLSX from 'xlsx';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+
 export default function AdminDashboard() {
   const { user } = useUser();
   const db = useFirestore();
@@ -40,6 +47,7 @@ export default function AdminDashboard() {
   const [isTogglingDuty, setIsTogglingDuty] = useState(false);
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     setLastSynced(new Date());
@@ -158,6 +166,65 @@ export default function AdminDashboard() {
     window.location.reload();
   };
 
+  const handleExportExcel = () => {
+    if (!registrations || registrations.length === 0 || !user || !profile) return;
+    setIsExporting(true);
+
+    const exportData = registrations.map(r => ({
+      'ID': r.id,
+      'Applicant': r.applicantName,
+      'Date': format(new Date(r.submissionDate), 'yyyy-MM-dd'),
+      'Status': r.status,
+      'Location': r.location
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "GlobalRegistry");
+    XLSX.writeFile(wb, `Bureau_Global_Registry_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+
+    logAuditAction(
+      db, 
+      user, 
+      profile.fullName, 
+      'PERFORMANCE_REVIEW', 
+      'admin_dashboard', 
+      `Admin Overview: Generated global XLSX snapshot for ${registrations.length} records.`
+    );
+
+    toast({ title: "Excel Intelligence Exported", description: "Global registry snapshot downloaded." });
+    setTimeout(() => setIsExporting(false), 800);
+  };
+
+  const handleExportPDF = () => {
+    if (!registrations || registrations.length === 0 || !user || !profile) return;
+    setIsExporting(true);
+
+    const doc = new jsPDF();
+    doc.text(`Bureau Global Registry Snapshot: ${profile.fullName}`, 14, 15);
+    const rows = registrations.map(r => [r.id.substring(0, 15)+'...', r.applicantName, format(new Date(r.submissionDate), 'MMM dd'), r.status]);
+    autoTable(doc, {
+      startY: 25,
+      head: [['RID', 'Applicant', 'Date', 'Status']],
+      body: rows,
+      theme: 'striped',
+      headStyles: { fillColor: [15, 23, 42] }
+    });
+    doc.save(`Bureau_Global_Snapshot_${format(new Date(), 'yyyyMMdd')}.pdf`);
+
+    logAuditAction(
+      db, 
+      user, 
+      profile.fullName, 
+      'PERFORMANCE_REVIEW', 
+      'admin_dashboard', 
+      `Admin Overview: Generated global PDF snapshot for ${registrations.length} records.`
+    );
+
+    toast({ title: "PDF Document Generated", description: "Official bureau documentation saved." });
+    setTimeout(() => setIsExporting(false), 800);
+  };
+
   if (isRegLoading || isReportsLoading || isUsersLoading || isAuditLoading) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
@@ -243,12 +310,19 @@ export default function AdminDashboard() {
         {/* Main Worklist */}
         <section className="xl:col-span-8 space-y-6">
           <Card className="border border-border shadow-sm rounded-[32px] overflow-hidden bg-card">
-            <CardHeader className="bg-muted/30 border-b border-border py-6 flex flex-row items-center justify-between">
+            <CardHeader className="bg-muted/30 border-b border-border py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="space-y-1">
                  <CardTitle className="text-lg font-black text-foreground uppercase tracking-tight">Bureau Detail Ledger</CardTitle>
                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Consolidated applicant records across all sectors</p>
               </div>
-              <FileText className="h-5 w-5 text-muted-foreground/30" />
+              <div className="flex items-center gap-3">
+                 <Button onClick={handleExportExcel} disabled={isExporting} variant="outline" size="sm" className="h-9 px-4 rounded-xl border-emerald-500/20 text-emerald-600 font-black text-[9px] uppercase tracking-widest bg-background">
+                    {isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />} XLS
+                 </Button>
+                 <Button onClick={handleExportPDF} disabled={isExporting} variant="outline" size="sm" className="h-9 px-4 rounded-xl border-rose-500/20 text-rose-600 font-black text-[9px] uppercase tracking-widest bg-background">
+                    {isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileTextIcon className="mr-1.5 h-3.5 w-3.5" />} PDF
+                 </Button>
+              </div>
             </CardHeader>
             <CardContent className="p-0">
               {registrations && registrations.length > 0 ? (
