@@ -235,82 +235,84 @@ export function RegistrationTable({ registrations, isDashboardView = false }: Re
         </div>
       )}
 
-      <Table>
-        <TableHeader className={isDashboardView ? "bg-muted/30" : "bg-muted/50"}>
-          <TableRow className="hover:bg-transparent border-border">
-            <TableHead className="w-12 pl-6">
-              <Checkbox 
-                checked={allOnPageSelected} 
-                onCheckedChange={toggleSelectAll}
-                className="border-muted-foreground/30"
-              />
-            </TableHead>
-            <TableHead className="text-[10px] font-bold uppercase tracking-wider h-10 text-muted-foreground">Name</TableHead>
-            <TableHead className="text-[10px] font-bold uppercase tracking-wider h-10 text-muted-foreground">Date</TableHead>
-            <TableHead className="text-[10px] font-bold uppercase tracking-wider h-10 text-muted-foreground">Status</TableHead>
-            <TableHead className="text-[10px] font-bold uppercase tracking-wider h-10 text-muted-foreground hidden sm:table-cell">Location</TableHead>
-            {!isDashboardView && <TableHead className="text-right text-[10px] font-bold uppercase tracking-wider h-10 text-muted-foreground">Actions</TableHead>}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {currentItems.map((reg) => (
-            <TableRow 
-              key={reg.id} 
-              className={cn(
-                "hover:bg-muted/30 transition-colors border-border h-16 group",
-                selectedIds.has(reg.id) && "bg-primary/5 hover:bg-primary/10"
-              )}
-            >
-              <TableCell className="pl-6">
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader className={isDashboardView ? "bg-muted/30" : "bg-muted/50"}>
+            <TableRow className="hover:bg-transparent border-border">
+              <TableHead className="w-12 pl-6">
                 <Checkbox 
-                  checked={selectedIds.has(reg.id)} 
-                  onCheckedChange={() => toggleSelectRow(reg.id)}
+                  checked={allOnPageSelected} 
+                  onCheckedChange={toggleSelectAll}
                   className="border-muted-foreground/30"
                 />
-              </TableCell>
-              <TableCell className="py-4 font-medium text-foreground text-sm">
-                {reg.applicantName}
-              </TableCell>
-              <TableCell className="py-4 text-muted-foreground text-sm">
-                {format(new Date(reg.submissionDate), 'MMM dd, yyyy')}
-              </TableCell>
-              <TableCell className="py-4">
-                <StatusBadge status={reg.status} className="scale-90 origin-left" />
-              </TableCell>
-              <TableCell className="py-4 text-muted-foreground text-sm hidden sm:table-cell">
-                {reg.location}
-              </TableCell>
-              {!isDashboardView && (
-                <TableCell className="text-right py-4 pr-6">
-                  <div className="flex items-center justify-end gap-2 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                    <AiSuggestionModal registration={reg} />
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-muted rounded-full">
-                          <span className="sr-only">Open menu</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48 bg-popover border-border p-1 rounded-xl shadow-xl">
-                        <DropdownMenuLabel className="text-[10px] font-black uppercase text-muted-foreground px-2 py-1.5">Protocols</DropdownMenuLabel>
-                        <DropdownMenuSeparator className="bg-border" />
-                        <DropdownMenuItem className="flex items-center text-xs font-bold rounded-lg cursor-pointer text-foreground hover:bg-muted">
-                          <ExternalLink className="mr-2 h-3.5 w-3.5" /> View Record
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="text-xs font-bold rounded-lg cursor-pointer text-foreground hover:bg-muted">Verify Status</DropdownMenuItem>
-                        <DropdownMenuSeparator className="bg-border" />
-                        <DropdownMenuItem className="text-xs font-bold text-destructive hover:text-destructive focus:text-destructive focus:bg-destructive/5 rounded-lg cursor-pointer">
-                          <Trash2 className="mr-2 h-3.5 w-3.5" /> Purge Entry
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </TableCell>
-              )}
+              </TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-wider h-10 text-muted-foreground">Name</TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-wider h-10 text-muted-foreground">Date</TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-wider h-10 text-muted-foreground">Status</TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-wider h-10 text-muted-foreground hidden sm:table-cell">Location</TableHead>
+              {!isDashboardView && <TableHead className="text-right text-[10px] font-bold uppercase tracking-wider h-10 text-muted-foreground">Actions</TableHead>}
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {currentItems.map((reg) => (
+              <TableRow 
+                key={reg.id} 
+                className={cn(
+                  "hover:bg-muted/30 transition-colors border-border h-16 group",
+                  selectedIds.has(reg.id) && "bg-primary/5 hover:bg-primary/10"
+                )}
+              >
+                <TableCell className="pl-6">
+                  <Checkbox 
+                    checked={selectedIds.has(reg.id)} 
+                    onCheckedChange={() => toggleSelectRow(reg.id)}
+                    className="border-muted-foreground/30"
+                  />
+                </TableCell>
+                <TableCell className="py-4 font-medium text-foreground text-sm">
+                  {reg.applicantName}
+                </TableCell>
+                <TableCell className="py-4 text-muted-foreground text-sm">
+                  {format(new Date(reg.submissionDate), 'MMM dd, yyyy')}
+                </TableCell>
+                <TableCell className="py-4">
+                  <StatusBadge status={reg.status} className="scale-90 origin-left" />
+                </TableCell>
+                <TableCell className="py-4 text-muted-foreground text-sm hidden sm:table-cell">
+                  {reg.location}
+                </TableCell>
+                {!isDashboardView && (
+                  <TableCell className="text-right py-4 pr-6">
+                    <div className="flex items-center justify-end gap-2 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                      <AiSuggestionModal registration={reg} />
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-muted rounded-full">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48 bg-popover border-border p-1 rounded-xl shadow-xl">
+                          <DropdownMenuLabel className="text-[10px] font-black uppercase text-muted-foreground px-2 py-1.5">Protocols</DropdownMenuLabel>
+                          <DropdownMenuSeparator className="bg-border" />
+                          <DropdownMenuItem className="flex items-center text-xs font-bold rounded-lg cursor-pointer text-foreground hover:bg-muted">
+                            <ExternalLink className="mr-2 h-3.5 w-3.5" /> View Record
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-xs font-bold rounded-lg cursor-pointer text-foreground hover:bg-muted">Verify Status</DropdownMenuItem>
+                          <DropdownMenuSeparator className="bg-border" />
+                          <DropdownMenuItem className="text-xs font-bold text-destructive hover:text-destructive focus:text-destructive focus:bg-destructive/5 rounded-lg cursor-pointer">
+                            <Trash2 className="mr-2 h-3.5 w-3.5" /> Purge Entry
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </TableCell>
+                )}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
       
       {totalPages > 1 && (
         <div className="flex items-center justify-between px-4 py-3 border-t bg-muted/10">

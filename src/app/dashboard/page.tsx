@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
@@ -57,6 +56,7 @@ export default function OfficerDashboard() {
   const [isTogglingDuty, setIsTogglingDuty] = useState(false);
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -204,7 +204,9 @@ export default function OfficerDashboard() {
   };
 
   const handleExportExcel = () => {
-    if (filteredRegistrations.length === 0) return;
+    if (filteredRegistrations.length === 0 || !user || !profile) return;
+    setIsExporting(true);
+
     const exportData = filteredRegistrations.map(r => ({
       'ID': r.id,
       'Applicant': r.applicantName,
@@ -212,26 +214,52 @@ export default function OfficerDashboard() {
       'Status': r.status,
       'Location': r.location
     }));
+
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "ActiveWorklist");
     XLSX.writeFile(wb, `Bureau_Worklist_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+
+    logAuditAction(
+      db, 
+      user, 
+      profile.fullName, 
+      'PERFORMANCE_REVIEW', 
+      'officer_dashboard', 
+      `Dashboard: Generated XLSX worklist snapshot for ${filteredRegistrations.length} records.`
+    );
+
     toast({ title: "Excel Snapshot Generated", description: "Current worklist exported to spreadsheet." });
+    setTimeout(() => setIsExporting(false), 800);
   };
 
   const handleExportPDF = () => {
-    if (filteredRegistrations.length === 0) return;
+    if (filteredRegistrations.length === 0 || !user || !profile) return;
+    setIsExporting(true);
+
     const doc = new jsPDF();
-    doc.text(`Worklist Snapshot: ${profile?.fullName || 'Official'}`, 14, 15);
+    doc.text(`Worklist Snapshot: ${profile.fullName}`, 14, 15);
     const rows = filteredRegistrations.map(r => [r.id.substring(0, 15), r.applicantName, format(new Date(r.submissionDate), 'MMM dd'), r.status]);
     autoTable(doc, {
       startY: 25,
       head: [['RID', 'Applicant', 'Date', 'Status']],
       body: rows,
-      theme: 'striped'
+      theme: 'striped',
+      headStyles: { fillColor: [15, 23, 42] }
     });
     doc.save(`Bureau_Worklist_${format(new Date(), 'yyyyMMdd')}.pdf`);
+
+    logAuditAction(
+      db, 
+      user, 
+      profile.fullName, 
+      'PERFORMANCE_REVIEW', 
+      'officer_dashboard', 
+      `Dashboard: Generated PDF worklist archive for ${filteredRegistrations.length} records.`
+    );
+
     toast({ title: "PDF Snapshot Generated", description: "Official documentation saved." });
+    setTimeout(() => setIsExporting(false), 800);
   };
 
   if (isRegLoading || isReportsLoading || isAnnLoading) {
@@ -403,11 +431,11 @@ export default function OfficerDashboard() {
                     className="h-9 pl-9 bg-card border-border text-[11px] font-bold rounded-xl"
                   />
                 </div>
-                <Button onClick={handleExportExcel} variant="outline" size="icon" className="h-9 w-9 border-border bg-card text-emerald-500 hover:bg-emerald-500/10 rounded-xl">
-                  <FileSpreadsheet className="h-4 w-4" />
+                <Button onClick={handleExportExcel} disabled={isExporting} variant="outline" size="icon" className="h-9 w-9 border-border bg-card text-emerald-500 hover:bg-emerald-500/10 rounded-xl">
+                  {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
                 </Button>
-                <Button onClick={handleExportPDF} variant="outline" size="icon" className="h-9 w-9 border-border bg-card text-rose-500 hover:bg-rose-500/10 rounded-xl">
-                  <FileTextIcon className="h-4 w-4" />
+                <Button onClick={handleExportPDF} disabled={isExporting} variant="outline" size="icon" className="h-9 w-9 border-border bg-card text-rose-500 hover:bg-rose-500/10 rounded-xl">
+                  {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileTextIcon className="h-4 w-4" />}
                 </Button>
               </div>
             </div>
