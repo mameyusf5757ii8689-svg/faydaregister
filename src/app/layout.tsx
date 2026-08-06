@@ -6,7 +6,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { ThemeProvider } from '@/components/theme-provider';
 
-const INSTITUTIONAL_ICON = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTugjfsz28uDcBV-pnuVXR7u1V2SRYcsRi_4utrHovmQg&s";
+const INSTITUTIONAL_ICON = "https://services.eaes.et/NID-Logos/Fayda%20For%20Ethiopia%20logo-%20english-2-01.png";
 
 export const metadata: Metadata = {
   title: 'FaydaTrack | Professional Registration Tracking',
