@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -86,7 +85,7 @@ export default function PrintingPage() {
     return query(
       collection(db, 'registrations'),
       where('assignedReviewerId', '==', user.uid),
-      limit(2000)
+      limit(10000)
     );
   }, [db, user]);
 
@@ -317,10 +316,10 @@ export default function PrintingPage() {
         <div className="flex flex-col sm:flex-row items-center gap-4 bg-card p-2.5 rounded-2xl border shadow-sm">
           <div className="flex items-center gap-2 px-3 border-r border-border h-10">
             <Button onClick={handleExportExcel} disabled={isExporting} variant="outline" className="h-8 px-3 border-emerald-500/20 text-emerald-600 hover:bg-emerald-500/5 font-bold text-[9px] uppercase tracking-widest rounded-lg">
-               {isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="mr-1 h-3.5 w-3.5" />} XLS
+               {isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5" />} XLS
             </Button>
             <Button onClick={handleExportPDF} disabled={isExporting} variant="outline" className="h-8 px-3 border-rose-500/20 text-rose-600 hover:bg-rose-500/5 font-bold text-[9px] uppercase tracking-widest rounded-lg">
-               {isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="mr-1 h-3.5 w-3.5" />} PDF
+               {isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />} PDF
             </Button>
           </div>
           <div className="flex items-center gap-3 px-2">

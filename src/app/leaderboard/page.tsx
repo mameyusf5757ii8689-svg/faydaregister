@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -55,12 +54,12 @@ export default function LeaderboardPage() {
 
   const reportsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, 'daily_reports'), limit(2000));
+    return query(collection(db, 'daily_reports'), limit(10000));
   }, [db, user]);
 
   const usersQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, 'users'), limit(500));
+    return query(collection(db, 'users'), limit(10000));
   }, [db, user]);
 
   const { data: reports, isLoading: isReportsLoading } = useCollection<DailyReport>(reportsQuery);
@@ -203,7 +202,7 @@ export default function LeaderboardPage() {
              <RotateCw className="mr-2 h-4 w-4" /> Sync
           </Button>
           <div className="flex items-center gap-2 w-full sm:w-auto">
-            <Button onClick={handleExportExcel} disabled={isExporting} variant="outline" className="flex-1 sm:flex-none h-11 px-4 rounded-xl border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/10 font-bold text-[10px] uppercase tracking-widest bg-background">
+            <Button onClick={handleExportExcel} disabled={isExporting} variant="outline" className="flex-1 sm:flex-none h-11 px-4 rounded-xl border-emerald-500/20 text-emerald-600 hover:bg-emerald-500/10 font-bold text-[10px] uppercase tracking-widest bg-background">
               <FileSpreadsheet className="h-4 w-4" />
             </Button>
             <Button onClick={handleExportPDF} disabled={isExporting} variant="outline" className="flex-1 sm:flex-none h-11 px-4 rounded-xl border-rose-500/20 text-rose-500 hover:bg-rose-500/10 font-bold text-[10px] uppercase tracking-widest bg-background">
@@ -333,7 +332,7 @@ export default function LeaderboardPage() {
                   <TableCell colSpan={6} className="h-80 text-center">
                     <div className="flex flex-col items-center justify-center gap-4 opacity-20">
                       <Zap className="h-16 w-16 text-muted-foreground" />
-                      <p className="text-sm font-black uppercase tracking-[0.3em] text-muted-foreground">Terminal Scan Complete: Zero Activity Signals</p>
+                      <p className="text-sm font-black uppercase tracking-[0.2em] text-muted-foreground">Terminal Scan Complete: Zero Activity Signals</p>
                     </div>
                   </TableCell>
                 </TableRow>

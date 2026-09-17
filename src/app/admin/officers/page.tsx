@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useMemo, useState, useEffect } from 'react';
@@ -103,7 +102,7 @@ export default function OfficerManagementPage() {
 
   const usersQuery = useMemoFirebase(() => {
     if (!db || !currentUser) return null;
-    return query(collection(db, 'users'), limit(500));
+    return query(collection(db, 'users'), limit(10000));
   }, [db, currentUser]);
 
   const { data: allOfficers, isLoading } = useCollection<UserProfile>(usersQuery);

@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useMemo, useEffect } from 'react';
@@ -81,7 +80,7 @@ export default function ReportsPage() {
     return query(
       collection(db, 'registrations'), 
       where('assignedReviewerId', '==', user.uid),
-      limit(1000)
+      limit(10000)
     );
   }, [db, user]);
 

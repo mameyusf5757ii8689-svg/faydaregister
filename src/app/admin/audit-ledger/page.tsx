@@ -87,7 +87,7 @@ export default function AuditLedgerPage() {
 
   const auditQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, 'audit_logs'), orderBy('timestamp', 'desc'), limit(1000));
+    return query(collection(db, 'audit_logs'), orderBy('timestamp', 'desc'), limit(10000));
   }, [db, user]);
 
   const { data: logs, isLoading } = useCollection<AuditLog>(auditQuery);
@@ -556,4 +556,3 @@ export default function AuditLedgerPage() {
     </div>
   );
 }
-

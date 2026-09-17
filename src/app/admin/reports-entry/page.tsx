@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -78,14 +77,14 @@ export default function AdminReportsEntryPage() {
 
   const officersQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, 'users'), limit(500));
+    return query(collection(db, 'users'), limit(10000));
   }, [db, user]);
   const { data: officers, isLoading: isOfficersLoading } = useCollection<UserProfile>(officersQuery);
 
   // Load existing reports to check for duplicates and context
   const reportsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, 'daily_reports'), orderBy('date', 'desc'), limit(1000));
+    return query(collection(db, 'daily_reports'), orderBy('date', 'desc'), limit(10000));
   }, [db, user]);
   const { data: existingReports } = useCollection<DailyReport>(reportsQuery);
 

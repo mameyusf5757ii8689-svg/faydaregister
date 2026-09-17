@@ -118,7 +118,7 @@ export default function CommunicationPage() {
 
   const usersQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, 'users'), limit(500));
+    return query(collection(db, 'users'), limit(10000));
   }, [db, user]);
 
   const { data: allUsers } = useCollection<UserProfile>(usersQuery);
@@ -144,7 +144,7 @@ export default function CommunicationPage() {
     return query(
       collection(db, 'messages'),
       where('conversationId', '==', activeConvId),
-      limit(200)
+      limit(10000)
     );
   }, [db, activeConvId, user]);
 

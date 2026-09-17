@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
@@ -61,17 +60,17 @@ export default function AdminDashboard() {
 
   const registrationsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, 'registrations'), limit(1000));
+    return query(collection(db, 'registrations'), limit(10000));
   }, [db, user]);
 
   const reportsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, 'daily_reports'), limit(1000));
+    return query(collection(db, 'daily_reports'), limit(10000));
   }, [db, user]);
 
   const usersQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, 'users'), limit(500));
+    return query(collection(db, 'users'), limit(10000));
   }, [db, user]);
 
   const auditQuery = useMemoFirebase(() => {

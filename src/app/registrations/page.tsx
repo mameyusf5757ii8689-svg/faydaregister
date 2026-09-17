@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemoFirebase, useCollection, useUser, useFirestore } from '@/firebase';
@@ -18,7 +17,7 @@ export default function RegistrationsManagementPage() {
     return query(
       collection(db, 'registrations'), 
       where('assignedReviewerId', '==', user.uid),
-      limit(500)
+      limit(10000)
     );
   }, [db, user]);
 
