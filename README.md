@@ -1,61 +1,66 @@
 
-# FaydaTrack Bureau Terminal
+# 🏛️ FaydaTrack Bureau Terminal: Master Blueprint (Web & Android Sync)
 
-A high-fidelity institutional terminal for official bureau registration tracking, real-time coordination, and forensic operational triage. Engineered for absolute accuracy, strict data isolation, and massive scale.
+This document serves as the absolute "Source of Truth" for the FaydaTrack Bureau Terminal. Use this blueprint when building the native Android application (Java/Kotlin) to ensure 100% logic and visual parity with the web terminal.
 
-## 🏛️ Master Terminal Definition (APK Sync Blueprint)
+## 🚀 Native Android Development Prompt (Java/Kotlin)
 
-Use this definition when building the Android/iOS version to ensure 100% synchronization with the web backend.
+"Build a native Android application for FaydaTrack that mirrors the existing Next.js web terminal. The app must use the official Firebase Android SDK for Authentication and Firestore. 
 
-### 1. Tech Stack Signature
-- **Frontend Framework**: Next.js 15 (App Router) / React 19.
-- **Backend Architecture**: Firebase (Authentication, Firestore, Security Rules).
-- **Styling Engine**: Tailwind CSS.
-- **UI Design System**: Onyx & Lime (Onyx surfaces, `#C6F04F` interactive accents).
-- **Geometric Protocol**: Mandatory `rounded-[2rem]` (32px) curvature on all primary containers.
+### 🎨 Visual Identity (Onyx & Lime)
+- **Design System**: Onyx Black primary surfaces with Lime Green (`#C6F04F`) interactive accents.
+- **Geometric Signature**: Mandatory `32dp` (2rem) corner radius for all containers, cards, and input fields.
+- **Typography**: Institutional style. Use heavy weights and wide letter spacing for all "High-Command" labels.
+- **Layout**: Sidebar navigation for tablets/landscape; Floating bottom-navigation pill for mobile portrait.
 
-### 2. Core Database Architecture (Firestore)
-- `/users/{userId}`: Profiles with role-based access (Admin/Reviewer) and Duty Status.
-- `/registrations/{regId}`: Strict isolation records. **Requirement**: All queries must filter by `assignedReviewerId == currentUser.uid`.
-- `/audit_logs/{logId}`: Immutable signatures of all critical operations (purgings, status updates, exports).
-- `/daily_reports/{reportId}`: Aggregate metrics for bureau-wide performance analytics.
-- `/conversations/` & `/messages/`: Encrypted team coordination channels.
+### 🛡️ Mandatory Logic & Security
+1. **Strict Data Isolation**: Every Firestore query for the `registrations` collection MUST include the owner filter: `.whereEqualTo("assignedReviewerId", currentUserId)`. Failure to include this will result in a permission denial.
+2. **High-Scale Performance**: Synchronize all registry lookups to a **10,000-record threshold**. Use pagination to allow smooth browsing through up to 1,000 pages of data.
+3. **Forensic Auditing**: Every critical operation (status update, record deletion, personnel change) must trigger a write to the `audit_logs` collection containing the acting officer's signature and a narrative payload.
 
-### 3. Operational Protocols
-- **Strict Data Isolation**: No officer can view a registration record not assigned to their unique ID. This is enforced via `firestore.rules`.
-- **High-Scale Capacity**: Every registry and ledger query is synchronized to a **10,000-record threshold** to eliminate the "Page 50 wall."
-- **Permission Sync**: Every database request must explicitly include the owner filter to prevent "Missing or insufficient permissions" errors.
-
-### 4. Key Functionalities
-- **Command Dashboard**: Real-time stats matrix, registration velocity charts (Recharts), and active duty coordination.
-- **Verification Terminal**: Integrated government status portal via secure iframe synchronization (`https://resident.fayda.et/status?rid={ID}`).
-- **Printing Production**: Queue management for marking processed IDs as physically issued.
-- **Forensic Audit**: Searchable ledger of every institutional action signed by the acting official.
-- **Intelligence Feed**: Centralized notifications for broadcasts, personal alerts, and tactical pings.
-
-### 5. Mobile Hardening (APK Readiness)
-- **Zero-Bleed Architecture**: Fixed navigation bars optimized for touch targets (min 44px).
-- **Offline Protocol**: Firestore persistence enabled to allow field entry during network latency.
-- **Responsive Layout**: Sidebar navigation for desktop/tablet; Bottom-pill navigation for mobile.
+### 🧩 Core Feature Set
+- **Identity Gateway**: Firebase Email/Password authentication.
+- **Command Dashboard**: A 3-tier view featuring high-intensity stats, registration velocity charts (MPAndroidChart), and a real-time 'Active Duty' status toggle.
+- **Verification Terminal**: A dual-pane interface. One side for local registry browsing; the other for an integrated `WebView` loading `https://resident.fayda.et/status?rid={ID}`.
+- **Tactical Comms**: Real-time Firestore-based chat channels and a system-wide announcement intelligence feed.
+- **Production Hub**: A dedicated printing queue to mark 'Processed' records as 'Physically Issued'.
 
 ---
 
-## 🚀 Deployment & Update Roadmap
+## 📂 Core Database Architecture (Firestore)
 
-### 📦 Synchronize for Mobile (Capacitor)
-To wrap this web terminal into a native Android APK:
-1. `npx cap init`
-2. `npx cap add android`
-3. `npm run build && npx cap sync`
+### /users/{userId} (UserProfile)
+- `fullName`: String
+- `role`: "admin" | "reviewer"
+- `isDutyActive`: Boolean
+- `region`: String
+- `cluster`: String
+- `updatedAt`: ISO8601 String
 
-### 🛡️ Cloud Environment
-Ensure the following variables are active in your deployment environment:
-| Variable | Purpose |
-| :--- | :--- |
-| `GOOGLE_GENAI_API_KEY` | Powers AI Status Suggestions. |
-| `NEXT_PUBLIC_FIREBASE_API_KEY` | Firebase Web API Key. |
-| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | Firebase Project ID. |
-| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | Firebase Auth Domain. |
+### /registrations/{regId} (Registration)
+- `applicantName`: String
+- `status`: "Processed" | "Pending Review" | "Rejected" | "Processing" | "Failed"
+- `assignedReviewerId`: String (Mandatory query filter)
+- `isPrinted`: Boolean
+- `submissionDate`: ISO8601 String
+
+### /audit_logs/{logId} (Immutable Forensic Record)
+- `officerId`: String
+- `officerName`: String
+- `action`: String (e.g., "STATUS_UPDATE")
+- `targetId`: String
+- `details`: String
+- `timestamp`: ServerTimestamp
+
+---
+
+## 🛠️ Synchronization Protocol
+
+To maintain 100% parity between the Web Terminal and Android APK:
+1. **Firebase Project**: Both apps MUST use the same Firebase Project ID and Configuration.
+2. **Security Rules**: Enforce ownership at the database level (`firestore.rules`) using `request.auth.uid`.
+3. **Offline Resilience**: Enable Firestore Persistence in the Android app to ensure field officers can log data during network latency.
+4. **API Key Management**: Ensure `GOOGLE_GENAI_API_KEY` is present in the Android local properties for AI-assisted features.
 
 ---
 © 2026 FaydaTrack Operations Group. Restricted Access. Authorized Personnel Only.
