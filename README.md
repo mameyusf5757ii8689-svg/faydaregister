@@ -1,51 +1,60 @@
 
 # FaydaTrack Bureau Terminal
 
-A professional Next.js 15 application for official bureau registration tracking, real-time coordination, and AI-assisted operational triage. Engineered for absolute accuracy and institutional accountability.
+A high-fidelity institutional terminal for official bureau registration tracking, real-time coordination, and forensic operational triage. Engineered for absolute accuracy, strict data isolation, and massive scale.
 
-## 🌟 Key Capabilities
+## 🏛️ Master Terminal Definition (APK Sync Blueprint)
 
-- **Strict Data Isolation**: All operational terminals (Status, Performance, Registry) are strictly isolated to the signed-in user's assigned records or global administrative visibility.
-- **Forensic Audit Ledger**: 100% of critical actions—including manual syncs, bulk triage, mass purges, and PDF/XLS document generation—are signed into an immutable forensic vault.
-- **Unified Registration Terminal**: Aggregates historical archives and live operational data since July 2025 into a single "Grand Aggregate" hub with real-time recalculation logic.
-- **Mobile Hardening (Zero-Bleed)**: High-density registry grids are optimized for 100% responsiveness on field mobile devices using secure horizontal overflow protocols.
-- **Verification Portal**: Synchronized status check terminal with direct RID insertion and real-time registry lookup. Displays internal status next to portal data for discrepancy detection.
-- **Intelligence Feed**: A paginated, audit-logged operational log aggregating personal alerts, encrypted coordination pings, and high-command broadcasts.
-- **Performance Intelligence**: Integrated Recharts-powered trend analysis, MoM (Month-over-Month) growth metrics, and radial accuracy tracking.
+Use this definition when building the Android/iOS version to ensure 100% synchronization with the web backend.
+
+### 1. Tech Stack Signature
+- **Frontend Framework**: Next.js 15 (App Router) / React 19.
+- **Backend Architecture**: Firebase (Authentication, Firestore, Security Rules).
+- **Styling Engine**: Tailwind CSS.
+- **UI Design System**: Onyx & Lime (Onyx surfaces, `#C6F04F` interactive accents).
+- **Geometric Protocol**: Mandatory `rounded-[2rem]` (32px) curvature on all primary containers.
+
+### 2. Core Database Architecture (Firestore)
+- `/users/{userId}`: Profiles with role-based access (Admin/Reviewer) and Duty Status.
+- `/registrations/{regId}`: Strict isolation records. **Requirement**: All queries must filter by `assignedReviewerId == currentUser.uid`.
+- `/audit_logs/{logId}`: Immutable signatures of all critical operations (purgings, status updates, exports).
+- `/daily_reports/{reportId}`: Aggregate metrics for bureau-wide performance analytics.
+- `/conversations/` & `/messages/`: Encrypted team coordination channels.
+
+### 3. Operational Protocols
+- **Strict Data Isolation**: No officer can view a registration record not assigned to their unique ID. This is enforced via `firestore.rules`.
+- **High-Scale Capacity**: Every registry and ledger query is synchronized to a **10,000-record threshold** to eliminate the "Page 50 wall."
+- **Permission Sync**: Every database request must explicitly include the owner filter to prevent "Missing or insufficient permissions" errors.
+
+### 4. Key Functionalities
+- **Command Dashboard**: Real-time stats matrix, registration velocity charts (Recharts), and active duty coordination.
+- **Verification Terminal**: Integrated government status portal via secure iframe synchronization (`https://resident.fayda.et/status?rid={ID}`).
+- **Printing Production**: Queue management for marking processed IDs as physically issued.
+- **Forensic Audit**: Searchable ledger of every institutional action signed by the acting official.
+- **Intelligence Feed**: Centralized notifications for broadcasts, personal alerts, and tactical pings.
+
+### 5. Mobile Hardening (APK Readiness)
+- **Zero-Bleed Architecture**: Fixed navigation bars optimized for touch targets (min 44px).
+- **Offline Protocol**: Firestore persistence enabled to allow field entry during network latency.
+- **Responsive Layout**: Sidebar navigation for desktop/tablet; Bottom-pill navigation for mobile.
+
+---
 
 ## 🚀 Deployment & Update Roadmap
 
-### 1. Synchronize Changes with GitHub
-Run these commands to commit the latest high-fidelity updates:
+### 📦 Synchronize for Mobile (Capacitor)
+To wrap this web terminal into a native Android APK:
+1. `npx cap init`
+2. `npx cap add android`
+3. `npm run build && npx cap sync`
 
-```bash
-# Stage all changes
-git add .
-
-# Commit with a professional summary
-git commit -m "Operational Update: Attained 100% Maturity with Forensic Audit Protocols and Mobile Hardening"
-
-# Push to your main branch
-git push origin main
-```
-
-### 2. Troubleshooting "Authentication Failed"
-GitHub no longer accepts account passwords for command-line authentication. You MUST use a **Personal Access Token (PAT)**:
-
-1. **Generate a PAT**: Go to GitHub > Settings > Developer Settings > Personal Access Tokens (classic).
-2. **Select Permissions**: Create a token with `repo` scope enabled.
-3. **Push Again**: Run `git push origin main`.
-4. **Password Prompt**: When prompted for your password, **paste the Token** you generated.
-
-### 3. Configure Cloud Environment
+### 🛡️ Cloud Environment
 Ensure the following variables are active in your deployment environment:
-
 | Variable | Purpose |
 | :--- | :--- |
 | `GOOGLE_GENAI_API_KEY` | Powers AI Status Suggestions. |
 | `NEXT_PUBLIC_FIREBASE_API_KEY` | Firebase Web API Key. |
 | `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | Firebase Project ID. |
-| `NEXT_PUBLIC_FIREBASE_APP_ID` | Firebase App ID. |
 | `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | Firebase Auth Domain. |
 
 ---
