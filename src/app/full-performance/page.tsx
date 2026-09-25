@@ -3,8 +3,8 @@
 
 import { useMemo, useState, useEffect } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, query, where, limit, doc, orderBy } from 'firebase/firestore';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { collection, query, where, limit, doc } from 'firebase/firestore';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
   Activity, 
   TrendingUp, 
@@ -14,16 +14,17 @@ import {
   AlertCircle, 
   Loader2, 
   Calendar,
-  BarChart3,
   Zap,
   ShieldCheck,
   Target,
   ArrowUpRight,
   History,
-  PieChart as PieChartIcon
+  PieChart as PieChartIcon,
+  BarChart3,
+  LineChart
 } from 'lucide-react';
 import { Registration, DailyReport, UserProfile } from '@/lib/types';
-import { format, subDays, startOfMonth, startOfYear, eachMonthOfInterval, subMonths, subYears, eachDayOfInterval } from 'date-fns';
+import { format, subDays, eachMonthOfInterval, subMonths, eachDayOfInterval } from 'date-fns';
 import { 
   AreaChart, 
   Area, 
@@ -35,17 +36,19 @@ import {
   PieChart,
   Pie,
   Cell,
-  BarChart,
-  Bar
+  RadialBarChart,
+  RadialBar,
+  PolarAngleAxis
 } from 'recharts';
 import { cn } from '@/lib/utils';
 
+// Requested Status Color Protocol
 const COLORS = {
-  processed: 'hsl(var(--primary))',
-  processing: '#3b82f6',
-  rejected: '#ef4444',
-  failed: '#64748b',
-  pending: '#f59e0b'
+  processed: '#10b981', // Green
+  processing: '#f59e0b', // Yellow
+  rejected: '#ef4444',  // Red
+  failed: '#64748b',    // Grey
+  pending: '#f59e0b'    // Yellow (Mapped to Processing)
 };
 
 export default function FullPerformancePage() {
@@ -65,14 +68,13 @@ export default function FullPerformancePage() {
 
   const isAdmin = profile?.role === 'admin';
 
-  // Registrations Query (Isolated if not admin)
+  // Registrations Query (Strict Isolation if not admin)
   const regsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     if (isAdmin) return query(collection(db, 'registrations'), limit(10000));
     return query(collection(db, 'registrations'), where('assignedReviewerId', '==', user.uid), limit(10000));
   }, [db, user, isAdmin]);
 
-  // Daily Reports Query
   const reportsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     if (isAdmin) return query(collection(db, 'daily_reports'), limit(10000));
@@ -90,28 +92,23 @@ export default function FullPerformancePage() {
 
     const counts = {
       processed: registrations.filter(r => r.status === 'Processed').length,
-      processing: registrations.filter(r => r.status === 'Processing').length,
+      processing: registrations.filter(r => r.status === 'Processing' || r.status === 'Pending Review').length,
       rejected: registrations.filter(r => r.status === 'Rejected').length,
       failed: registrations.filter(r => r.status === 'Failed').length,
-      pending: registrations.filter(r => r.status === 'Pending Review').length,
     };
 
-    const rates = {
-      success: ((counts.processed / total) * 100).toFixed(1),
-      triage: (((counts.processing + counts.pending) / total) * 100).toFixed(1),
-      rejection: ((counts.rejected / total) * 100).toFixed(1),
-      failure: ((counts.failed / total) * 100).toFixed(1),
-    };
+    const successRate = Number(((counts.processed / total) * 100).toFixed(1));
 
     const pieData = [
       { name: 'Processed', value: counts.processed, color: COLORS.processed },
-      { name: 'Processing', value: counts.processing, color: COLORS.processing },
+      { name: 'Active', value: counts.processing, color: COLORS.processing },
       { name: 'Rejected', value: counts.rejected, color: COLORS.rejected },
       { name: 'Failed', value: counts.failed, color: COLORS.failed },
-      { name: 'Pending', value: counts.pending, color: COLORS.pending },
     ];
 
-    return { total, counts, rates, pieData };
+    const radialData = [{ name: 'Success', value: successRate, fill: COLORS.processed }];
+
+    return { total, counts, successRate, pieData, radialData };
   }, [registrations, mounted]);
 
   const trends = useMemo(() => {
@@ -119,25 +116,22 @@ export default function FullPerformancePage() {
 
     const now = new Date();
 
-    // 1. Daily Rate (Last 30 Days)
-    const last30Days = eachDayOfInterval({ start: subDays(now, 29), end: now });
-    const dailyTrend = last30Days.map(date => {
+    // Daily Velocity (30 Days)
+    const dailyTrend = eachDayOfInterval({ start: subDays(now, 29), end: now }).map(date => {
       const dateStr = format(date, 'yyyy-MM-dd');
       const dayTotal = reports.filter(r => r.date === dateStr).reduce((acc, curr) => acc + (curr.total || 0), 0);
       return { label: format(date, 'MMM dd'), value: dayTotal };
     });
 
-    // 2. Monthly Rate (Last 12 Months)
-    const last12Months = eachMonthOfInterval({ start: subMonths(now, 11), end: now });
-    const monthlyTrend = last12Months.map(date => {
+    // Monthly Velocity (12 Months)
+    const monthlyTrend = eachMonthOfInterval({ start: subMonths(now, 11), end: now }).map(date => {
       const monthStr = format(date, 'yyyy-MM');
       const monthTotal = reports.filter(r => r.date.startsWith(monthStr)).reduce((acc, curr) => acc + (curr.total || 0), 0);
       return { label: format(date, 'MMM yy'), value: monthTotal };
     });
 
-    // 3. Yearly Rate (Last 3 Years)
-    const last3Years = [0, 1, 2].map(i => now.getFullYear() - i).reverse();
-    const yearlyTrend = last3Years.map(year => {
+    // Yearly Momentum (3 Years)
+    const yearlyTrend = [0, 1, 2].map(i => now.getFullYear() - i).reverse().map(year => {
       const yearTotal = reports.filter(r => r.date.startsWith(year.toString())).reduce((acc, curr) => acc + (curr.total || 0), 0);
       return { label: year.toString(), value: yearTotal };
     });
@@ -155,208 +149,233 @@ export default function FullPerformancePage() {
 
   return (
     <div className="space-y-10 animate-in fade-in duration-700 pb-20">
+      {/* Header Command */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Bureau Intelligence Protocol</p>
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Bureau High-Command Protocol</p>
           </div>
-          <h1 className="text-4xl font-black tracking-tight text-foreground font-headline uppercase leading-none">Full Performance</h1>
+          <h1 className="text-4xl font-black tracking-tight text-foreground font-headline uppercase leading-none">Full Intel Matrix</h1>
           <p className="text-sm text-muted-foreground max-w-lg">
-            {isAdmin ? 'Bureau-wide comprehensive analysis' : 'Your personal lifecycle throughput matrix'}
+            {isAdmin ? 'Bureau-wide lifecycle synchronization' : 'Personal throughput and quality velocity'}
           </p>
         </div>
         
         <div className="flex items-center gap-4 bg-card p-4 rounded-[2rem] border shadow-sm">
           <div className="flex items-center gap-3 px-4 border-r border-border">
-            <div className="p-2 bg-primary/10 rounded-xl"><ShieldCheck className="h-5 w-5 text-primary" /></div>
+            <div className="p-2 bg-primary/10 rounded-xl text-primary"><ShieldCheck className="h-5 w-5" /></div>
             <div className="flex flex-col">
-              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-tighter">System Status</span>
-              <span className="text-sm font-black text-foreground">Operational</span>
+              <span className="text-[9px] font-black text-muted-foreground uppercase tracking-tighter">Scope</span>
+              <span className="text-sm font-black text-foreground">{isAdmin ? 'Global' : 'Isolated'}</span>
             </div>
           </div>
           <div className="flex items-center gap-3 px-2">
-            <div className="p-2 bg-emerald-500/10 rounded-xl"><History className="h-5 w-5 text-emerald-500" /></div>
+            <div className="p-2 bg-emerald-500/10 rounded-xl text-emerald-500"><History className="h-5 w-5" /></div>
             <div className="flex flex-col">
-              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-tighter">Data Lifecycle</span>
-              <span className="text-sm font-black text-foreground">Full History</span>
+              <span className="text-[9px] font-black text-muted-foreground uppercase tracking-tighter">Retention</span>
+              <span className="text-sm font-black text-foreground">10,000 Units</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Protocol Rate Matrix */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <RateCard label="Success Rate" value={stats?.rates.success || '0'} icon={CheckCircle2} color="text-primary" bg="bg-primary/5" />
-        <RateCard label="Triage Rate" value={stats?.rates.triage || '0'} icon={Clock} color="text-blue-500" bg="bg-blue-500/5" />
-        <RateCard label="Rejection Rate" value={stats?.rates.rejection || '0'} icon={XCircle} color="text-rose-500" bg="bg-rose-500/5" />
-        <RateCard label="Failure Rate" value={stats?.rates.failure || '0'} icon={AlertCircle} color="text-slate-500" bg="bg-slate-500/5" />
-      </div>
-
+      {/* Main Analytical Grid */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
-        {/* Distribution Deep Dive */}
-        <Card className="xl:col-span-4 border border-border bg-card overflow-hidden rounded-[2rem] shadow-sm">
-          <CardHeader className="bg-muted/30 border-b border-border py-6">
-            <CardTitle className="text-sm font-black text-foreground uppercase tracking-[0.2em] flex items-center gap-2">
-              <PieChartIcon className="h-4 w-4 text-primary" /> Lifecycle Distribution
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-8 space-y-8">
-            <div className="h-[250px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={stats?.pieData || []}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={90}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {stats?.pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)' }}
-                    itemStyle={{ fontWeight: 800, fontSize: '12px', textTransform: 'uppercase' }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              {stats?.pieData.map((item) => (
-                <div key={item.name} className="flex items-center gap-2 p-3 rounded-2xl bg-muted/30 border border-border">
-                  <div className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-black text-muted-foreground uppercase">{item.name}</span>
-                    <span className="text-sm font-black text-foreground">{item.value.toLocaleString()}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Temporal Trends */}
-        <div className="xl:col-span-8 space-y-8">
-          {/* Daily Trend */}
-          <Card className="border border-border bg-card overflow-hidden rounded-[2rem] shadow-sm">
-            <CardHeader className="bg-muted/30 border-b border-border py-4 px-8 flex flex-row items-center justify-between">
-              <CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] flex items-center gap-2">
-                <Activity className="h-3.5 w-3.5 text-primary" /> Daily Registration Rate
-              </CardTitle>
-              <span className="text-[9px] font-black bg-primary/10 text-primary px-2 py-0.5 rounded-full uppercase">Last 30 Days</span>
-            </CardHeader>
-            <CardContent className="p-8">
-              <div className="h-[200px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={trends?.dailyTrend || []}>
-                    <defs>
-                      <linearGradient id="colorDaily" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.1}/>
-                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                    <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 900, fill: 'hsl(var(--muted-foreground))' }} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 900, fill: 'hsl(var(--muted-foreground))' }} />
-                    <Tooltip cursor={{ stroke: 'hsl(var(--primary))', strokeWidth: 1 }} content={({ active, payload }) => {
-                      if (active && payload && payload.length) {
-                        return (
-                          <div className="bg-card border border-border shadow-2xl p-4 rounded-2xl">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">{payload[0].payload.label}</p>
-                            <p className="text-xl font-black text-foreground">{payload[0].value} Units</p>
-                          </div>
-                        );
-                      }
-                      return null;
-                    }} />
-                    <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={3} fillOpacity={1} fill="url(#colorDaily)" />
-                  </AreaChart>
-                </ResponsiveContainer>
+        
+        {/* Success Radial Column */}
+        <div className="xl:col-span-4 space-y-8">
+           <Card className="border border-border bg-card shadow-sm rounded-[2.5rem] overflow-hidden flex flex-col items-center justify-center p-10 relative group">
+              <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-10 transition-opacity">
+                <Target className="h-40 w-40" />
               </div>
-            </CardContent>
-          </Card>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Monthly Trend */}
-            <Card className="border border-border bg-card overflow-hidden rounded-[2rem] shadow-sm">
-              <CardHeader className="bg-muted/30 border-b border-border py-4 px-6 flex flex-row items-center justify-between">
-                <CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] flex items-center gap-2">
-                  <TrendingUp className="h-3.5 w-3.5 text-primary" /> Monthly Aggregate
-                </CardTitle>
-                <span className="text-[9px] font-black bg-blue-500/10 text-blue-600 px-2 py-0.5 rounded-full uppercase">Annual View</span>
-              </CardHeader>
-              <CardContent className="p-6">
-                <div className="h-[180px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={trends?.monthlyTrend || []}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                      <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 900, fill: 'hsl(var(--muted-foreground))' }} />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 900, fill: 'hsl(var(--muted-foreground))' }} />
-                      <Tooltip cursor={{ fill: 'hsl(var(--muted))', opacity: 0.2 }} />
-                      <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} barSize={25} />
-                    </BarChart>
-                  </ResponsiveContainer>
+              
+              <div className="h-[220px] w-full relative z-10">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RadialBarChart cx="50%" cy="50%" innerRadius="70%" outerRadius="100%" barSize={20} data={stats?.radialData || []} startAngle={180} endAngle={0}>
+                    <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
+                    <RadialBar background dataKey="value" cornerRadius={30} />
+                  </RadialBarChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pt-12">
+                   <span className="text-6xl font-black text-foreground tracking-tighter">{stats?.successRate || 0}%</span>
+                   <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">Success Protocol</p>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
 
-            {/* Yearly Trend */}
-            <Card className="border border-border bg-card overflow-hidden rounded-[2rem] shadow-sm">
-              <CardHeader className="bg-muted/30 border-b border-border py-4 px-6 flex flex-row items-center justify-between">
-                <CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] flex items-center gap-2">
-                  <Calendar className="h-3.5 w-3.5 text-primary" /> Yearly Momentum
+              <div className="w-full space-y-6 pt-6 relative z-10">
+                 <div className="flex items-center justify-center gap-3">
+                   <div className="h-10 w-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 text-emerald-600 shadow-sm">
+                      <Zap className="h-5 w-5" />
+                   </div>
+                   <div className="space-y-0.5">
+                      <p className="text-xs font-black text-foreground uppercase tracking-tight">System Efficiency</p>
+                      <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Real-time Verification Accuracy</p>
+                   </div>
+                 </div>
+                 
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-muted/30 rounded-2xl border border-border text-center">
+                       <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest mb-1">Processed</p>
+                       <p className="text-xl font-black text-emerald-600 tabular-nums">{stats?.counts.processed}</p>
+                    </div>
+                    <div className="p-4 bg-muted/30 rounded-2xl border border-border text-center">
+                       <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest mb-1">Active</p>
+                       <p className="text-xl font-black text-amber-500 tabular-nums">{stats?.counts.processing}</p>
+                    </div>
+                 </div>
+              </div>
+           </Card>
+
+           <Card className="border border-border bg-card rounded-[2.5rem] p-8 shadow-sm">
+              <CardTitle className="text-xs font-black text-muted-foreground uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+                <PieChartIcon className="h-4 w-4 text-primary" /> Lifecycle Distribution
+              </CardTitle>
+              <div className="space-y-4">
+                 {stats?.pieData.map((item) => (
+                   <div key={item.name} className="flex items-center justify-between p-4 rounded-2xl border border-border hover:bg-muted/30 transition-colors">
+                      <div className="flex items-center gap-3">
+                         <div className="h-3 w-3 rounded-full shadow-sm" style={{ backgroundColor: item.color }} />
+                         <span className="text-xs font-black text-foreground uppercase tracking-tight">{item.name}</span>
+                      </div>
+                      <span className="text-sm font-black tabular-nums">{item.value.toLocaleString()}</span>
+                   </div>
+                 ))}
+              </div>
+           </Card>
+        </div>
+
+        {/* Velocity Trends Column */}
+        <div className="xl:col-span-8 space-y-8">
+           {/* Daily Trend */}
+           <Card className="border border-border bg-card shadow-sm rounded-[2.5rem] overflow-hidden group">
+              <CardHeader className="bg-muted/30 border-b border-border py-5 px-8 flex flex-row items-center justify-between">
+                <CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-primary" /> Daily Intake Velocity
                 </CardTitle>
-                <span className="text-[9px] font-black bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded-full uppercase">Lifecycle View</span>
+                <div className="px-3 py-1 bg-primary/10 rounded-full border border-primary/20 text-[8px] font-black text-primary uppercase tracking-widest">30-Day Protocol</div>
               </CardHeader>
-              <CardContent className="p-6">
-                <div className="h-[180px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={trends?.yearlyTrend || []}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                      <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 900, fill: 'hsl(var(--muted-foreground))' }} />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 900, fill: 'hsl(var(--muted-foreground))' }} />
-                      <Tooltip />
-                      <Area type="stepAfter" dataKey="value" stroke="#10b981" strokeWidth={3} fill="#10b981" fillOpacity={0.05} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
+              <CardContent className="p-8">
+                 <div className="h-[240px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                       <AreaChart data={trends?.dailyTrend || []}>
+                          <defs>
+                             <linearGradient id="colorDaily" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.1}/>
+                                <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                             </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                          <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 900, fill: 'hsl(var(--muted-foreground))' }} />
+                          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 900, fill: 'hsl(var(--muted-foreground))' }} />
+                          <Tooltip content={({ active, payload }) => {
+                            if (active && payload?.length) {
+                              return (
+                                <div className="bg-card border border-border shadow-2xl p-4 rounded-2xl">
+                                  <p className="text-[9px] font-black uppercase text-muted-foreground mb-1">{payload[0].payload.label}</p>
+                                  <p className="text-xl font-black text-foreground">{payload[0].value} Units</p>
+                                </div>
+                              );
+                            }
+                            return null;
+                          }} />
+                          <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={3} fillOpacity={1} fill="url(#colorDaily)" />
+                       </AreaChart>
+                    </ResponsiveContainer>
+                 </div>
               </CardContent>
-            </Card>
-          </div>
+           </Card>
+
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Monthly Trend */}
+              <Card className="border border-border bg-card shadow-sm rounded-[2.5rem] overflow-hidden">
+                 <CardHeader className="bg-muted/30 border-b border-border py-4 px-6">
+                    <CardTitle className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.2em] flex items-center gap-2">
+                       <BarChart3 className="h-3.5 w-3.5 text-primary" /> Monthly Aggregates
+                    </CardTitle>
+                 </CardHeader>
+                 <CardContent className="p-6">
+                    <div className="h-[180px] w-full">
+                       <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={trends?.monthlyTrend || []}>
+                             <XAxis dataKey="label" hide />
+                             <Tooltip />
+                             <Area type="step" dataKey="value" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.05} strokeWidth={2} />
+                          </AreaChart>
+                       </ResponsiveContainer>
+                    </div>
+                    <div className="mt-4 flex items-center justify-between px-2">
+                       <p className="text-[8px] font-black text-muted-foreground uppercase">12-Month Performance Span</p>
+                       <LineChart className="h-3 w-3 text-blue-500 opacity-30" />
+                    </div>
+                 </CardContent>
+              </Card>
+
+              {/* Yearly Trend */}
+              <Card className="border border-border bg-card shadow-sm rounded-[2.5rem] overflow-hidden">
+                 <CardHeader className="bg-muted/30 border-b border-border py-4 px-6">
+                    <CardTitle className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.2em] flex items-center gap-2">
+                       <Calendar className="h-3.5 w-3.5 text-primary" /> Yearly Momentum
+                    </CardTitle>
+                 </CardHeader>
+                 <CardContent className="p-6">
+                    <div className="h-[180px] w-full">
+                       <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={trends?.yearlyTrend || []}>
+                             <XAxis dataKey="label" hide />
+                             <Tooltip />
+                             <Area type="monotone" dataKey="value" stroke="#10b981" fill="#10b981" fillOpacity={0.05} strokeWidth={2} />
+                          </AreaChart>
+                       </ResponsiveContainer>
+                    </div>
+                    <div className="mt-4 flex items-center justify-between px-2">
+                       <p className="text-[8px] font-black text-muted-foreground uppercase">Bureau Lifecycle Growth</p>
+                       <TrendingUp className="h-3 w-3 text-emerald-500 opacity-30" />
+                    </div>
+                 </CardContent>
+              </Card>
+           </div>
+
+           {/* Failure Audit Quick Box */}
+           <Card className="border border-border bg-card shadow-sm rounded-[2.5rem] p-8 border-l-[6px] border-l-rose-500">
+              <div className="flex items-start justify-between">
+                 <div className="space-y-4">
+                    <div className="space-y-1">
+                       <h3 className="text-xl font-black text-foreground uppercase tracking-tight flex items-center gap-2">
+                          <AlertCircle className="h-5 w-5 text-rose-500" /> Integrity Audit
+                       </h3>
+                       <p className="text-xs text-muted-foreground font-medium">Monitoring protocol rejections and technical failures.</p>
+                    </div>
+                    
+                    <div className="flex items-center gap-8">
+                       <div className="space-y-1">
+                          <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Rejections</p>
+                          <p className="text-3xl font-black text-rose-600 tabular-nums">{stats?.counts.rejected}</p>
+                       </div>
+                       <div className="h-8 w-px bg-border" />
+                       <div className="space-y-1">
+                          <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">System Errors</p>
+                          <p className="text-3xl font-black text-slate-500 tabular-nums">{stats?.counts.failed}</p>
+                       </div>
+                    </div>
+                 </div>
+                 <Button variant="outline" className="h-10 px-6 rounded-xl font-black text-[10px] uppercase tracking-widest border-border hover:bg-rose-500 hover:text-white transition-all" asChild>
+                    <a href="/performance">Detailed Audit</a>
+                 </Button>
+              </div>
+           </Card>
         </div>
       </div>
 
+      {/* Security Disclaimer */}
       <div className="p-8 bg-primary/[0.03] border border-primary/10 rounded-[2.5rem] flex items-center gap-6">
         <div className="h-14 w-14 rounded-2xl bg-primary flex items-center justify-center shadow-xl shadow-primary/20 shrink-0">
-          <Target className="h-7 w-7 text-primary-foreground" />
+          <ShieldCheck className="h-7 w-7 text-primary-foreground" />
         </div>
         <p className="text-[11px] text-foreground font-black uppercase leading-relaxed tracking-widest max-w-5xl">
-          Authorized Intelligence Protocol: This terminal reflects calculated performance rates across your entire historical engagement lifecycle. All ratios and temporal trends are derived from finalized bureau ledgers and signed operational reports. Discrepancies are flagged for forensic audit.
+          Authorized Intelligence Protocol: This terminal calculates analytical rates across the entire operational lifecycle (since July 2025). Data isolation is strictly enforced; analysts cannot view signatures outside their authorized sector. All trend lines are derived from finalized bureau ledgers and signed operational reports.
         </p>
       </div>
     </div>
-  );
-}
-
-function RateCard({ label, value, icon: Icon, color, bg }: any) {
-  return (
-    <Card className="border border-border bg-card shadow-sm rounded-[2rem] overflow-hidden group hover:shadow-xl transition-all">
-      <CardContent className="p-8">
-        <div className="flex items-center justify-between mb-4">
-          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{label}</p>
-          <div className={cn("p-3 rounded-2xl border border-border group-hover:scale-110 transition-transform", bg, color)}>
-            <Icon className="h-5 w-5" />
-          </div>
-        </div>
-        <div className="flex items-end gap-1.5">
-          <p className="text-5xl font-black text-foreground tracking-tighter">{value}%</p>
-          <ArrowUpRight className="h-5 w-5 text-muted-foreground/30 mb-2" />
-        </div>
-      </CardContent>
-    </Card>
   );
 }
