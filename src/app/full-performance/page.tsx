@@ -26,10 +26,12 @@ import {
   Layers,
   Sparkles,
   Trophy,
-  ShieldAlert
+  ShieldAlert,
+  Award,
+  AlertTriangle
 } from 'lucide-react';
 import { Registration, DailyReport, UserProfile } from '@/lib/types';
-import { format, subDays, eachMonthOfInterval, subMonths, eachDayOfInterval, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
+import { format, subDays, eachMonthOfInterval, subMonths, eachDayOfInterval, startOfMonth, endOfMonth, isWithinInterval, isSameDay } from 'date-fns';
 import { 
   AreaChart, 
   Area, 
@@ -115,6 +117,14 @@ export default function FullPerformancePage() {
       failed: scopeRegs.filter(r => r.status === 'Failed').length,
     };
 
+    // Rejection Reasons
+    const reasons: Record<string, number> = {};
+    scopeRegs.filter(r => r.status === 'Rejected').forEach(r => {
+      const reason = r.rejectionReason || 'Unknown Discrepancy';
+      reasons[reason] = (reasons[reason] || 0) + 1;
+    });
+    const topReason = Object.entries(reasons).sort((a, b) => b[1] - a[1])[0];
+
     const prevTotal = prevRegs.length;
     const prevCounts = {
       processed: prevRegs.filter(r => r.status === 'Processed').length,
@@ -153,17 +163,33 @@ export default function FullPerformancePage() {
       { name: 'Failed', value: counts.failed, color: COLORS.failed },
     ];
 
-    return { total, counts, rates, trends, pieData };
+    return { total, counts, rates, trends, pieData, topReason: topReason ? topReason[0] : 'None' };
   }, [registrations, mounted, analysisScope]);
 
   const temporalTrends = useMemo(() => {
     if (!reports || !mounted) return null;
 
     const now = new Date();
+    const interval = analysisScope === 'current' 
+      ? { start: startOfMonth(now), end: now }
+      : { start: subMonths(now, 12), end: now };
 
-    const dailyTrend = eachDayOfInterval({ start: subDays(now, 29), end: now }).map(date => {
+    const days = analysisScope === 'current' 
+      ? eachDayOfInterval({ start: startOfMonth(now), end: now })
+      : eachDayOfInterval({ start: subDays(now, 29), end: now });
+
+    let peakCount = -1;
+    let peakDay = null;
+
+    const dailyTrend = days.map(date => {
       const dateStr = format(date, 'yyyy-MM-dd');
       const dayTotal = reports.filter(r => r.date === dateStr).reduce((acc, curr) => acc + (curr.total || 0), 0);
+      
+      if (dayTotal > peakCount) {
+        peakCount = dayTotal;
+        peakDay = date;
+      }
+
       return { label: format(date, 'MMM dd'), value: dayTotal };
     });
 
@@ -173,8 +199,13 @@ export default function FullPerformancePage() {
       return { label: format(date, 'MMM yy'), value: monthTotal };
     });
 
-    return { dailyTrend, monthlyTrend };
-  }, [reports, mounted]);
+    return { 
+      dailyTrend, 
+      monthlyTrend, 
+      peakDay: peakDay ? format(peakDay, 'MMMM dd') : 'No Data',
+      peakAmount: peakCount > -1 ? peakCount : 0
+    };
+  }, [reports, mounted, analysisScope]);
 
   if (isUserLoading || isRegsLoading || isReportsLoading) {
     return (
@@ -253,15 +284,65 @@ export default function FullPerformancePage() {
             />
           </section>
 
+          {/* Deep Intel Row */}
+          <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card className="border border-border bg-card shadow-sm rounded-[2.5rem] p-8 flex flex-col justify-between bg-primary/[0.02] group hover:shadow-xl transition-all">
+               <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 bg-primary/10 rounded-2xl text-primary"><Award className="h-6 w-6" /></div>
+                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Daily Pick (Peak)</p>
+                  </div>
+                  <h3 className="text-3xl font-black text-foreground uppercase tracking-tight">{temporalTrends?.peakDay}</h3>
+                  <p className="text-xs text-muted-foreground font-medium">Busiest operational period detected in range.</p>
+               </div>
+               <div className="mt-8 pt-6 border-t border-border flex items-center justify-between">
+                  <span className="text-4xl font-black text-primary tabular-nums">{temporalTrends?.peakAmount}</span>
+                  <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Units Handled</span>
+               </div>
+            </Card>
+
+            <Card className="border border-border bg-card shadow-sm rounded-[2.5rem] p-8 flex flex-col justify-between group hover:shadow-xl transition-all">
+               <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 bg-rose-500/10 rounded-2xl text-rose-500"><AlertTriangle className="h-6 w-6" /></div>
+                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Rejection Frequency</p>
+                  </div>
+                  <h3 className="text-2xl font-black text-foreground uppercase tracking-tight line-clamp-2">{stats.topReason}</h3>
+                  <p className="text-xs text-muted-foreground font-medium">Primary cause for registry protocol failure.</p>
+               </div>
+               <div className="mt-8 pt-6 border-t border-border flex items-center justify-between">
+                  <span className="text-4xl font-black text-rose-600 tabular-nums">{stats.counts.rejected}</span>
+                  <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Total Rejected</span>
+               </div>
+            </Card>
+
+            <Card className="border border-border bg-card shadow-sm rounded-[2.5rem] p-8 flex flex-col justify-between group hover:shadow-xl transition-all">
+               <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 bg-emerald-500/10 rounded-2xl text-emerald-500"><CheckCircle2 className="h-6 w-6" /></div>
+                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Success Volume</p>
+                  </div>
+                  <h3 className="text-3xl font-black text-foreground uppercase tracking-tight">Finalized Archives</h3>
+                  <p className="text-xs text-muted-foreground font-medium">Documents that cleared all protocol gates.</p>
+               </div>
+               <div className="mt-8 pt-6 border-t border-border flex items-center justify-between">
+                  <span className="text-4xl font-black text-emerald-600 tabular-nums">{stats.counts.processed}</span>
+                  <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Total Success</span>
+               </div>
+            </Card>
+          </section>
+
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
              {/* Velocity Trends */}
              <div className="xl:col-span-8 space-y-8">
                 <Card className="border border-border bg-card shadow-sm rounded-[2.5rem] overflow-hidden group">
                   <CardHeader className="bg-muted/30 border-b border-border py-6 px-8 flex flex-row items-center justify-between">
                     <CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] flex items-center gap-2">
-                      <Activity className="h-4 w-4 text-primary" /> Daily Intake Velocity
+                      <Activity className="h-4 w-4 text-primary" /> Inbound Velocity Trend
                     </CardTitle>
-                    <div className="px-3 py-1 bg-primary/10 rounded-full border border-primary/20 text-[8px] font-black text-primary uppercase tracking-widest">30-Day Protocol</div>
+                    <div className="px-3 py-1 bg-primary/10 rounded-full border border-primary/20 text-[8px] font-black text-primary uppercase tracking-widest">
+                      {analysisScope === 'current' ? 'Cycle Pulse' : 'Historical Analysis'}
+                    </div>
                   </CardHeader>
                   <CardContent className="p-8">
                     <div className="h-[300px] w-full">

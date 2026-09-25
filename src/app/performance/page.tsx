@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState, useEffect, Suspense } from 'react';
@@ -32,7 +31,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Activity,
-  Layers
+  Layers,
+  AlertTriangle,
+  Award
 } from 'lucide-react';
 import { Registration, UserProfile } from '@/lib/types';
 import { StatusBadge } from '@/components/dashboard/status-badge';
@@ -207,7 +208,7 @@ function PerformanceContent() {
 
     const calculateMetrics = (items: Registration[]) => {
       const total = items.length;
-      if (total === 0) return { total: 0, processed: 0, processing: 0, rejected: 0, failed: 0, successRate: 0, processingRate: 0, rejectionRate: 0, errorRate: 0 };
+      if (total === 0) return { total: 0, processed: 0, processing: 0, rejected: 0, failed: 0, successRate: 0, processingRate: 0, rejectionRate: 0, errorRate: 0, rejectionReasons: {}, peakDay: null };
       
       const processed = items.filter(r => r.status === 'Processed').length;
       const processing = items.filter(r => r.status === 'Processing' || r.status === 'Pending Review').length;
@@ -215,6 +216,15 @@ function PerformanceContent() {
       const failed = items.filter(r => r.status === 'Failed').length;
 
       const calculateRate = (count: number, t: number) => Number(((count / t) * 100).toFixed(1));
+
+      // Rejection Reason Analytics
+      const reasons: Record<string, number> = {};
+      items.filter(r => r.status === 'Rejected').forEach(r => {
+        const reason = r.rejectionReason || 'Unknown Protocol Error';
+        reasons[reason] = (reasons[reason] || 0) + 1;
+      });
+
+      const topReason = Object.entries(reasons).sort((a, b) => b[1] - a[1])[0];
 
       return {
         total,
@@ -225,7 +235,9 @@ function PerformanceContent() {
         successRate: calculateRate(processed, total),
         processingRate: calculateRate(processing, total),
         rejectionRate: calculateRate(rejected, total),
-        errorRate: calculateRate(failed, total)
+        errorRate: calculateRate(failed, total),
+        rejectionReasons: reasons,
+        topReason: topReason ? topReason[0] : 'None',
       };
     };
 
@@ -243,12 +255,23 @@ function PerformanceContent() {
     const endDate = endOfMonth(startDate);
     const daysInterval = eachDayOfInterval({ start: startDate, end: endDate });
 
+    let peakCount = -1;
+    let peakDay = null;
+
     const trendData = daysInterval.map(day => {
       const dayRegs = currItems.filter(r => isSameDay(new Date(r.submissionDate), day));
+      const count = dayRegs.length;
+      
+      if (count > peakCount) {
+        peakCount = count;
+        peakDay = day;
+      }
+
       return {
         date: format(day, 'dd MMM'),
         success: dayRegs.filter(r => r.status === 'Processed').length,
         rejected: dayRegs.filter(r => r.status === 'Rejected').length,
+        total: count
       };
     });
 
@@ -256,7 +279,9 @@ function PerformanceContent() {
       ...currMetrics, 
       trends,
       trendData, 
-      currItems
+      currItems,
+      peakDay: peakDay ? format(peakDay, 'MMMM dd') : 'No Activity',
+      peakAmount: peakCount > -1 ? peakCount : 0
     };
   }, [registrations, selectedMonth, mounted]);
 
@@ -418,6 +443,57 @@ function PerformanceContent() {
             />
           </section>
 
+          {/* New Advanced Analytics Row */}
+          <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card className="border border-border bg-card shadow-sm rounded-[2.5rem] p-8 flex flex-col justify-between group hover:shadow-xl transition-all">
+               <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 bg-amber-500/10 rounded-2xl text-amber-500"><Award className="h-6 w-6" /></div>
+                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Daily Pick (Peak)</p>
+                  </div>
+                  <h3 className="text-2xl font-black text-foreground uppercase tracking-tight">{stats.peakDay}</h3>
+                  <p className="text-xs text-muted-foreground font-medium">Highest throughput identified this month.</p>
+               </div>
+               <div className="mt-8 pt-6 border-t border-border flex items-center justify-between">
+                  <span className="text-4xl font-black text-amber-600 tabular-nums">{stats.peakAmount}</span>
+                  <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Units Handled</span>
+               </div>
+            </Card>
+
+            <Card className="border border-border bg-card shadow-sm rounded-[2.5rem] p-8 flex flex-col justify-between group hover:shadow-xl transition-all">
+               <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 bg-rose-500/10 rounded-2xl text-rose-500"><AlertTriangle className="h-6 w-6" /></div>
+                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Most Rejection Reason</p>
+                  </div>
+                  <h3 className="text-xl font-black text-foreground uppercase tracking-tight line-clamp-2">{stats.topReason}</h3>
+                  <p className="text-xs text-muted-foreground font-medium">Primary cause for protocol failure.</p>
+               </div>
+               <div className="mt-8 pt-6 border-t border-border flex items-center justify-between">
+                  <span className="text-4xl font-black text-rose-600 tabular-nums">{stats.rejected}</span>
+                  <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Total Purged</span>
+               </div>
+            </Card>
+
+            <Card className="border border-border bg-card shadow-sm rounded-[2.5rem] p-8 flex flex-col justify-between group hover:shadow-xl transition-all bg-primary/[0.02]">
+               <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 bg-primary/10 rounded-2xl text-primary"><Target className="h-6 w-6" /></div>
+                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Registry Velocity</p>
+                  </div>
+                  <h3 className="text-4xl font-black text-foreground tracking-tighter tabular-nums">{stats.total}</h3>
+                  <p className="text-xs text-muted-foreground font-medium">Consolidated period intake volume.</p>
+               </div>
+               <div className="mt-8 pt-6 border-t border-border flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 text-emerald-600 rounded-full border border-emerald-500/20">
+                    <TrendingUp className="h-3 w-3" />
+                    <span className="text-[9px] font-black uppercase tracking-tighter">Verified</span>
+                  </div>
+                  <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Final Ledger</span>
+               </div>
+            </Card>
+          </section>
+
           <Card className="border border-border bg-card overflow-hidden rounded-[32px] shadow-sm">
             <CardHeader className="bg-muted/30 border-b border-border py-4 px-6 md:px-8 flex flex-row items-center justify-between">
                 <div>
@@ -529,7 +605,7 @@ function PerformanceContent() {
               <div className="flex items-center gap-3 md:gap-4">
                 <div className="p-2 md:p-3 bg-rose-500/10 rounded-2xl"><ShieldAlert className="h-5 w-5 md:h-6 md:w-6 text-rose-500" /></div>
                 <div>
-                   <DialogTitle className="text-lg md:text-xl font-black text-foreground uppercase tracking-tight">Audit Deep-Dive</DialogTitle>
+                   <DialogTitle className="text-lg md:text-xl font-black text-foreground uppercase tracking-tighter">Audit Deep-Dive</DialogTitle>
                    <DialogDescription className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Bureau Internal Security Record</DialogDescription>
                 </div>
               </div>
