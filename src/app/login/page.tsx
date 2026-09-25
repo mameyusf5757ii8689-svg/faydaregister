@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect } from 'react';
@@ -22,7 +21,11 @@ import {
   Shield,
   Eye,
   EyeOff,
-  Activity
+  Activity,
+  Key,
+  Smartphone,
+  Copy,
+  CheckCircle2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
@@ -33,17 +36,22 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { cn } from '@/lib/utils';
+import { authenticator } from 'otplib';
+import { QRCodeSVG } from 'qrcode.react';
 
 const DEFAULT_LOGO = "https://services.eaes.et/NID-Logos/Fayda%20For%20Ethiopia%20logo-%20english-2-01.png";
 
 export default function LoginPage() {
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [mode, setMode] = useState<'login' | 'register' | 'otp' | 'otp-setup'>('login');
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
   const [password, setPassword] = useState('');
+  const [otpCode, setOtpCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [adminsExist, setAdminsExist] = useState<boolean | null>(null);
+  const [isOtpVerified, setIsOtpVerified] = useState(false);
+  const [generatedSecret, setGeneratedSecret] = useState('');
   
   const auth = useAuth();
   const db = useFirestore();
@@ -77,26 +85,82 @@ export default function LoginPage() {
       setAdminsExist(exists);
       
       if (exists) {
-        setMode('login');
+        if (mode === 'register') setMode('login');
       } else if (adminsExist === null) {
         setMode('register');
       }
     }
-  }, [adminDocs, adminsExist]);
+  }, [adminDocs, adminsExist, mode]);
 
   useEffect(() => {
     if (!isUserLoading && !isProfileLoading && user && profile) {
+      // 2FA Guard logic
+      if (profile.twoFactorEnabled && !isOtpVerified) {
+        setMode('otp');
+        return;
+      }
+      
+      // If setup required but not done
+      if (profile.twoFactorEnabled && !profile.twoFactorSecret) {
+        setMode('otp-setup');
+        if (!generatedSecret) {
+          const secret = authenticator.generateSecret();
+          setGeneratedSecret(secret);
+        }
+        return;
+      }
+
+      // Proceed to Dashboard
       if (profile.role === 'admin') {
         router.push('/admin');
       } else {
         router.push('/dashboard');
       }
     }
-  }, [user, profile, isUserLoading, isProfileLoading, router]);
+  }, [user, profile, isUserLoading, isProfileLoading, router, isOtpVerified, generatedSecret]);
 
   const handleLogout = async () => {
     await signOut(auth);
     window.location.reload();
+  };
+
+  const handleOtpVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profile?.twoFactorSecret || !otpCode) return;
+
+    setIsSubmitting(true);
+    const isValid = authenticator.check(otpCode, profile.twoFactorSecret);
+
+    if (isValid) {
+      toast({ title: "Identity Verified", description: "Terminal access granted." });
+      setIsOtpVerified(true);
+    } else {
+      toast({ title: "Verification Failed", description: "Invalid OTP code. Please try again.", variant: "destructive" });
+      setOtpCode('');
+    }
+    setIsSubmitting(false);
+  };
+
+  const handleOtpSetupSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!otpCode || !user || !db) return;
+
+    setIsSubmitting(true);
+    const isValid = authenticator.check(otpCode, generatedSecret);
+
+    if (isValid) {
+      await setDocumentNonBlocking(doc(db, 'users', user.uid), {
+        twoFactorSecret: generatedSecret,
+        twoFactorEnabled: true,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+
+      toast({ title: "MFA Active", description: "Google Authenticator has been synchronized." });
+      setIsOtpVerified(true);
+    } else {
+      toast({ title: "Setup Failed", description: "Invalid code. Ensure your device clock is synced.", variant: "destructive" });
+    }
+    setIsSubmitting(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -106,11 +170,15 @@ export default function LoginPage() {
     try {
       if (mode === 'login') {
         initiateEmailSignIn(auth, email, password);
-        setTimeout(() => setIsSubmitting(false), 2000);
-      } else {
+        // OTP redirection is handled by the useEffect above
+      } else if (mode === 'register') {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const uid = userCredential.user.uid;
         const now = new Date().toISOString();
+        
+        // Prepare 2FA for the new admin
+        const secret = authenticator.generateSecret();
+        setGeneratedSecret(secret);
 
         const profileData = {
           id: uid,
@@ -123,15 +191,18 @@ export default function LoginPage() {
           lastAnnouncementReadAt: now,
           lastMessageReadAt: now,
           updatedAt: now,
+          twoFactorEnabled: true, // Force MFA for admins
+          twoFactorSecret: '', // Will be set after setup verification
         };
 
         await setDocumentNonBlocking(doc(db, 'users', uid), profileData, { merge: true });
         await setDocumentNonBlocking(doc(db, 'admin_users', uid), { active: true }, { merge: true });
 
         toast({
-          title: "Admin Initialized",
-          description: "Bureau administrative signature has been established.",
+          title: "Admin Created",
+          description: "Proceeding to secure your account with MFA.",
         });
+        setMode('otp-setup');
       }
     } catch (error: any) {
       const isPermission = error.code === 'permission-denied' || error.message?.includes('permissions');
@@ -153,7 +224,7 @@ export default function LoginPage() {
     }
   };
 
-  const isInitializing = isUserLoading || isAdminCheckLoading || (user && isProfileLoading);
+  const isInitializing = isUserLoading || isAdminCheckLoading || (user && isProfileLoading && mode !== 'otp-setup' && mode !== 'otp');
   const bureauName = branding?.bureauName || 'FaydaTrack';
   const logoUrl = branding?.logoUrl || DEFAULT_LOGO;
 
@@ -165,14 +236,100 @@ export default function LoginPage() {
             <div className="absolute inset-0 bg-primary/20 rounded-full blur-2xl animate-pulse" />
             <Loader2 className="h-12 w-12 animate-spin text-primary relative z-10 opacity-40" />
           </div>
-          <div className="space-y-2 text-center animate-in fade-in duration-1000">
-             <p className="text-[10px] font-black uppercase tracking-[0.5em] text-muted-foreground">
-               {user ? "Synchronizing Official Signature" : "Gateway Handshake"}
-             </p>
-             <p className="text-[9px] font-bold text-muted-foreground/40 uppercase tracking-widest italic">
-               Verification in progress...
-             </p>
-          </div>
+          <p className="text-[10px] font-black uppercase tracking-[0.5em] text-muted-foreground animate-in fade-in duration-1000">Gateway Handshake...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // OTP SETUP VIEW
+  if (mode === 'otp-setup') {
+    const otpauthUrl = authenticator.keyuri(email || profile?.email || 'official', bureauName, generatedSecret);
+    return (
+      <div className="relative flex min-h-screen items-center justify-center bg-background px-4">
+        <div className="relative z-10 w-full max-w-[420px] animate-in zoom-in-95 duration-500">
+          <Card className="border border-border shadow-2xl bg-card/50 backdrop-blur-xl rounded-[32px] overflow-hidden">
+            <CardHeader className="text-center pt-10 px-8">
+               <div className="mx-auto bg-primary/10 p-3 rounded-2xl w-fit mb-4">
+                  <Smartphone className="h-8 w-8 text-primary" />
+               </div>
+               <CardTitle className="text-2xl font-black uppercase tracking-tight">Security Protocol</CardTitle>
+               <CardDescription className="text-xs font-medium">Link your Google Authenticator app to establish terminal access.</CardDescription>
+            </CardHeader>
+            <CardContent className="px-8 pb-10 space-y-8">
+               <div className="flex justify-center p-4 bg-white rounded-2xl border-4 border-white shadow-xl">
+                  <QRCodeSVG value={otpauthUrl} size={180} />
+               </div>
+               <div className="space-y-4">
+                  <div className="p-4 bg-muted/30 rounded-2xl border border-border space-y-2">
+                     <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest text-center">Manual Entry Key</p>
+                     <div className="flex items-center justify-center gap-2">
+                        <code className="text-xs font-black tracking-widest text-primary">{generatedSecret}</code>
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { navigator.clipboard.writeText(generatedSecret); toast({ title: "Copied", description: "Secret copied to clipboard." }); }}>
+                           <Copy className="h-3 w-3" />
+                        </Button>
+                     </div>
+                  </div>
+                  <form onSubmit={handleOtpSetupSubmit} className="space-y-4">
+                     <div className="space-y-1.5">
+                        <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Confirmation Code</Label>
+                        <Input 
+                          placeholder="000000" 
+                          className="h-14 text-center text-2xl font-black tracking-[0.5em] bg-muted/20 border-border rounded-2xl" 
+                          value={otpCode}
+                          onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                          maxLength={6}
+                          required
+                        />
+                     </div>
+                     <Button type="submit" disabled={isSubmitting || otpCode.length !== 6} className="w-full h-14 bg-primary text-white font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/20">
+                        {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Finalize Handshake'}
+                     </Button>
+                  </form>
+               </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // OTP CHALLENGE VIEW
+  if (mode === 'otp') {
+    return (
+      <div className="relative flex min-h-screen items-center justify-center bg-background px-4">
+        <div className="relative z-10 w-full max-w-[400px] animate-in slide-in-from-bottom-4 duration-500">
+           <Card className="border border-border shadow-2xl bg-card/50 backdrop-blur-xl rounded-[32px] overflow-hidden">
+              <CardHeader className="text-center pt-10 px-8">
+                 <div className="mx-auto bg-primary/10 p-3 rounded-2xl w-fit mb-4">
+                    <Fingerprint className="h-8 w-8 text-primary" />
+                 </div>
+                 <CardTitle className="text-2xl font-black uppercase tracking-tight">Identity Gateway</CardTitle>
+                 <CardDescription className="text-xs font-medium italic">Authorized MFA Verification Required</CardDescription>
+              </CardHeader>
+              <CardContent className="px-8 pb-10">
+                 <form onSubmit={handleOtpVerify} className="space-y-6">
+                    <div className="space-y-2">
+                       <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground text-center block w-full">Google Authenticator Code</Label>
+                       <Input 
+                         placeholder="••••••" 
+                         className="h-16 text-center text-3xl font-black tracking-[0.3em] bg-muted/20 border-border rounded-2xl focus:border-primary/50" 
+                         value={otpCode}
+                         onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                         maxLength={6}
+                         autoFocus
+                         required
+                       />
+                    </div>
+                    <Button type="submit" disabled={isSubmitting || otpCode.length !== 6} className="w-full h-14 bg-primary text-white font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/20">
+                       {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Confirm Access'}
+                    </Button>
+                    <Button variant="ghost" onClick={handleLogout} className="w-full h-12 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                       Abort Session
+                    </Button>
+                 </form>
+              </CardContent>
+           </Card>
         </div>
       </div>
     );
@@ -183,7 +340,6 @@ export default function LoginPage() {
   return (
     <div className="relative flex min-h-screen items-center justify-center bg-background px-4 overflow-hidden">
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:32px_32px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)]" />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/[0.03] rounded-full blur-[120px] pointer-events-none" />
 
       <div className="relative z-10 w-full max-w-[420px] animate-in fade-in slide-in-from-bottom-4 duration-1000">
         <Card className="border border-border shadow-2xl bg-card/50 backdrop-blur-xl rounded-[32px] overflow-hidden">
@@ -319,12 +475,12 @@ export default function LoginPage() {
             <div className="flex items-center justify-center gap-3">
               <div className="h-px w-8 bg-border" />
               <p className="text-[8px] font-black uppercase tracking-[0.4em]">
-                Security Audit Active
+                Multi-Factor Security Active
               </p>
               <div className="h-px w-8 bg-border" />
             </div>
             <p className="text-[7px] font-bold text-muted-foreground uppercase mt-2 tracking-widest">
-              Protocol v4.2.0 • Encryption Enabled
+              Google Authenticator Protocol Enabled
             </p>
           </CardFooter>
         </Card>

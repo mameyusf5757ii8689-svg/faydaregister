@@ -1,4 +1,3 @@
-
 export type RegistrationStatus = 'Processed' | 'Pending Review' | 'Rejected' | 'Processing' | 'Failed';
 
 export interface Registration {
@@ -117,6 +116,8 @@ export interface UserProfile {
   lastMessageReadAt?: string;
   updatedAt?: string;
   isDutyActive?: boolean;
+  twoFactorEnabled?: boolean;
+  twoFactorSecret?: string;
 }
 
 export interface SystemSettings {
