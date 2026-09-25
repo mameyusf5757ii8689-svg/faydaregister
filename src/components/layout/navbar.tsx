@@ -29,7 +29,7 @@ import {
   ShieldCheck,
   History as HistoryIcon,
   ChevronDown,
-  MoreHorizontal
+  LineChart
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -52,12 +52,13 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const OFFICER_PRIMARY_NAV = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Full Intel', href: '/full-performance', icon: LineChart },
   { name: 'Registry', href: '/full-registration', icon: Activity },
   { name: 'Performance', href: '/performance', icon: TrendingUp },
-  { name: 'Comparison', href: '/previous', icon: HistoryIcon },
 ];
 
 const OFFICER_SECONDARY_NAV = [
+  { name: 'Comparison', href: '/previous', icon: HistoryIcon },
   { name: 'Status Check', href: '/status-check', icon: Search },
   { name: 'Printing', href: '/printing', icon: Printer },
   { name: 'Comm Portal', href: '/communication', icon: MessageSquare },
@@ -70,12 +71,13 @@ const OFFICER_SECONDARY_NAV = [
 
 const ADMIN_PRIMARY_NAV = [
   { name: 'Overview', href: '/admin', icon: LayoutDashboard },
-  { name: 'Registry', href: '/full-registration', icon: Activity },
+  { name: 'Full Intel', href: '/full-performance', icon: LineChart },
   { name: 'Audit', href: '/admin/audit-ledger', icon: ShieldCheck },
   { name: 'Performance', href: '/performance', icon: TrendingUp },
 ];
 
 const ADMIN_SECONDARY_NAV = [
+  { name: 'Registry', href: '/full-registration', icon: Activity },
   { name: 'Comparison', href: '/previous', icon: HistoryIcon },
   { name: 'Status Check', href: '/status-check', icon: Search },
   { name: 'Printing', href: '/printing', icon: Printer },
@@ -197,6 +199,7 @@ export function Navbar() {
                   pathname === item.href ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted"
                 )}
               >
+                <item.icon className="mr-2 h-3.5 w-3.5 opacity-60" />
                 {item.name}
               </Link>
             ))}
