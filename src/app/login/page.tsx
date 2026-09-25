@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect } from 'react';
@@ -92,32 +93,36 @@ export default function LoginPage() {
     }
   }, [adminDocs, adminsExist, mode]);
 
+  // MANDATORY SECURITY GATE EFFECT
   useEffect(() => {
-    if (!isUserLoading && !isProfileLoading && user && profile) {
-      // 2FA Guard logic
-      if (profile.twoFactorEnabled && !isOtpVerified && profile.twoFactorSecret) {
-        setMode('otp');
-        return;
-      }
-      
-      // If setup required but not done
-      if (profile.twoFactorEnabled && !profile.twoFactorSecret) {
-        setMode('otp-setup');
+    if (isUserLoading || isProfileLoading || !user || !profile) return;
+
+    // 1. Determine if MFA is required for this identity
+    // Protocol: MFA is FORCED for all administrators and users who explicitly enabled it.
+    const isMfaRequired = profile.role === 'admin' || profile.twoFactorEnabled;
+
+    if (isMfaRequired && !isOtpVerified) {
+      if (profile.twoFactorSecret) {
+        // Protocol A: Known Secret -> Challenge Mode
+        if (mode !== 'otp') setMode('otp');
+      } else {
+        // Protocol B: No Secret -> Setup Mode
+        if (mode !== 'otp-setup') setMode('otp-setup');
         if (!generatedSecret) {
           const secret = new OTPAuth.Secret({ size: 20 }).base32;
           setGeneratedSecret(secret);
         }
-        return;
       }
-
-      // Proceed to Dashboard
-      if (profile.role === 'admin') {
-        router.push('/admin');
-      } else {
-        router.push('/dashboard');
-      }
+      return; // HALT REDIRECTION
     }
-  }, [user, profile, isUserLoading, isProfileLoading, router, isOtpVerified, generatedSecret]);
+
+    // 2. Clear to proceed to authorized dashboard
+    if (profile.role === 'admin') {
+      router.push('/admin');
+    } else {
+      router.push('/dashboard');
+    }
+  }, [user, profile, isUserLoading, isProfileLoading, router, isOtpVerified, generatedSecret, mode]);
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -194,16 +199,12 @@ export default function LoginPage() {
     try {
       if (mode === 'login') {
         initiateEmailSignIn(auth, email, password);
-        // OTP redirection is handled by the useEffect above
+        // GATE: useEffect handles the MFA intercept once auth state changes
       } else if (mode === 'register') {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const uid = userCredential.user.uid;
         const now = new Date().toISOString();
         
-        // Prepare 2FA for the new admin
-        const secret = new OTPAuth.Secret({ size: 20 }).base32;
-        setGeneratedSecret(secret);
-
         const profileData = {
           id: uid,
           fullName: fullName,
@@ -216,7 +217,7 @@ export default function LoginPage() {
           lastMessageReadAt: now,
           updatedAt: now,
           twoFactorEnabled: true, // Force MFA for admins
-          twoFactorSecret: '', // Will be set after setup verification
+          twoFactorSecret: '', 
         };
 
         await setDocumentNonBlocking(doc(db, 'users', uid), profileData, { merge: true });
@@ -226,7 +227,7 @@ export default function LoginPage() {
           title: "Admin Created",
           description: "Proceeding to secure your account with MFA.",
         });
-        setMode('otp-setup');
+        // GATE: mode will be switched to otp-setup by useEffect
       }
     } catch (error: any) {
       const isPermission = error.code === 'permission-denied' || error.message?.includes('permissions');
@@ -260,7 +261,7 @@ export default function LoginPage() {
             <div className="absolute inset-0 bg-primary/20 rounded-full blur-2xl animate-pulse" />
             <Loader2 className="h-12 w-12 animate-spin text-primary relative z-10 opacity-40" />
           </div>
-          <p className="text-[10px] font-black uppercase tracking-[0.5em] text-muted-foreground animate-in fade-in duration-1000">Gateway Handshake...</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.5em] text-muted-foreground">Gateway Handshake...</p>
         </div>
       </div>
     );
@@ -281,7 +282,7 @@ export default function LoginPage() {
     return (
       <div className="relative flex min-h-screen items-center justify-center bg-background px-4">
         <div className="relative z-10 w-full max-w-[420px] animate-in zoom-in-95 duration-500">
-          <Card className="border border-border shadow-2xl bg-card/50 backdrop-blur-xl rounded-[32px] overflow-hidden">
+          <Card className="border border-border shadow-2xl bg-card rounded-[32px] overflow-hidden">
             <CardHeader className="text-center pt-10 px-8">
                <div className="mx-auto bg-primary/10 p-3 rounded-2xl w-fit mb-4">
                   <Smartphone className="h-8 w-8 text-primary" />
@@ -332,7 +333,7 @@ export default function LoginPage() {
     return (
       <div className="relative flex min-h-screen items-center justify-center bg-background px-4">
         <div className="relative z-10 w-full max-w-[400px] animate-in slide-in-from-bottom-4 duration-500">
-           <Card className="border border-border shadow-2xl bg-card/50 backdrop-blur-xl rounded-[32px] overflow-hidden">
+           <Card className="border border-border shadow-2xl bg-card rounded-[32px] overflow-hidden">
               <CardHeader className="text-center pt-10 px-8">
                  <div className="mx-auto bg-primary/10 p-3 rounded-2xl w-fit mb-4">
                     <Fingerprint className="h-8 w-8 text-primary" />
@@ -375,9 +376,9 @@ export default function LoginPage() {
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:32px_32px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)]" />
 
       <div className="relative z-10 w-full max-w-[420px] animate-in fade-in slide-in-from-bottom-4 duration-1000">
-        <Card className="border border-border shadow-2xl bg-card/50 backdrop-blur-xl rounded-[32px] overflow-hidden">
+        <Card className="border border-border shadow-2xl bg-card rounded-[32px] overflow-hidden">
           <CardHeader className="space-y-8 text-center pt-10 pb-8 px-8">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20 p-4 transition-transform duration-700 hover:scale-110">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20 p-4">
               <Image 
                 src={logoUrl}
                 alt={`${bureauName} Logo`}
@@ -390,7 +391,7 @@ export default function LoginPage() {
             
             <div className="space-y-2">
               <CardTitle className="text-3xl font-black tracking-tighter text-foreground uppercase leading-none">
-                {bureauName.split('Track')[0]} <span className="text-primary italic">{bureauName.includes('Track') ? 'Terminal' : ''}</span>
+                {bureauName.split('Track')[0]} <span className="text-primary italic">Terminal</span>
               </CardTitle>
               <div className="flex items-center justify-center gap-2">
                 <Shield className="h-3 w-3 text-muted-foreground/40" />
@@ -422,7 +423,7 @@ export default function LoginPage() {
                   </p>
                 </div>
                 <div className="flex flex-col gap-3">
-                  <Button className="w-full h-14 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl shadow-primary/10" onClick={() => window.location.reload()}>
+                  <Button className="w-full h-14 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em]" onClick={() => window.location.reload()}>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Retry Link
                   </Button>
                   <Button variant="ghost" className="w-full h-12 rounded-2xl font-black uppercase text-[10px] tracking-widest text-muted-foreground" onClick={handleLogout}>
@@ -439,11 +440,10 @@ export default function LoginPage() {
                       <UserCircle className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/30 group-focus-within:text-primary transition-colors" />
                       <Input 
                         placeholder="Full Official Name" 
-                        className="h-14 pl-12 bg-muted/20 border border-border focus:border-primary/30 rounded-2xl text-xs font-bold transition-all"
+                        className="h-14 pl-12 bg-muted/20 border border-border focus:border-primary/30 rounded-2xl text-xs font-bold"
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
                         required
-                        autoFocus
                       />
                     </div>
                   </div>
@@ -456,11 +456,10 @@ export default function LoginPage() {
                     <Input 
                       type="email" 
                       placeholder="official@bureau.gov" 
-                      className="h-14 pl-12 bg-muted/20 border border-border focus:border-primary/30 rounded-2xl text-xs font-bold transition-all"
+                      className="h-14 pl-12 bg-muted/20 border border-border focus:border-primary/30 rounded-2xl text-xs font-bold"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
-                      autoFocus={mode === 'login'}
                     />
                   </div>
                 </div>
@@ -472,7 +471,7 @@ export default function LoginPage() {
                     <Input 
                       type={showPassword ? "text" : "password"}
                       placeholder="••••••••" 
-                      className="h-14 pl-12 pr-12 bg-muted/20 border border-border focus:border-primary/30 rounded-2xl text-xs font-bold transition-all"
+                      className="h-14 pl-12 pr-12 bg-muted/20 border border-border focus:border-primary/30 rounded-2xl text-xs font-bold"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
@@ -489,7 +488,7 @@ export default function LoginPage() {
                 
                 <Button 
                   type="submit" 
-                  className="w-full h-14 bg-primary hover:bg-primary/90 text-primary-foreground font-black uppercase tracking-[0.3em] rounded-2xl shadow-2xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-95 mt-4 text-[11px]"
+                  className="w-full h-14 bg-primary hover:bg-primary/90 text-primary-foreground font-black uppercase tracking-[0.3em] rounded-2xl shadow-2xl shadow-primary/20 transition-all active:scale-95 mt-4 text-[11px]"
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? (
