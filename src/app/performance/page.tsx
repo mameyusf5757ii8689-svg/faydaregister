@@ -30,7 +30,9 @@ import {
   Target,
   ShieldCheck,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Activity,
+  Layers
 } from 'lucide-react';
 import { Registration, UserProfile } from '@/lib/types';
 import { StatusBadge } from '@/components/dashboard/status-badge';
@@ -83,6 +85,50 @@ import { cn } from '@/lib/utils';
 
 const START_DATE = new Date(2025, 6, 1); // July 1, 2025
 
+const COLORS = {
+  processed: '#10b981',
+  processing: '#f59e0b',
+  rejected: '#ef4444',
+  failed: '#64748b',
+};
+
+function MetricGauge({ label, value, color, icon: Icon, trend, description }: any) {
+  const data = [{ name: label, value: value, fill: color }];
+  const isPositive = trend >= 0;
+
+  return (
+    <Card className="border border-border bg-card shadow-sm rounded-[2.5rem] overflow-hidden flex flex-col items-center justify-center p-8 relative group transition-all hover:shadow-2xl">
+      <div className="absolute top-0 right-0 p-6 opacity-[0.03] group-hover:opacity-10 transition-opacity">
+        <Icon className="h-32 w-32" />
+      </div>
+      
+      <div className="h-[180px] w-full relative z-10">
+        <ResponsiveContainer width="100%" height="100%">
+          <RadialBarChart cx="50%" cy="50%" innerRadius="70%" outerRadius="100%" barSize={15} data={data} startAngle={180} endAngle={0}>
+            <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
+            <RadialBar background dataKey="value" cornerRadius={30} />
+          </RadialBarChart>
+        </ResponsiveContainer>
+        <div className="absolute inset-0 flex flex-col items-center justify-center pt-10">
+           <span className="text-4xl font-black text-foreground tracking-tighter tabular-nums">{value}%</span>
+           <p className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.2em] mt-1">{label}</p>
+        </div>
+      </div>
+
+      <div className="w-full text-center relative z-10 mt-2 space-y-2">
+         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{description}</p>
+         <div className={cn(
+           "flex items-center justify-center gap-1 text-[9px] font-black uppercase tracking-tighter px-2 py-0.5 rounded-full w-fit mx-auto",
+           isPositive ? "bg-emerald-500/10 text-emerald-600" : "bg-rose-500/10 text-rose-600"
+         )}>
+           {isPositive ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+           {Math.abs(trend).toFixed(1)}% MoM
+         </div>
+      </div>
+    </Card>
+  );
+}
+
 function PerformanceContent() {
   const { user, isUserLoading } = useUser();
   const db = useFirestore();
@@ -100,7 +146,6 @@ function PerformanceContent() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
-  // Determine target officer (Remote audit vs Self-audit)
   const targetOfficerId = searchParams.get('officerId') || user?.uid;
   const isRemoteAudit = targetOfficerId !== user?.uid;
 
@@ -149,7 +194,7 @@ function PerformanceContent() {
   }, []);
 
   const stats = useMemo(() => {
-    if (!registrations || !selectedMonth) return null;
+    if (!registrations || !selectedMonth || !mounted) return null;
 
     const [year, month] = selectedMonth.split('-').map(Number);
     const dateObj = new Date(year, month - 1, 1);
@@ -162,37 +207,37 @@ function PerformanceContent() {
 
     const calculateMetrics = (items: Registration[]) => {
       const total = items.length;
-      if (total === 0) return { total: 0, processed: 0, rejected: 0, successRate: 0, rejectionRate: 0 };
+      if (total === 0) return { total: 0, processed: 0, processing: 0, rejected: 0, failed: 0, successRate: 0, processingRate: 0, rejectionRate: 0, errorRate: 0 };
+      
       const processed = items.filter(r => r.status === 'Processed').length;
+      const processing = items.filter(r => r.status === 'Processing' || r.status === 'Pending Review').length;
       const rejected = items.filter(r => r.status === 'Rejected').length;
+      const failed = items.filter(r => r.status === 'Failed').length;
+
+      const calculateRate = (count: number, t: number) => Number(((count / t) * 100).toFixed(1));
+
       return {
         total,
         processed,
+        processing,
         rejected,
-        successRate: Number(((processed / total) * 100).toFixed(1)),
-        rejectionRate: Number(((rejected / total) * 100).toFixed(1))
+        failed,
+        successRate: calculateRate(processed, total),
+        processingRate: calculateRate(processing, total),
+        rejectionRate: calculateRate(rejected, total),
+        errorRate: calculateRate(failed, total)
       };
     };
 
     const currMetrics = calculateMetrics(currItems);
     const prevMetrics = calculateMetrics(prevItems);
 
-    const momSuccess = prevMetrics.successRate > 0 ? (currMetrics.successRate - prevMetrics.successRate) : 0;
-    const momRejection = prevMetrics.rejectionRate > 0 ? (currMetrics.rejectionRate - prevMetrics.rejectionRate) : 0;
-
-    const other = currMetrics.total - (currMetrics.processed + currMetrics.rejected);
-    const chartData = [
-      { name: 'Success', value: currMetrics.processed, color: 'hsl(var(--primary))' },
-      { name: 'Rejected', value: currMetrics.rejected, color: 'hsl(var(--destructive))' },
-      { name: 'Other', value: other, color: 'hsl(var(--muted-foreground))' },
-    ];
-
-    const reasonCounts: Record<string, number> = {};
-    currItems.filter(r => r.status === 'Rejected').forEach(r => {
-      const reason = r.rejectionReason || 'Unknown';
-      reasonCounts[reason] = (reasonCounts[reason] || 0) + 1;
-    });
-    const topReason = Object.entries(reasonCounts).sort((a,b) => b[1] - a[1])[0]?.[0] || 'Zero Discrepancies';
+    const trends = {
+      processed: currMetrics.successRate - (prevMetrics.successRate || 0),
+      processing: currMetrics.processingRate - (prevMetrics.processingRate || 0),
+      rejected: currMetrics.rejectionRate - (prevMetrics.rejectionRate || 0),
+      failed: currMetrics.errorRate - (prevMetrics.errorRate || 0),
+    };
 
     const startDate = new Date(year, month - 1, 1);
     const endDate = endOfMonth(startDate);
@@ -207,21 +252,13 @@ function PerformanceContent() {
       };
     });
 
-    const peakDay = trendData.reduce((prev, curr) => (curr.success > prev.success) ? curr : prev, { date: '-', success: 0 });
-    const radialData = [{ name: 'Success Rate', value: currMetrics.successRate, fill: currMetrics.successRate >= 85 ? 'hsl(var(--primary))' : 'hsl(var(--destructive))' }];
-
     return { 
       ...currMetrics, 
-      momSuccess, 
-      momRejection, 
-      topReason, 
-      peakDay, 
-      chartData, 
+      trends,
       trendData, 
-      radialData,
       currItems
     };
-  }, [registrations, selectedMonth]);
+  }, [registrations, selectedMonth, mounted]);
 
   const rejectedRegistrations = useMemo(() => {
     if (!stats?.currItems) return [];
@@ -231,7 +268,6 @@ function PerformanceContent() {
       .sort((a, b) => new Date(b.submissionDate).getTime() - new Date(a.submissionDate).getTime());
   }, [stats?.currItems, searchTerm]);
 
-  // Pagination logic for rejection audit
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, selectedMonth]);
@@ -261,15 +297,7 @@ function PerformanceContent() {
     XLSX.utils.book_append_sheet(wb, ws, "Performance");
     XLSX.writeFile(wb, `Performance_${targetProfile.fullName.replace(/\s+/g, '_')}_${selectedMonth}.xlsx`);
 
-    logAuditAction(
-      db, 
-      user, 
-      targetProfile.fullName, 
-      'PERFORMANCE_REVIEW', 
-      targetOfficerId!, 
-      `Exported XLSX Performance Intelligence for period: ${selectedMonth}.`
-    );
-
+    logAuditAction(db, user, targetProfile.fullName, 'PERFORMANCE_REVIEW', targetOfficerId!, `Exported XLSX Performance Intelligence for period: ${selectedMonth}.`);
     toast({ title: "Excel Intelligence Exported", description: "Monthly performance registry generated." });
     setTimeout(() => setIsExporting(false), 800);
   };
@@ -300,25 +328,9 @@ function PerformanceContent() {
     });
 
     doc.save(`Performance_${targetProfile.fullName.replace(/\s+/g, '_')}_${selectedMonth}.pdf`);
-
-    logAuditAction(
-      db, 
-      user, 
-      targetProfile.fullName, 
-      'PERFORMANCE_REVIEW', 
-      targetOfficerId!, 
-      `Exported PDF Performance Archive for period: ${selectedMonth}.`
-    );
-
+    logAuditAction(db, user, targetProfile.fullName, 'PERFORMANCE_REVIEW', targetOfficerId!, `Exported PDF Performance Archive for period: ${selectedMonth}.`);
     toast({ title: "PDF Ledger Generated", description: "Official documentation saved." });
     setTimeout(() => setIsExporting(false), 800);
-  };
-
-  const handleOpenForensicRecord = (reg: Registration) => {
-    setSelectedRejection(reg);
-    if (db && user && targetProfile) {
-      logAuditAction(db, user, targetProfile.fullName, 'VERIFICATION_CHECK', reg.id, `Forensic Audit: Reviewed rejection for ${reg.applicantName}.`);
-    }
   };
 
   if (isUserLoading || isLoading || isProfileLoading || !selectedMonth || !user) {
@@ -328,8 +340,6 @@ function PerformanceContent() {
       </div>
     );
   }
-
-  if (!stats) return null;
 
   return (
     <div className="space-y-10 animate-in fade-in duration-700 pb-20">
@@ -364,224 +374,153 @@ function PerformanceContent() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-        <Card className="border border-border bg-card shadow-sm rounded-[32px] overflow-hidden flex flex-col items-center justify-center p-6">
-            <div className="h-[140px] w-full relative">
-               <ResponsiveContainer width="100%" height="100%">
-                  <RadialBarChart cx="50%" cy="50%" innerRadius="60%" outerRadius="100%" barSize={12} data={stats.radialData} startAngle={180} endAngle={0}>
-                    <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
-                    <RadialBar background dataKey="value" cornerRadius={30} />
-                  </RadialBarChart>
-               </ResponsiveContainer>
-               <div className="absolute inset-0 flex flex-col items-center justify-center pt-10">
-                  <span className="text-3xl md:text-4xl font-black text-foreground tracking-tighter">{stats.successRate}%</span>
-                  <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Accuracy</p>
-               </div>
-            </div>
-            <div className="flex flex-col items-center gap-2">
-              <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 rounded-full border border-emerald-500/20">
-                <Target className="h-3 w-3 text-emerald-600" />
-                <span className="text-[9px] font-black text-emerald-700 uppercase">Target: 85%+</span>
+      {!stats || stats.total === 0 ? (
+        <div className="flex flex-col items-center justify-center py-40 bg-card rounded-[32px] border-2 border-dashed border-border text-muted-foreground/30">
+          <Layers className="h-16 w-16 mb-4 opacity-10" />
+          <p className="text-sm font-black uppercase tracking-[0.3em]">Matrix Data Depleted</p>
+          <p className="text-xs italic mt-2">No registrations detected for the selected operational period.</p>
+        </div>
+      ) : (
+        <div className="space-y-10">
+          {/* Quadratic Gauge Matrix */}
+          <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <MetricGauge 
+              label="Success Rate" 
+              value={stats.successRate} 
+              color={COLORS.processed} 
+              icon={CheckCircle2} 
+              trend={stats.trends.processed}
+              description="Finalized Documents"
+            />
+            <MetricGauge 
+              label="Triage Rate" 
+              value={stats.processingRate} 
+              color={COLORS.processing} 
+              icon={Activity} 
+              trend={stats.trends.processing}
+              description="Active Pipeline"
+            />
+            <MetricGauge 
+              label="Purge Rate" 
+              value={stats.rejectionRate} 
+              color={COLORS.rejected} 
+              icon={ShieldAlert} 
+              trend={stats.trends.rejected}
+              description="Protocol Rejections"
+            />
+            <MetricGauge 
+              label="Error Rate" 
+              value={stats.errorRate} 
+              color={COLORS.failed} 
+              icon={AlertCircle} 
+              trend={stats.trends.failed}
+              description="System Failures"
+            />
+          </section>
+
+          <Card className="border border-border bg-card overflow-hidden rounded-[32px] shadow-sm">
+            <CardHeader className="bg-muted/30 border-b border-border py-4 px-6 md:px-8 flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-xs font-black text-foreground uppercase tracking-[0.2em]">Quality Velocity</CardTitle>
+                  <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">Daily throughput analysis for {format(new Date(selectedMonth + '-01'), 'MMMM yyyy')}</p>
+                </div>
+                <History className="h-4 w-4 text-muted-foreground opacity-20" />
+            </CardHeader>
+            <CardContent className="p-4 md:p-8">
+                <div className="h-[300px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={stats.trendData}>
+                      <defs>
+                        <linearGradient id="colorSuccess" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={COLORS.processed} stopOpacity={0.1}/><stop offset="95%" stopColor={COLORS.processed} stopOpacity={0}/></linearGradient>
+                        <linearGradient id="colorRejected" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={COLORS.rejected} stopOpacity={0.1}/><stop offset="95%" stopColor={COLORS.rejected} stopOpacity={0}/></linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                      <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontBold: true, fill: 'hsl(var(--muted-foreground))' }} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fontBold: true, fill: 'hsl(var(--muted-foreground))' }} />
+                      <ChartTooltip content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          return (<div className="bg-card border border-border shadow-2xl p-3 rounded-xl space-y-1">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{payload[0].payload.date}</p>
+                            <p className="text-xs font-black text-emerald-600">SUCCESS: {payload[0].value}</p>
+                            <p className="text-xs font-black text-rose-600">PURGED: {payload[1].value}</p>
+                          </div>);
+                        }
+                        return null;
+                      }} />
+                      <Area type="monotone" dataKey="success" stroke={COLORS.processed} strokeWidth={2} fillOpacity={1} fill="url(#colorSuccess)" />
+                      <Area type="monotone" dataKey="rejected" stroke={COLORS.rejected} strokeWidth={2} fillOpacity={1} fill="url(#colorRejected)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+            </CardContent>
+          </Card>
+
+          <div className="space-y-6">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-card p-6 rounded-[32px] border border-border shadow-sm">
+              <div className="space-y-1">
+                <h2 className="text-xl font-black text-foreground uppercase tracking-tight flex items-center gap-2">
+                  <ShieldAlert className="h-5 w-5 text-destructive" /> Rejection Audit
+                </h2>
+                <p className="text-xs font-medium text-muted-foreground">Detailed discrepancies for the selected period.</p>
               </div>
-              {stats.momSuccess !== 0 && (
-                <div className={cn(
-                  "flex items-center gap-1 text-[8px] font-black uppercase tracking-tighter",
-                  stats.momSuccess > 0 ? "text-emerald-600" : "text-rose-600"
-                )}>
-                  {stats.momSuccess > 0 ? <ArrowUpRight className="h-2.5 w-2.5" /> : <ArrowDownRight className="h-2.5 w-2.5" />}
-                  {Math.abs(stats.momSuccess).toFixed(1)}% vs Last Month
+              <div className="flex flex-col sm:flex-row items-center gap-4">
+                <div className="relative w-full sm:w-80 group">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/30 group-focus-within:text-primary transition-colors" />
+                  <Input placeholder="Filter records..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-11 pl-10 border-border bg-background rounded-xl text-xs" />
+                </div>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <Button onClick={handleExportExcel} disabled={isExporting} variant="outline" className="flex-1 h-11 px-4 rounded-xl border-emerald-500/20 text-emerald-600 hover:bg-emerald-500/5 font-bold text-[10px] uppercase tracking-widest bg-background">
+                    {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'XLS'}
+                  </Button>
+                  <Button onClick={handleExportPDF} disabled={isExporting} variant="outline" className="flex-1 h-11 px-4 rounded-xl border-rose-500/20 text-rose-600 hover:bg-rose-500/5 font-bold text-[10px] uppercase tracking-widest bg-background">
+                    {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'PDF'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <Card className="border border-border bg-card shadow-sm rounded-[32px] overflow-hidden">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-muted/30">
+                    <TableRow className="border-border">
+                      <TableHead className="py-5 pl-10">Applicant</TableHead>
+                      <TableHead className="py-5">ID</TableHead>
+                      <TableHead className="py-5 text-center">Status</TableHead>
+                      <TableHead className="py-5 pr-10 text-right">Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedRejections.length > 0 ? paginatedRejections.map((reg) => (
+                      <TableRow key={reg.id} className="hover:bg-muted/30 border-border group h-20">
+                        <TableCell className="pl-10"><span className="text-sm font-black text-foreground">{reg.applicantName}</span></TableCell>
+                        <TableCell><span className="text-[10px] font-mono text-muted-foreground/40">{reg.id.substring(0, 15)}...</span></TableCell>
+                        <TableCell className="text-center"><StatusBadge status="Rejected" className="scale-75" /></TableCell>
+                        <TableCell className="pr-10 text-right"><Button variant="ghost" size="sm" className="h-9 px-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-all" onClick={() => setSelectedRejection(reg)}><Eye className="mr-2 h-4 w-4" /> View</Button></TableCell>
+                      </TableRow>
+                    )) : (
+                      <TableRow><TableCell colSpan={4} className="h-40 text-center opacity-20"><CheckCircle2 className="h-10 w-10 mx-auto mb-2 text-primary" /><p className="text-xs font-black uppercase tracking-widest">No Protocol Failures</p></TableCell></TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-10 py-6 bg-muted/5 border-t border-border">
+                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                    Viewing {paginatedRejections.length} of {rejectedRegistrations.length} Failures
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" className="h-10 w-10 p-0 rounded-xl border-border bg-background hover:bg-muted" onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1}><ChevronLeft className="h-4 w-4" /></Button>
+                    <div className="flex items-center justify-center min-w-[120px] h-10 text-[10px] font-black text-foreground bg-muted/50 border border-border rounded-xl uppercase tracking-widest px-4">Page {currentPage} of {totalPages}</div>
+                    <Button variant="outline" size="sm" className="h-10 w-10 p-0 rounded-xl border-border bg-background hover:bg-muted" onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages}><ChevronRight className="h-4 w-4" /></Button>
+                  </div>
                 </div>
               )}
-            </div>
-        </Card>
-
-        <Card className={cn("border shadow-sm rounded-[32px] p-8 transition-all", stats.rejectionRate > 15 ? "border-destructive/30 bg-destructive/5" : "border-border bg-card")}>
-          <div className="flex items-start justify-between mb-4">
-             <div>
-                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Rejection Rate</p>
-                <p className={cn("text-4xl font-black tracking-tighter", stats.rejectionRate > 15 ? "text-destructive" : "text-foreground")}>{stats.rejectionRate}%</p>
-             </div>
-             <div className={cn("p-2 rounded-lg", stats.rejectionRate > 15 ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground")}><XCircle className="h-4 w-4" /></div>
-          </div>
-          <div className="space-y-1.5">
-            <p className="text-[10px] font-bold text-muted-foreground uppercase">Impact: <span className={stats.rejectionRate > 15 ? "text-destructive font-black" : "text-foreground"}>{stats.rejected}</span> Purged</p>
-            {stats.momRejection !== 0 && (
-              <p className={cn(
-                "text-[8px] font-black uppercase tracking-tighter flex items-center gap-1",
-                stats.momRejection < 0 ? "text-emerald-600" : "text-rose-600"
-              )}>
-                {stats.momRejection < 0 ? <ArrowDownRight className="h-2.5 w-2.5" /> : <ArrowUpRight className="h-2.5 w-2.5" />}
-                {Math.abs(stats.momRejection).toFixed(1)}% Momentum
-              </p>
-            )}
-          </div>
-        </Card>
-
-        <Card className="border border-border bg-card shadow-sm rounded-[32px] p-8">
-          <div className="flex items-start justify-between mb-4">
-             <div>
-                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Peak Day</p>
-                <p className="text-3xl font-black text-foreground tracking-tighter">{stats.peakDay.date}</p>
-             </div>
-             <div className="p-2 bg-primary/10 rounded-lg text-primary"><Zap className="h-4 w-4" /></div>
-          </div>
-          <p className="text-[10px] font-bold text-muted-foreground uppercase">Throughput: <span className="text-foreground">{stats.peakDay.success}</span> Successes</p>
-        </Card>
-
-        <Card className="border border-border bg-card shadow-sm rounded-[32px] p-8">
-          <div className="flex items-start justify-between mb-4">
-             <div>
-                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Primary Flag</p>
-                <p className="text-xl font-black text-foreground tracking-tight line-clamp-1">{stats.topReason}</p>
-             </div>
-             <div className="p-2 bg-rose-500/10 rounded-lg text-rose-500"><ShieldAlert className="h-4 w-4" /></div>
-          </div>
-          <p className="text-[10px] font-bold text-muted-foreground uppercase">Instances: <span className="text-rose-600">{stats.rejected}</span> Rejections</p>
-        </Card>
-
-        <Card className="border border-border bg-card shadow-sm rounded-[32px] flex items-center justify-center p-4">
-           <div className="h-[160px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={stats.chartData} cx="50%" cy="50%" innerRadius={45} outerRadius={65} paddingAngle={6} dataKey="value">
-                  {stats.chartData.map((entry: any, index: number) => <Cell key={`cell-${index}`} fill={entry.color} />)}
-                </Pie>
-                <ChartTooltip content={({ active, payload }) => {
-                  if (active && payload && payload.length) {
-                    return (
-                      <div className="bg-card border border-border shadow-2xl p-3 rounded-xl">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">{payload[0].name}</p>
-                        <p className="text-sm font-black text-foreground tracking-tighter">Units: {payload[0].value}</p>
-                      </div>
-                    );
-                  }
-                  return null;
-                }} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
-      </div>
-
-      <Card className="border border-border bg-card overflow-hidden rounded-[32px] shadow-sm">
-         <CardHeader className="bg-muted/30 border-b border-border py-4 px-6 md:px-8 flex flex-row items-center justify-between">
-            <div>
-              <CardTitle className="text-xs font-black text-foreground uppercase tracking-[0.2em]">Quality Velocity</CardTitle>
-              <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">Daily throughput analysis</p>
-            </div>
-            <History className="h-4 w-4 text-muted-foreground opacity-20" />
-         </CardHeader>
-         <CardContent className="p-4 md:p-8">
-            <div className="h-[300px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={stats.trendData}>
-                  <defs>
-                    <linearGradient id="colorSuccess" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.1}/><stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/></linearGradient>
-                    <linearGradient id="colorRejected" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(var(--destructive))" stopOpacity={0.1}/><stop offset="95%" stopColor="hsl(var(--destructive))" stopOpacity={0}/></linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                  <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontBold: true, fill: 'hsl(var(--muted-foreground))' }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fontBold: true, fill: 'hsl(var(--muted-foreground))' }} />
-                  <ChartTooltip content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      return (<div className="bg-card border border-border shadow-2xl p-3 rounded-xl space-y-1">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{payload[0].payload.date}</p>
-                        <p className="text-xs font-black text-primary">SUCCESS: {payload[0].value}</p>
-                        <p className="text-xs font-black text-destructive">PURGED: {payload[1].value}</p>
-                      </div>);
-                    }
-                    return null;
-                  }} />
-                  <Area type="monotone" dataKey="success" stroke="hsl(var(--primary))" strokeWidth={2} fillOpacity={1} fill="url(#colorSuccess)" />
-                  <Area type="monotone" dataKey="rejected" stroke="hsl(var(--destructive))" strokeWidth={2} fillOpacity={1} fill="url(#colorRejected)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-         </CardContent>
-      </Card>
-
-      <div className="space-y-6">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-card p-6 rounded-[32px] border border-border shadow-sm">
-          <div className="space-y-1">
-            <h2 className="text-xl font-black text-foreground uppercase tracking-tight flex items-center gap-2">
-              <ShieldAlert className="h-5 w-5 text-destructive" /> Rejection Audit
-            </h2>
-            <p className="text-xs font-medium text-muted-foreground">Detailed discrepancies for the selected period.</p>
-          </div>
-          <div className="flex flex-col sm:flex-row items-center gap-4">
-            <div className="relative w-full sm:w-80 group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/30 group-focus-within:text-primary transition-colors" />
-              <Input placeholder="Filter records..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-11 pl-10 border-border bg-background rounded-xl text-xs" />
-            </div>
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <Button onClick={handleExportExcel} disabled={isExporting} variant="outline" className="flex-1 h-11 px-4 rounded-xl border-emerald-500/20 text-emerald-600 hover:bg-emerald-500/5 font-bold text-[10px] uppercase tracking-widest bg-background">
-                {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'XLS'}
-              </Button>
-              <Button onClick={handleExportPDF} disabled={isExporting} variant="outline" className="flex-1 h-11 px-4 rounded-xl border-rose-500/20 text-rose-600 hover:bg-rose-500/5 font-bold text-[10px] uppercase tracking-widest bg-background">
-                {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'PDF'}
-              </Button>
-            </div>
+            </Card>
           </div>
         </div>
-
-        <Card className="border border-border bg-card shadow-sm rounded-[32px] overflow-hidden">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader className="bg-muted/30">
-                <TableRow className="border-border">
-                  <TableHead className="py-5 pl-10">Applicant</TableHead>
-                  <TableHead className="py-5">ID</TableHead>
-                  <TableHead className="py-5 text-center">Status</TableHead>
-                  <TableHead className="py-5 pr-10 text-right">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paginatedRejections.length > 0 ? paginatedRejections.map((reg) => (
-                  <TableRow key={reg.id} className="hover:bg-muted/30 border-border group h-20">
-                    <TableCell className="pl-10"><span className="text-sm font-black text-foreground">{reg.applicantName}</span></TableCell>
-                    <TableCell><span className="text-[10px] font-mono text-muted-foreground/40">{reg.id.substring(0, 15)}...</span></TableCell>
-                    <TableCell className="text-center"><StatusBadge status="Rejected" className="scale-75" /></TableCell>
-                    <TableCell className="pr-10 text-right"><Button variant="ghost" size="sm" className="h-9 px-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-all" onClick={() => handleOpenForensicRecord(reg)}><Eye className="mr-2 h-4 w-4" /> View</Button></TableCell>
-                  </TableRow>
-                )) : (
-                  <TableRow><TableCell colSpan={4} className="h-40 text-center opacity-20"><CheckCircle2 className="h-10 w-10 mx-auto mb-2 text-primary" /><p className="text-xs font-black uppercase tracking-widest">No Protocol Failures</p></TableCell></TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between px-10 py-6 bg-muted/5 border-t border-border">
-              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
-                Viewing {paginatedRejections.length} of {rejectedRegistrations.length} Failures
-              </p>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-10 w-10 p-0 rounded-xl border-border bg-background hover:bg-muted"
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <div className="flex items-center justify-center min-w-[120px] h-10 text-[10px] font-black text-foreground bg-muted/50 border border-border rounded-xl uppercase tracking-widest px-4">
-                  Page {currentPage} / {totalPages}
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-10 w-10 p-0 rounded-xl border-border bg-background hover:bg-muted"
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                  disabled={currentPage === totalPages}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
-        </Card>
-      </div>
+      )}
 
       <Dialog open={!!selectedRejection} onOpenChange={(o) => !o && setSelectedRejection(null)}>
         <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden rounded-[32px] border-none shadow-2xl bg-popover">
@@ -597,16 +536,16 @@ function PerformanceContent() {
               <StatusBadge status="Rejected" className="scale-90" />
             </div>
           </DialogHeader>
-          <div className="p-6 md:p-8 space-y-8 bg-card relative overflow-hidden">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8 relative z-10">
+          <div className="p-6 md:p-8 space-y-8 bg-card">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8">
               <div className="space-y-1"><p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-1.5"><User className="h-3 w-3" /> Identity</p><p className="text-sm font-black text-foreground">{selectedRejection?.applicantName}</p></div>
               <div className="space-y-1"><p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-1.5"><Calendar className="h-3 w-3" /> Date</p><p className="text-sm font-black text-foreground">{selectedRejection ? format(new Date(selectedRejection.submissionDate), 'MMMM dd, yyyy') : '-'}</p></div>
             </div>
-            <div className="p-5 bg-rose-500/5 border border-rose-500/10 rounded-2xl space-y-2 relative overflow-hidden z-10">
+            <div className="p-5 bg-rose-500/5 border border-rose-500/10 rounded-2xl space-y-2">
                 <p className="text-[9px] font-black text-rose-600 uppercase tracking-widest">Protocol Failure Reason</p>
                 <p className="text-base font-bold text-rose-700 leading-tight">{selectedRejection?.rejectionReason || "Data discrepancy detected."}</p>
             </div>
-            <div className="space-y-2 z-10 relative">
+            <div className="space-y-2">
                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Submission Payload</p>
                <div className="p-6 bg-muted/50 rounded-[24px] border border-border italic text-sm font-medium">"{selectedRejection?.content || "No narrative content detected."}"</div>
             </div>
