@@ -36,7 +36,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { cn } from '@/lib/utils';
-import { authenticator } from 'otplib';
+import * as OTPAuth from "otpauth";
 import { QRCodeSVG } from 'qrcode.react';
 
 const DEFAULT_LOGO = "https://services.eaes.et/NID-Logos/Fayda%20For%20Ethiopia%20logo-%20english-2-01.png";
@@ -95,7 +95,7 @@ export default function LoginPage() {
   useEffect(() => {
     if (!isUserLoading && !isProfileLoading && user && profile) {
       // 2FA Guard logic
-      if (profile.twoFactorEnabled && !isOtpVerified) {
+      if (profile.twoFactorEnabled && !isOtpVerified && profile.twoFactorSecret) {
         setMode('otp');
         return;
       }
@@ -104,7 +104,7 @@ export default function LoginPage() {
       if (profile.twoFactorEnabled && !profile.twoFactorSecret) {
         setMode('otp-setup');
         if (!generatedSecret) {
-          const secret = authenticator.generateSecret();
+          const secret = new OTPAuth.Secret({ size: 20 }).base32;
           setGeneratedSecret(secret);
         }
         return;
@@ -129,14 +129,26 @@ export default function LoginPage() {
     if (!profile?.twoFactorSecret || !otpCode) return;
 
     setIsSubmitting(true);
-    const isValid = authenticator.check(otpCode, profile.twoFactorSecret);
+    
+    try {
+      const totp = new OTPAuth.TOTP({
+        secret: profile.twoFactorSecret,
+      });
 
-    if (isValid) {
-      toast({ title: "Identity Verified", description: "Terminal access granted." });
-      setIsOtpVerified(true);
-    } else {
-      toast({ title: "Verification Failed", description: "Invalid OTP code. Please try again.", variant: "destructive" });
-      setOtpCode('');
+      const delta = totp.validate({
+        token: otpCode,
+        window: 1
+      });
+
+      if (delta !== null) {
+        toast({ title: "Identity Verified", description: "Terminal access granted." });
+        setIsOtpVerified(true);
+      } else {
+        toast({ title: "Verification Failed", description: "Invalid OTP code. Please try again.", variant: "destructive" });
+        setOtpCode('');
+      }
+    } catch (err) {
+      toast({ title: "System Error", description: "Could not verify code.", variant: "destructive" });
     }
     setIsSubmitting(false);
   };
@@ -146,19 +158,31 @@ export default function LoginPage() {
     if (!otpCode || !user || !db) return;
 
     setIsSubmitting(true);
-    const isValid = authenticator.check(otpCode, generatedSecret);
+    
+    try {
+      const totp = new OTPAuth.TOTP({
+        secret: generatedSecret,
+      });
 
-    if (isValid) {
-      await setDocumentNonBlocking(doc(db, 'users', user.uid), {
-        twoFactorSecret: generatedSecret,
-        twoFactorEnabled: true,
-        updatedAt: new Date().toISOString(),
-      }, { merge: true });
+      const delta = totp.validate({
+        token: otpCode,
+        window: 1
+      });
 
-      toast({ title: "MFA Active", description: "Google Authenticator has been synchronized." });
-      setIsOtpVerified(true);
-    } else {
-      toast({ title: "Setup Failed", description: "Invalid code. Ensure your device clock is synced.", variant: "destructive" });
+      if (delta !== null) {
+        await setDocumentNonBlocking(doc(db, 'users', user.uid), {
+          twoFactorSecret: generatedSecret,
+          twoFactorEnabled: true,
+          updatedAt: new Date().toISOString(),
+        }, { merge: true });
+
+        toast({ title: "MFA Active", description: "Google Authenticator has been synchronized." });
+        setIsOtpVerified(true);
+      } else {
+        toast({ title: "Setup Failed", description: "Invalid code. Ensure your device clock is synced.", variant: "destructive" });
+      }
+    } catch (err) {
+      toast({ title: "Setup Error", description: "Verification protocol failed.", variant: "destructive" });
     }
     setIsSubmitting(false);
   };
@@ -177,7 +201,7 @@ export default function LoginPage() {
         const now = new Date().toISOString();
         
         // Prepare 2FA for the new admin
-        const secret = authenticator.generateSecret();
+        const secret = new OTPAuth.Secret({ size: 20 }).base32;
         setGeneratedSecret(secret);
 
         const profileData = {
@@ -244,7 +268,16 @@ export default function LoginPage() {
 
   // OTP SETUP VIEW
   if (mode === 'otp-setup') {
-    const otpauthUrl = authenticator.keyuri(email || profile?.email || 'official', bureauName, generatedSecret);
+    const totpSetup = new OTPAuth.TOTP({
+      issuer: bureauName,
+      label: email || profile?.email || 'official',
+      algorithm: "SHA1",
+      digits: 6,
+      period: 30,
+      secret: generatedSecret,
+    });
+    const otpauthUrl = totpSetup.toString();
+
     return (
       <div className="relative flex min-h-screen items-center justify-center bg-background px-4">
         <div className="relative z-10 w-full max-w-[420px] animate-in zoom-in-95 duration-500">
