@@ -19,6 +19,7 @@ This document serves as the absolute functional and technical specification for 
 1. **Strict Data Isolation**: Every Firestore query for the `registrations` collection **MUST** include the filter: `.whereEqualTo("assignedReviewerId", FirebaseAuth.getInstance().getCurrentUser().getUid())`. 
 2. **High-Scale Performance**: Optimize all RecyclerViews to handle up to **10,000 records** using efficient pagination (limit 20-50 per page).
 3. **Forensic Signatures**: Every write operation (status change, record creation) must trigger a companion write to the `audit_logs` collection containing the officer's name, action, and timestamp.
+4. **Offline Capability**: Enable `FirebaseFirestoreSettings.setPersistenceEnabled(true)`. The app must support offline data entry and synchronization.
 
 ---
 
@@ -52,11 +53,12 @@ This document serves as the absolute functional and technical specification for 
     - Queue displaying all records with status "Processed" where `isPrinted == false`.
     - "Select All" functionality and a "Bulk Mark as Printed" button.
 
-### 6. Performance Intelligence (Analytics)
+### 6. Performance Intelligence (Analytics & Full Intel)
 - **Functionality**:
-    - Radial/Pie chart showing "Success Rate" (Processed vs Total).
-    - Month-over-Month (MoM) growth percentage indicator.
-    - Rejection Audit: A list view showing "Rejected" records and their specific `rejectionReason`.
+    - Quadratic Gauge Matrix: Radial charts showing Processed, Processing, Rejected, and Failed rates.
+    - Peak Detection: Highlight the "Daily Pick" (highest throughput day).
+    - Rejection Audit: List of "Rejected" records with `rejectionReason`.
+    - Temporal Trends: Toggle between "Current Pulse" (Monthly) and "Bureau Legacy" (Full History).
 
 ### 7. Tactical Comms (Chat)
 - **Functionality**:
@@ -79,7 +81,7 @@ This document serves as the absolute functional and technical specification for 
 
 ## 🛠️ Synchronization Protocol
 
-1. **Firestore Persistence**: Enable `FirebaseFirestoreSettings.setPersistenceEnabled(true)` to support field officers in low-connectivity zones.
+1. **Firestore Persistence**: Enable offline caching for low-connectivity zones.
 2. **Date Protocol**: Standardize all date fields to **ISO8601 strings** for compatibility with the web terminal.
 3. **Audit Accuracy**: Every action must log the `officerName` found in the User Profile, not just the UID.
 

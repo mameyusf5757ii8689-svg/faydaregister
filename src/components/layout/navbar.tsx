@@ -28,7 +28,9 @@ import {
   ShieldCheck,
   History as HistoryIcon,
   ChevronDown,
-  LineChart
+  LineChart,
+  Wifi,
+  WifiOff
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -97,6 +99,21 @@ export function Navbar() {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+
+  useEffect(() => {
+    setMounted(true);
+    // Offline status monitoring
+    setIsOnline(navigator.onLine);
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const brandingRef = useMemoFirebase(() => {
     if (!db) return null;
@@ -154,10 +171,6 @@ export function Navbar() {
     }
     return count;
   }, [unreadNotifications, announcements, conversations, profile]);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   if (pathname === '/login') return null;
 
@@ -225,6 +238,19 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Connectivity Badge */}
+          {user && (
+            <div className={cn(
+              "flex items-center gap-1.5 px-2 py-1 rounded-full border transition-all duration-500",
+              isOnline ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600" : "bg-rose-500/10 border-rose-500/20 text-rose-600 animate-pulse"
+            )}>
+              {isOnline ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
+              <span className="text-[8px] font-black uppercase tracking-tighter hidden sm:inline">
+                {isOnline ? 'Online' : 'Isolated Mode'}
+              </span>
+            </div>
+          )}
+
           {mounted && (
             <Button variant="ghost" size="icon" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground">
               {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
