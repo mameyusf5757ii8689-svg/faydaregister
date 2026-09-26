@@ -93,6 +93,18 @@ const COLORS = {
   failed: '#64748b',
 };
 
+/**
+ * Institutional Performance Color Protocol
+ * 85%+ : Green
+ * 80-84% : Yellow
+ * <80% : Red
+ */
+const getThresholdColor = (value: number) => {
+  if (value >= 85) return '#10b981';
+  if (value >= 80) return '#f59e0b';
+  return '#ef4444';
+};
+
 function MetricGauge({ label, value, color, icon: Icon, trend, description }: any) {
   const data = [{ name: label, value: value, fill: color }];
   const isPositive = trend >= 0;
@@ -412,7 +424,7 @@ function PerformanceContent() {
             <MetricGauge 
               label="Success Rate" 
               value={stats.successRate} 
-              color={COLORS.processed} 
+              color={getThresholdColor(stats.successRate)} 
               icon={CheckCircle2} 
               trend={stats.trends.processed}
               description="Finalized Documents"
@@ -587,7 +599,7 @@ function PerformanceContent() {
                     Viewing {paginatedRejections.length} of {rejectedRegistrations.length} Failures
                   </p>
                   <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" className="h-10 w-10 p-0 rounded-xl border-border bg-background hover:bg-muted" onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1}><ChevronLeft className="h-4 w-4" /></Button>
+                    <Button variant="outline" size="sm" className="h-10 w-10 p-0 rounded-xl border-border bg-background hover:bg-muted" onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} disabled={currentPage === 1}><ChevronLeft className="h-4 w-4" /></Button>
                     <div className="flex items-center justify-center min-w-[120px] h-10 text-[10px] font-black text-foreground bg-muted/50 border border-border rounded-xl uppercase tracking-widest px-4">Page {currentPage} of {totalPages}</div>
                     <Button variant="outline" size="sm" className="h-10 w-10 p-0 rounded-xl border-border bg-background hover:bg-muted" onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages}><ChevronRight className="h-4 w-4" /></Button>
                   </div>

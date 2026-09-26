@@ -58,6 +58,18 @@ const COLORS = {
   failed: '#64748b',    // Grey
 };
 
+/**
+ * Institutional Performance Color Protocol
+ * 85%+ : Green
+ * 80-84% : Yellow
+ * <80% : Red
+ */
+const getThresholdColor = (value: number) => {
+  if (value >= 85) return '#10b981';
+  if (value >= 80) return '#f59e0b';
+  return '#ef4444';
+};
+
 export default function FullPerformancePage() {
   const { user, isUserLoading } = useUser();
   const db = useFirestore();
@@ -253,7 +265,7 @@ export default function FullPerformancePage() {
             <MetricGauge 
               label="Success Rate" 
               value={stats.rates.processed} 
-              color={COLORS.processed} 
+              color={getThresholdColor(stats.rates.processed)} 
               icon={CheckCircle2} 
               trend={stats.trends.processed}
               description="Finalized Documents"
