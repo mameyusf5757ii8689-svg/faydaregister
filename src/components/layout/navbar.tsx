@@ -1,4 +1,3 @@
-
 "use client"
 
 import Link from 'next/link';
@@ -418,13 +417,23 @@ function MobileTabItem({ href, icon: Icon, label, active }: { href: string, icon
     <Link 
       href={href} 
       className={cn(
-        "flex flex-col items-center justify-center gap-1.5 min-w-[64px] h-full transition-all active:scale-90 border-t-2",
-        active ? "text-primary border-primary" : "text-muted-foreground border-transparent"
+        "flex flex-col items-center justify-center gap-1.5 min-w-[64px] h-full transition-all duration-500 relative",
+        active ? "text-primary scale-110" : "text-muted-foreground opacity-60 hover:opacity-100"
       )}
     >
-      <Icon className={cn("h-5 w-5", active && "animate-in zoom-in-75 duration-300")} strokeWidth={active ? 2.5 : 2} />
-      <span className="text-[8px] font-black uppercase tracking-tighter">{label}</span>
+      <div className={cn(
+        "p-1.5 rounded-xl transition-all duration-500",
+        active ? "bg-primary/10 shadow-[0_0_20px_rgba(var(--primary),0.15)]" : "bg-transparent"
+      )}>
+        <Icon className={cn("h-5.5 w-5.5", active && "animate-in zoom-in-75 duration-500")} strokeWidth={active ? 2.5 : 2} />
+      </div>
+      <span className={cn(
+        "text-[8px] font-black uppercase tracking-tighter transition-all duration-500",
+        active ? "opacity-100" : "opacity-0 translate-y-1"
+      )}>{label}</span>
+      {active && (
+        <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-primary rounded-full animate-pulse" />
+      )}
     </Link>
   );
 }
-
