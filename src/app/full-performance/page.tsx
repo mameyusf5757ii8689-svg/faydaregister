@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
@@ -348,7 +349,7 @@ export default function FullPerformancePage() {
                   <p className="text-xs text-muted-foreground font-medium">Busiest operational period detected in range.</p>
                </div>
                <div className="mt-8 pt-6 border-t border-border flex items-center justify-between">
-                  <span className="text-3xl font-black text-primary tabular-nums">{temporalTrends?.peakAmount}</span>
+                  <span className="text-3xl font-mono font-black text-primary tabular-nums">{temporalTrends?.peakAmount}</span>
                   <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Units Handled</span>
                </div>
             </Card>
@@ -363,7 +364,7 @@ export default function FullPerformancePage() {
                   <p className="text-xs text-muted-foreground font-medium">Primary cause for registry protocol failure.</p>
                </div>
                <div className="mt-8 pt-6 border-t border-border flex items-center justify-between">
-                  <span className="text-3xl font-black text-rose-600 tabular-nums">{stats.counts.rejected}</span>
+                  <span className="text-3xl font-mono font-black text-rose-600 tabular-nums">{stats.counts.rejected}</span>
                   <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Total Rejected</span>
                </div>
             </Card>
@@ -378,7 +379,7 @@ export default function FullPerformancePage() {
                   <p className="text-xs text-muted-foreground font-medium">Documents that cleared all protocol gates.</p>
                </div>
                <div className="mt-8 pt-6 border-t border-border flex items-center justify-between">
-                  <span className="text-3xl font-black text-emerald-600 tabular-nums">{stats.counts.processed}</span>
+                  <span className="text-3xl font-mono font-black text-emerald-600 tabular-nums">{stats.counts.processed}</span>
                   <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Total Success</span>
                </div>
             </Card>
@@ -390,7 +391,7 @@ export default function FullPerformancePage() {
                     <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Elite Milestone</p>
                   </div>
                   <div className="space-y-1">
-                    <h3 className="text-4xl font-black text-amber-700 tabular-nums">{allTimeHighs?.rate}%</h3>
+                    <h3 className="text-4xl font-mono font-black text-amber-700 tabular-nums">{allTimeHighs?.rate}%</h3>
                     <p className="text-[11px] font-black text-amber-800 uppercase tracking-widest">{allTimeHighs?.period}</p>
                   </div>
                   <p className="text-xs text-amber-700/60 font-medium">Highest success rate recorded across all bureau history.</p>
@@ -435,7 +436,7 @@ export default function FullPerformancePage() {
                                   return (
                                     <div className="bg-card border border-border shadow-2xl p-4 rounded-2xl">
                                       <p className="text-[9px] font-black uppercase text-muted-foreground mb-1">{payload[0].payload.label}</p>
-                                      <p className="text-xl font-black text-foreground">{payload[0].value} Units</p>
+                                      <p className="text-xl font-mono font-black text-foreground">{payload[0].value} Units</p>
                                     </div>
                                   );
                                 }
@@ -461,12 +462,12 @@ export default function FullPerformancePage() {
                             <div className="flex items-center gap-8">
                               <div className="space-y-1">
                                   <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Rejections</p>
-                                  <p className="text-3xl font-black text-rose-600 tabular-nums">{stats.counts.rejected}</p>
+                                  <p className="text-3xl font-mono font-black text-rose-600 tabular-nums">{stats.counts.rejected}</p>
                               </div>
                               <div className="h-8 w-px bg-border" />
                               <div className="space-y-1">
                                   <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">System Errors</p>
-                                  <p className="text-3xl font-black text-slate-500 tabular-nums">{stats.counts.failed}</p>
+                                  <p className="text-3xl font-mono font-black text-slate-500 tabular-nums">{stats.counts.failed}</p>
                               </div>
                             </div>
                         </div>
@@ -487,7 +488,7 @@ export default function FullPerformancePage() {
                             </div>
                             <div className="space-y-1">
                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Total Finalized</p>
-                               <p className="text-4xl font-black text-emerald-600 tabular-nums">{stats.counts.processed}</p>
+                               <p className="text-4xl font-mono font-black text-emerald-600 tabular-nums">{stats.counts.processed}</p>
                             </div>
                          </div>
                          <Button variant="outline" className="w-full xl:w-auto h-10 px-6 rounded-xl font-black text-[10px] uppercase tracking-widest border-border hover:bg-primary hover:text-white transition-all shrink-0" asChild>
@@ -511,7 +512,7 @@ export default function FullPerformancePage() {
                             <div className="h-3 w-3 rounded-full shadow-sm" style={{ backgroundColor: item.color }} />
                             <span className="text-xs font-black text-foreground uppercase tracking-tight">{item.name}</span>
                         </div>
-                        <span className="text-sm font-black tabular-nums group-hover:scale-110 transition-transform">{item.value.toLocaleString()}</span>
+                        <span className="text-sm font-mono font-black tabular-nums group-hover:scale-110 transition-transform">{item.value.toLocaleString()}</span>
                       </div>
                     ))}
                   </div>
@@ -563,7 +564,7 @@ function MetricGauge({ label, value, color, icon: Icon, trend, description }: an
           </RadialBarChart>
         </ResponsiveContainer>
         <div className="absolute inset-0 flex flex-col items-center justify-center pt-10">
-           <span className="text-5xl font-black text-foreground tracking-tighter tabular-nums">{value}%</span>
+           <span className="text-4xl font-mono font-black text-foreground tracking-tighter tabular-nums">{value}%</span>
            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.2em] mt-1">{label}</p>
         </div>
       </div>
@@ -571,7 +572,7 @@ function MetricGauge({ label, value, color, icon: Icon, trend, description }: an
       <div className="w-full text-center relative z-10 mt-2 space-y-2">
          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{description}</p>
          <div className={cn(
-           "flex items-center justify-center gap-1 text-[9px] font-black uppercase tracking-tighter px-2 py-0.5 rounded-full w-fit mx-auto",
+           "flex items-center justify-center gap-1 text-[9px] font-mono font-black uppercase tracking-tighter px-2 py-0.5 rounded-full w-fit mx-auto",
            isPositive ? "bg-emerald-500/10 text-emerald-600" : "bg-rose-500/10 text-rose-600"
          )}>
            {isPositive ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}

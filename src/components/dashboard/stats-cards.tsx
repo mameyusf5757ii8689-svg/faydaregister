@@ -1,3 +1,4 @@
+
 import { Card, CardContent } from '@/components/ui/card';
 import { DashboardStats } from '@/lib/types';
 import { 
@@ -85,7 +86,7 @@ export function StatsCards({ stats, showOfficerCount = false }: StatsCardsProps)
                 <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
                   {item.label}
                 </p>
-                <div className={cn("text-3xl font-black tracking-tighter text-foreground")}>
+                <div className={cn("text-3xl font-mono font-black tracking-tighter text-foreground tabular-nums")}>
                   {item.value.toLocaleString()}
                 </div>
               </div>
