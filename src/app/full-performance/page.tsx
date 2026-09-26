@@ -57,12 +57,6 @@ const COLORS = {
   failed: '#64748b',    // Grey
 };
 
-/**
- * Institutional Performance Color Protocol
- * 85%+ : Green
- * 80-84% : Yellow
- * <80% : Red
- */
 const getThresholdColor = (value: number) => {
   if (value >= 85) return '#10b981';
   if (value >= 80) return '#f59e0b';
@@ -87,7 +81,6 @@ export default function FullPerformancePage() {
 
   const isAdmin = profile?.role === 'admin';
 
-  // Registrations Query (Strict Isolation if not admin)
   const regsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     if (isAdmin) return query(collection(db, 'registrations'), limit(10000));
@@ -106,7 +99,6 @@ export default function FullPerformancePage() {
   const allTimeHighs = useMemo(() => {
     if (!registrations || !mounted) return null;
 
-    // Group by Month/Year
     const monthGroups: Record<string, { total: number; processed: number }> = {};
     
     registrations.forEach(r => {
@@ -127,7 +119,7 @@ export default function FullPerformancePage() {
     let bestPeriod = 'No Data';
 
     Object.entries(monthGroups).forEach(([period, data]) => {
-      if (data.total > 5) { // Minimum threshold for statistical relevance
+      if (data.total > 5) {
         const rate = (data.processed / data.total) * 100;
         if (rate > bestRate) {
           bestRate = rate;
@@ -167,7 +159,6 @@ export default function FullPerformancePage() {
       failed: scopeRegs.filter(r => r.status === 'Failed').length,
     };
 
-    // Rejection Reasons
     const reasons: Record<string, number> = {};
     scopeRegs.filter(r => r.status === 'Rejected').forEach(r => {
       const reason = r.rejectionReason || 'Unknown Discrepancy';
@@ -220,10 +211,6 @@ export default function FullPerformancePage() {
     if (!reports || !mounted) return null;
 
     const now = new Date();
-    const interval = analysisScope === 'current' 
-      ? { start: startOfMonth(now), end: now }
-      : { start: subMonths(now, 12), end: now };
-
     const days = analysisScope === 'current' 
       ? eachDayOfInterval({ start: startOfMonth(now), end: now })
       : eachDayOfInterval({ start: subDays(now, 29), end: now });
@@ -243,15 +230,8 @@ export default function FullPerformancePage() {
       return { label: format(date, 'MMM dd'), value: dayTotal };
     });
 
-    const monthlyTrend = eachMonthOfInterval({ start: subMonths(now, 11), end: now }).map(date => {
-      const monthStr = format(date, 'yyyy-MM');
-      const monthTotal = reports.filter(r => r.date.startsWith(monthStr)).reduce((acc, curr) => acc + (curr.total || 0), 0);
-      return { label: format(date, 'MMM yy'), value: monthTotal };
-    });
-
     return { 
       dailyTrend, 
-      monthlyTrend, 
       peakDay: peakDay ? format(peakDay, 'MMMM dd') : 'No Data',
       peakAmount: peakCount > -1 ? peakCount : 0
     };
@@ -267,7 +247,6 @@ export default function FullPerformancePage() {
 
   return (
     <div className="space-y-10 animate-in fade-in duration-700 pb-20">
-      {/* Command Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
@@ -298,7 +277,6 @@ export default function FullPerformancePage() {
         </div>
       ) : (
         <div className="space-y-10">
-          {/* Gauge Command Matrix */}
           <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <MetricGauge 
               label="Success Rate" 
@@ -334,7 +312,6 @@ export default function FullPerformancePage() {
             />
           </section>
 
-          {/* Deep Intel Row */}
           <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <Card className="border border-border bg-card shadow-sm rounded-[2.5rem] p-8 flex flex-col justify-between bg-primary/[0.02] group hover:shadow-xl transition-all">
                <div className="space-y-4">
@@ -404,7 +381,6 @@ export default function FullPerformancePage() {
           </section>
 
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
-             {/* Velocity Trends */}
              <div className="xl:col-span-8 space-y-8">
                 <Card className="border border-border bg-card shadow-sm rounded-[2.5rem] overflow-hidden group">
                   <CardHeader className="bg-muted/30 border-b border-border py-6 px-8 flex flex-row items-center justify-between">
@@ -471,7 +447,7 @@ export default function FullPerformancePage() {
                               </div>
                             </div>
                         </div>
-                        <Button variant="outline" className="w-full lg:w-auto h-11 px-6 rounded-xl font-black text-[10px] uppercase tracking-widest border-border hover:bg-rose-500 hover:text-white transition-all shrink-0" asChild>
+                        <Button variant="outline" className="w-full lg:w-auto h-11 px-6 rounded-xl font-black text-[10px] uppercase tracking-widest border-border hover:bg-rose-500 hover:text-white transition-all shrink-0 mt-4 lg:mt-0" asChild>
                             <a href="/performance">Detailed Audit</a>
                         </Button>
                       </div>
@@ -494,7 +470,7 @@ export default function FullPerformancePage() {
                                <p className="text-4xl font-mono font-black text-emerald-600 tabular-nums tracking-tighter">{stats.counts.processed}</p>
                             </div>
                          </div>
-                         <Button variant="outline" className="w-full lg:w-auto h-11 px-6 rounded-xl font-black text-[10px] uppercase tracking-widest border-border hover:bg-primary hover:text-white transition-all shrink-0" asChild>
+                         <Button variant="outline" className="w-full lg:w-auto h-11 px-6 rounded-xl font-black text-[10px] uppercase tracking-widest border-border hover:bg-primary hover:text-white transition-all shrink-0 mt-4 lg:mt-0" asChild>
                             <a href="/full-registration">View Registry</a>
                          </Button>
                       </div>
@@ -502,7 +478,6 @@ export default function FullPerformancePage() {
                 </div>
              </div>
 
-             {/* Distribution Context */}
              <div className="xl:col-span-4 space-y-8">
                 <Card className="border border-border bg-card rounded-[2.5rem] p-8 shadow-sm">
                   <CardTitle className="text-xs font-black text-muted-foreground uppercase tracking-[0.2em] mb-8 flex items-center gap-2">
@@ -585,4 +560,3 @@ function MetricGauge({ label, value, color, icon: Icon, trend, description }: an
     </Card>
   );
 }
-

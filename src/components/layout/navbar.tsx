@@ -1,3 +1,4 @@
+
 "use client"
 
 import Link from 'next/link';
@@ -53,17 +54,17 @@ import { useTheme } from 'next-themes';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const OFFICER_PRIMARY_NAV = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Full Intel', href: '/full-performance', icon: LineChart },
+  { name: 'Home', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Intel', href: '/full-performance', icon: LineChart },
   { name: 'Registry', href: '/full-registration', icon: Activity },
-  { name: 'Performance', href: '/performance', icon: TrendingUp },
+  { name: 'Comm', href: '/communication', icon: MessageSquare },
 ];
 
 const OFFICER_SECONDARY_NAV = [
+  { name: 'Performance', href: '/performance', icon: TrendingUp },
   { name: 'Comparison', href: '/previous', icon: HistoryIcon },
   { name: 'Status Check', href: '/status-check', icon: Search },
   { name: 'Printing', href: '/printing', icon: Printer },
-  { name: 'Comm Portal', href: '/communication', icon: MessageSquare },
   { name: 'Daily Reports', href: '/daily-registrations', icon: CalendarPlus },
   { name: 'Records', href: '/registrations', icon: FileCheck },
   { name: 'History Ledger', href: '/historical', icon: Database },
@@ -72,18 +73,18 @@ const OFFICER_SECONDARY_NAV = [
 ];
 
 const ADMIN_PRIMARY_NAV = [
-  { name: 'Overview', href: '/admin', icon: LayoutDashboard },
-  { name: 'Full Intel', href: '/full-performance', icon: LineChart },
-  { name: 'Audit', href: '/admin/audit-ledger', icon: ShieldCheck },
-  { name: 'Performance', href: '/performance', icon: TrendingUp },
+  { name: 'Home', href: '/admin', icon: LayoutDashboard },
+  { name: 'Intel', href: '/full-performance', icon: LineChart },
+  { name: 'Registry', href: '/full-registration', icon: Activity },
+  { name: 'Comm', href: '/communication', icon: MessageSquare },
 ];
 
 const ADMIN_SECONDARY_NAV = [
-  { name: 'Registry', href: '/full-registration', icon: Activity },
+  { name: 'Audit', href: '/admin/audit-ledger', icon: ShieldCheck },
+  { name: 'Performance', href: '/performance', icon: TrendingUp },
   { name: 'Comparison', href: '/previous', icon: HistoryIcon },
   { name: 'Status Check', href: '/status-check', icon: Search },
   { name: 'Printing', href: '/printing', icon: Printer },
-  { name: 'Comm Portal', href: '/communication', icon: MessageSquare },
   { name: 'Personnel', href: '/admin/officers', icon: Users },
   { name: 'Proxy Entry', href: '/admin/reports-entry', icon: ClipboardEdit },
   { name: 'Broadcasts', href: '/admin/announcements', icon: Megaphone },
@@ -135,49 +136,13 @@ export function Navbar() {
     );
   }, [db, user?.uid]);
 
-  const announcementsQuery = useMemoFirebase(() => {
-    if (!db || !user) return null;
-    return query(collection(db, 'announcements'));
-  }, [db, user]);
-
-  const convsQuery = useMemoFirebase(() => {
-    if (!db || !user) return null;
-    return query(
-      collection(db, 'conversations'),
-      where('members', 'array-contains', user.uid)
-    );
-  }, [db, user]);
-
   const { data: unreadNotifications } = useCollection<Notification>(unreadNotificationsQuery);
-  const { data: announcements } = useCollection<Announcement>(announcementsQuery);
-  const { data: conversations } = useCollection<Conversation>(convsQuery);
-
-  const unreadCount = useMemo(() => {
-    if (!profile) return unreadNotifications?.length || 0;
-    let count = unreadNotifications?.length || 0;
-    const getTs = (d: any) => {
-      if (!d) return 0;
-      if (typeof d === 'string') return new Date(d).getTime();
-      if (d.toDate) return d.toDate().getTime();
-      return new Date(d).getTime();
-    };
-    const lastReadAnnTime = profile.lastAnnouncementReadAt ? getTs(profile.lastAnnouncementReadAt) : 0;
-    const lastReadMsgTime = profile.lastMessageReadAt ? getTs(profile.lastMessageReadAt) : 0;
-    if (announcements) {
-      count += announcements.filter(ann => (ann.timestamp ? getTs(ann.timestamp) : getTs(ann.date)) > lastReadAnnTime).length;
-    }
-    if (conversations) {
-      count += conversations.filter(conv => getTs(conv.lastTimestamp) > lastReadMsgTime).length;
-    }
-    return count;
-  }, [unreadNotifications, announcements, conversations, profile]);
 
   if (pathname === '/login') return null;
 
   const isAdmin = profile?.role === 'admin';
   const primaryItems = isAdmin ? ADMIN_PRIMARY_NAV : OFFICER_PRIMARY_NAV;
   const secondaryItems = isAdmin ? ADMIN_SECONDARY_NAV : OFFICER_SECONDARY_NAV;
-  const allItemsForMobile = [...primaryItems, ...secondaryItems];
 
   const handleLogout = async () => {
     sessionStorage.removeItem('fayda_mfa_verified');
@@ -185,9 +150,10 @@ export function Navbar() {
     router.push('/login');
   };
 
-  const photoUrl = profile?.profilePhoto || user?.photoURL || undefined;
   const bureauName = branding?.bureauName || 'FaydaTrack';
   const logoUrl = branding?.logoUrl || DEFAULT_LOGO;
+
+  const activeIndex = primaryItems.findIndex(item => item.href === pathname);
 
   return (
     <>
@@ -209,7 +175,7 @@ export function Navbar() {
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    "flex items-center px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-md transition-all",
+                    "flex items-center px-4 py-2 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all",
                     pathname === item.href ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted"
                   )}
                 >
@@ -221,15 +187,15 @@ export function Navbar() {
               {user && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-8 px-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground">
-                      Operations <ChevronDown className="ml-1 h-3 w-3" />
+                    <Button variant="ghost" size="sm" className="h-9 px-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground rounded-xl">
+                      Bureau Hub <ChevronDown className="ml-1 h-3 w-3" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-56 p-1 rounded-xl shadow-xl border-border bg-popover">
-                    <DropdownMenuLabel className="text-[9px] font-black text-muted-foreground uppercase px-2 py-1.5 tracking-widest">Bureau Terminals</DropdownMenuLabel>
+                  <DropdownMenuContent align="start" className="w-56 p-1 rounded-2xl shadow-2xl border-border bg-popover">
+                    <DropdownMenuLabel className="text-[9px] font-black text-muted-foreground uppercase px-2 py-2 tracking-widest">Operational Terminals</DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     {secondaryItems.map((item) => (
-                      <DropdownMenuItem key={item.href} onClick={() => router.push(item.href)} className="rounded-lg text-[10px] font-bold uppercase tracking-widest cursor-pointer py-2.5">
+                      <DropdownMenuItem key={item.href} onClick={() => router.push(item.href)} className="rounded-xl text-[10px] font-bold uppercase tracking-widest cursor-pointer py-3">
                         <item.icon className="mr-2 h-3.5 w-3.5 opacity-60" /> {item.name}
                       </DropdownMenuItem>
                     ))}
@@ -239,10 +205,10 @@ export function Navbar() {
             </nav>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             {user && (
               <div className={cn(
-                "flex items-center gap-2.5 px-3 py-1.5 rounded-full border transition-all duration-500 shadow-sm backdrop-blur-sm",
+                "flex items-center gap-2.5 px-3 py-1.5 rounded-full border transition-all duration-500 shadow-sm",
                 isOnline 
                   ? "bg-emerald-500/[0.03] border-emerald-500/20 text-emerald-600" 
                   : "bg-rose-500/[0.03] border-rose-500/20 text-rose-600"
@@ -262,24 +228,22 @@ export function Navbar() {
                   )}
                 </div>
                 <span className="text-[8px] font-black font-mono uppercase tracking-[0.15em] hidden sm:inline leading-none">
-                  {isOnline ? 'Online' : 'Isolated'}
+                  {isOnline ? 'Active' : 'Isolated'}
                 </span>
               </div>
             )}
 
             {mounted && (
-              <Button variant="ghost" size="icon" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground">
+              <Button variant="ghost" size="icon" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="h-9 w-9 rounded-xl text-muted-foreground hover:text-foreground">
                 {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               </Button>
             )}
 
             {user && (
-              <Link href="/notifications" className="relative p-2 rounded-md hover:bg-muted transition-colors group">
+              <Link href="/notifications" className="relative p-2.5 rounded-xl hover:bg-muted transition-colors group">
                 <Bell className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 flex items-center justify-center bg-primary text-primary-foreground text-[9px] font-black rounded-full ring-2 ring-background animate-in zoom-in duration-300">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
+                {unreadNotifications && unreadNotifications.length > 0 && (
+                  <span className="absolute top-1 right-1 h-2 w-2 bg-primary rounded-full ring-2 ring-background" />
                 )}
               </Link>
             )}
@@ -287,17 +251,17 @@ export function Navbar() {
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="h-9 w-9 p-0 rounded-full border border-border/50 ring-offset-background hover:ring-2 hover:ring-primary/20 transition-all overflow-hidden">
+                  <Button variant="ghost" className="h-10 w-10 p-0 rounded-full border border-border/50 overflow-hidden ring-offset-background hover:ring-2 hover:ring-primary/20 transition-all">
                     <Avatar className="h-full w-full">
-                      <AvatarImage src={photoUrl || undefined} alt="Official" />
-                      <AvatarFallback className="text-[10px] font-black bg-muted/30 uppercase">{(profile?.fullName || "OFF").substring(0, 2)}</AvatarFallback>
+                      <AvatarImage src={profile?.profilePhoto} />
+                      <AvatarFallback className="text-[10px] font-black bg-muted">{(profile?.fullName || "OFF").substring(0, 2)}</AvatarFallback>
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-64 p-1 rounded-xl shadow-2xl border-border bg-popover">
+                <DropdownMenuContent align="end" className="w-64 p-1 rounded-2xl shadow-2xl border-border bg-popover">
                   <DropdownMenuLabel className="flex items-center gap-3 p-3">
                     <Avatar className="h-10 w-10 border border-border/50">
-                      <AvatarImage src={photoUrl || undefined} />
+                      <AvatarImage src={profile?.profilePhoto} />
                       <AvatarFallback className="text-xs font-black bg-muted">{(profile?.fullName || "OFF").substring(0, 2)}</AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col min-0">
@@ -306,101 +270,106 @@ export function Navbar() {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  {isAdmin && (
-                    <DropdownMenuItem onClick={() => router.push(pathname.startsWith('/admin') ? '/dashboard' : '/admin')} className="rounded-lg text-[10px] font-bold uppercase tracking-widest cursor-pointer">
-                      <ShieldCheck className="mr-2 h-3.5 w-3.5 opacity-60" /> Switch to {pathname.startsWith('/admin') ? 'Officer' : 'Admin'}
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem onClick={() => router.push('/profile')} className="rounded-lg text-[10px] font-bold uppercase tracking-widest cursor-pointer">
+                  <DropdownMenuItem onClick={() => router.push('/profile')} className="rounded-xl text-[10px] font-bold uppercase tracking-widest cursor-pointer py-3">
                     <Settings className="mr-2 h-3.5 w-3.5 opacity-60" /> Profile Settings
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem className="text-destructive focus:text-destructive rounded-lg text-[10px] font-bold uppercase tracking-widest cursor-pointer" onClick={handleLogout}>
+                  <DropdownMenuItem className="text-destructive focus:text-destructive rounded-xl text-[10px] font-bold uppercase tracking-widest cursor-pointer py-3" onClick={handleLogout}>
                     <LogOut className="mr-2 h-3.5 w-3.5" /> Sign Out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              <Button variant="default" size="sm" asChild className="rounded-md h-8 text-[10px] font-black uppercase tracking-widest px-4">
-                <Link href="/login">Sign In</Link>
+              <Button variant="default" size="sm" asChild className="rounded-xl h-9 text-[10px] font-black uppercase tracking-widest px-6">
+                <Link href="/login">Portal Login</Link>
               </Button>
             )}
           </div>
         </div>
       </header>
 
-      {/* MOBILE BOTTOM NAVIGATION - PREMIUM TACTICAL BAR */}
       {user && (
-        <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-t border-border px-2 pb-safe shadow-[0_-8px_30px_rgba(0,0,0,0.04)]">
-          <div className="container mx-auto flex items-center justify-around h-16 max-w-lg">
-            <MobileTabItem 
-              href={isAdmin ? "/admin" : "/dashboard"} 
-              icon={LayoutDashboard} 
-              label="Home" 
-              active={pathname === (isAdmin ? "/admin" : "/dashboard")} 
-            />
-            <MobileTabItem 
-              href="/full-registration" 
-              icon={Activity} 
-              label="Registry" 
-              active={pathname === "/full-registration"} 
-            />
-            <MobileTabItem 
-              href="/full-performance" 
-              icon={LineChart} 
-              label="Intel" 
-              active={pathname === "/full-performance"} 
-            />
-            <MobileTabItem 
-              href="/communication" 
-              icon={MessageSquare} 
-              label="Comms" 
-              active={pathname === "/communication"} 
-            />
-            
+        <nav className="lg:hidden fixed bottom-6 left-4 right-4 z-50">
+          <div className="relative h-20 w-full bg-card rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.2)] flex items-center justify-around px-2 border border-white/5">
+            {/* The Dynamic Notch */}
+            {activeIndex !== -1 && (
+              <div 
+                className="absolute top-[-1px] h-10 w-[20%] transition-all duration-500 ease-in-out pointer-events-none"
+                style={{ left: `${activeIndex * 20}%` }}
+              >
+                <div className="relative h-full w-full flex justify-center">
+                  {/* Background Notch Mask */}
+                  <svg 
+                    width="100" 
+                    height="40" 
+                    viewBox="0 0 100 40" 
+                    className="absolute top-0 text-background fill-current"
+                  >
+                    <path d="M0 0 Q 25 0 35 15 A 15 15 0 0 0 65 15 Q 75 0 100 0 L 100 40 L 0 40 Z" />
+                  </svg>
+                  {/* Floating Dot */}
+                  <div className="absolute top-[-8px] h-2 w-2 bg-primary rounded-full shadow-[0_0_15px_rgba(var(--primary),0.5)] animate-bounce" />
+                </div>
+              </div>
+            )}
+
+            {primaryItems.map((item, idx) => {
+              const isActive = pathname === item.href;
+              return (
+                <Link 
+                  key={item.href} 
+                  href={item.href}
+                  className={cn(
+                    "flex flex-col items-center justify-center gap-1.5 w-[20%] h-full transition-all duration-500 z-10",
+                    isActive ? "text-primary -translate-y-2" : "text-muted-foreground/60 hover:text-foreground"
+                  )}
+                >
+                  <item.icon className={cn("h-6 w-6 transition-transform duration-500", isActive && "scale-110")} strokeWidth={isActive ? 2.5 : 2} />
+                  <span className={cn(
+                    "text-[8px] font-black uppercase tracking-tighter transition-all duration-500",
+                    isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
+                  )}>{item.name}</span>
+                </Link>
+              );
+            })}
+
+            {/* Menu Trigger */}
             <Sheet>
               <SheetTrigger asChild>
-                <button className="flex flex-col items-center justify-center gap-1.5 min-w-[64px] h-full transition-all active:scale-90 text-muted-foreground hover:text-primary">
-                  <MoreHorizontal className="h-5 w-5" />
-                  <span className="text-[8px] font-black uppercase tracking-tighter">Menu</span>
+                <button className="flex flex-col items-center justify-center gap-1.5 w-[20%] h-full text-muted-foreground/60 hover:text-primary z-10">
+                  <MoreHorizontal className="h-6 w-6" />
+                  <span className="text-[8px] font-black uppercase tracking-tighter opacity-0 translate-y-2">Menu</span>
                 </button>
               </SheetTrigger>
-              <SheetContent side="right" className="w-[300px] p-0 border-none bg-background shadow-2xl">
-                <SheetHeader className="p-6 border-b text-left bg-muted/20">
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-10 w-10 border border-border/50">
-                      <AvatarImage src={photoUrl || undefined} />
-                      <AvatarFallback className="text-xs font-black">{(profile?.fullName || "OFF").substring(0,2).toUpperCase()}</AvatarFallback>
+              <SheetContent side="bottom" className="rounded-t-[32px] h-[70vh] border-none shadow-2xl bg-popover p-0 overflow-hidden">
+                <SheetHeader className="p-8 border-b bg-muted/20">
+                  <div className="flex items-center gap-4">
+                    <Avatar className="h-12 w-12 border-2 border-primary/20">
+                      <AvatarImage src={profile?.profilePhoto} />
+                      <AvatarFallback className="font-black">{(profile?.fullName || "OFF").substring(0, 2)}</AvatarFallback>
                     </Avatar>
                     <div>
-                      <SheetTitle className="text-sm font-black uppercase tracking-tight">{profile?.fullName || 'Official'}</SheetTitle>
-                      <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">{profile?.role}</p>
+                      <SheetTitle className="text-lg font-black uppercase tracking-tight">{profile?.fullName}</SheetTitle>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{profile?.role}</p>
                     </div>
                   </div>
                 </SheetHeader>
-                <div className="p-2 space-y-1">
-                  <p className="text-[9px] font-black text-muted-foreground uppercase px-4 py-3 tracking-widest">Navigation</p>
-                  {allItemsForMobile.map((item) => (
+                <div className="p-4 grid grid-cols-2 gap-3">
+                  {secondaryItems.map((item) => (
                     <Link
                       key={item.href}
                       href={item.href}
                       className={cn(
-                        "flex items-center justify-between px-4 py-3 text-[10px] font-bold uppercase tracking-widest rounded-md transition-all",
-                        pathname === item.href ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                        "flex items-center gap-3 p-4 rounded-2xl border transition-all",
+                        pathname === item.href ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border hover:bg-muted"
                       )}
                     >
-                      <div className="flex items-center gap-3">
-                        <item.icon className="h-4 w-4" />
-                        {item.name}
-                      </div>
-                      <ChevronRight className="h-3 w-3 opacity-30" />
+                      <item.icon className="h-4 w-4" />
+                      <span className="text-[10px] font-black uppercase tracking-widest">{item.name}</span>
                     </Link>
                   ))}
-                  <div className="my-2 border-t border-border/50" />
-                  <button onClick={handleLogout} className="w-full flex items-center justify-between px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-destructive hover:bg-destructive/5 rounded-md transition-all">
-                    <div className="flex items-center gap-3">
-                      <LogOut className="h-4 w-4" /> Terminate Session
-                    </div>
+                  <button onClick={handleLogout} className="col-span-2 flex items-center justify-center gap-3 p-4 mt-4 rounded-2xl bg-rose-500 text-white font-black uppercase text-[10px] tracking-widest">
+                    <LogOut className="h-4 w-4" /> Terminate Session
                   </button>
                 </div>
               </SheetContent>
@@ -409,31 +378,5 @@ export function Navbar() {
         </nav>
       )}
     </>
-  );
-}
-
-function MobileTabItem({ href, icon: Icon, label, active }: { href: string, icon: any, label: string, active: boolean }) {
-  return (
-    <Link 
-      href={href} 
-      className={cn(
-        "flex flex-col items-center justify-center gap-1.5 min-w-[64px] h-full transition-all duration-500 relative",
-        active ? "text-primary scale-110" : "text-muted-foreground opacity-60 hover:opacity-100"
-      )}
-    >
-      <div className={cn(
-        "p-1.5 rounded-xl transition-all duration-500",
-        active ? "bg-primary/10 shadow-[0_0_20px_rgba(var(--primary),0.15)]" : "bg-transparent"
-      )}>
-        <Icon className={cn("h-5.5 w-5.5", active && "animate-in zoom-in-75 duration-500")} strokeWidth={active ? 2.5 : 2} />
-      </div>
-      <span className={cn(
-        "text-[8px] font-black uppercase tracking-tighter transition-all duration-500",
-        active ? "opacity-100" : "opacity-0 translate-y-1"
-      )}>{label}</span>
-      {active && (
-        <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-primary rounded-full animate-pulse" />
-      )}
-    </Link>
   );
 }
