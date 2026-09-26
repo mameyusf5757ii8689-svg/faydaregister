@@ -241,12 +241,27 @@ export function Navbar() {
         <div className="flex items-center gap-2">
           {user && (
             <div className={cn(
-              "flex items-center gap-1.5 px-2 py-1 rounded-full border transition-all duration-500",
-              isOnline ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600" : "bg-rose-500/10 border-rose-500/20 text-rose-600 animate-pulse"
+              "flex items-center gap-3 px-3 py-1.5 rounded-full border transition-all duration-500 shadow-sm backdrop-blur-sm",
+              isOnline 
+                ? "bg-emerald-500/[0.03] border-emerald-500/20 text-emerald-600" 
+                : "bg-rose-500/[0.03] border-rose-500/20 text-rose-600"
             )}>
-              {isOnline ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-              <span className="text-[8px] font-black uppercase tracking-tighter hidden sm:inline">
-                {isOnline ? 'Online' : 'Isolated Mode'}
+              <div className="relative flex items-center justify-center">
+                {isOnline ? (
+                  <>
+                    <Wifi className="h-3.5 w-3.5 relative z-10" />
+                    <span className="absolute h-full w-full bg-emerald-500 rounded-full opacity-20 animate-ping" />
+                    <span className="absolute h-1.5 w-1.5 bg-emerald-500 rounded-full -top-0.5 -right-0.5 border border-background animate-pulse" />
+                  </>
+                ) : (
+                  <>
+                    <WifiOff className="h-3.5 w-3.5 relative z-10" />
+                    <span className="absolute h-1.5 w-1.5 bg-rose-500 rounded-full -top-0.5 -right-0.5 border border-background" />
+                  </>
+                )}
+              </div>
+              <span className="text-[9px] font-black font-mono uppercase tracking-[0.15em] hidden sm:inline leading-none">
+                {isOnline ? 'Online' : 'Isolated'}
               </span>
             </div>
           )}
