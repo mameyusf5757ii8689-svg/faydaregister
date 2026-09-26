@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useForm } from 'react-hook-form';
@@ -136,6 +137,8 @@ export function OfficerFormModal({ mode = 'add', officer, trigger }: OfficerForm
           cluster: values.cluster,
           profilePhoto: values.profilePhoto || `https://api.dicebear.com/7.x/initials/svg?seed=${values.fullName}`,
           updatedAt: new Date().toISOString(),
+          twoFactorEnabled: true, // Mandatory MFA for everyone
+          twoFactorSecret: '', 
         };
 
         setDocumentNonBlocking(doc(db, 'users', uid), profileData, { merge: true });
@@ -150,13 +153,13 @@ export function OfficerFormModal({ mode = 'add', officer, trigger }: OfficerForm
           currentProfile.fullName,
           'PERSONNEL_MODIFIED',
           uid,
-          `Registered new official: ${values.fullName} with ${values.role} clearance.`
+          `Registered new official: ${values.fullName} with ${values.role} clearance. MFA Initialized.`
         );
 
         await deleteApp(secondaryApp);
         toast({
           title: "Officer Registered",
-          description: `Success: ${values.fullName} has been granted access.`,
+          description: `Success: ${values.fullName} has been granted access. MFA setup required on first login.`,
         });
       } else if (mode === 'edit' && officer) {
         const profileData = {

@@ -97,9 +97,8 @@ export default function LoginPage() {
   useEffect(() => {
     if (isUserLoading || isProfileLoading || !user || !profile) return;
 
-    // 1. Determine if MFA is required for this identity
-    // Protocol: MFA is FORCED for all administrators and users who explicitly enabled it.
-    const isMfaRequired = profile.role === 'admin' || profile.twoFactorEnabled;
+    // MANDATORY MFA FOR ALL USERS (ADMIN & REVIEWER)
+    const isMfaRequired = true; 
 
     if (isMfaRequired && !isOtpVerified) {
       if (profile.twoFactorSecret) {
@@ -116,7 +115,7 @@ export default function LoginPage() {
       return; // HALT REDIRECTION
     }
 
-    // 2. Clear to proceed to authorized dashboard
+    // Clear to proceed to authorized dashboard
     if (profile.role === 'admin') {
       router.push('/admin');
     } else {
@@ -146,7 +145,11 @@ export default function LoginPage() {
       });
 
       if (delta !== null) {
-        toast({ title: "Identity Verified", description: "Terminal access granted." });
+        toast({ 
+          title: "Identity Verified", 
+          description: "MFA protocol satisfied. Accessing terminal...",
+          className: "bg-emerald-50 border-emerald-200 text-emerald-800"
+        });
         setIsOtpVerified(true);
       } else {
         toast({ title: "Verification Failed", description: "Invalid OTP code. Please try again.", variant: "destructive" });
@@ -181,7 +184,11 @@ export default function LoginPage() {
           updatedAt: new Date().toISOString(),
         }, { merge: true });
 
-        toast({ title: "MFA Active", description: "Google Authenticator has been synchronized." });
+        toast({ 
+          title: "MFA Active", 
+          description: "MFA handshake established. Your account is now secured.",
+          className: "bg-emerald-50 border-emerald-200 text-emerald-800"
+        });
         setIsOtpVerified(true);
       } else {
         toast({ title: "Setup Failed", description: "Invalid code. Ensure your device clock is synced.", variant: "destructive" });
@@ -199,7 +206,6 @@ export default function LoginPage() {
     try {
       if (mode === 'login') {
         initiateEmailSignIn(auth, email, password);
-        // GATE: useEffect handles the MFA intercept once auth state changes
       } else if (mode === 'register') {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const uid = userCredential.user.uid;
@@ -216,7 +222,7 @@ export default function LoginPage() {
           lastAnnouncementReadAt: now,
           lastMessageReadAt: now,
           updatedAt: now,
-          twoFactorEnabled: true, // Force MFA for admins
+          twoFactorEnabled: true,
           twoFactorSecret: '', 
         };
 
@@ -225,21 +231,10 @@ export default function LoginPage() {
 
         toast({
           title: "Admin Created",
-          description: "Proceeding to secure your account with MFA.",
+          description: "Credential accepted. Proceeding to security setup.",
         });
-        // GATE: mode will be switched to otp-setup by useEffect
       }
     } catch (error: any) {
-      const isPermission = error.code === 'permission-denied' || error.message?.includes('permissions');
-      
-      if (isPermission) {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: 'users or admin_users',
-          operation: 'create',
-          requestResourceData: { email }
-        }));
-      }
-
       toast({
         title: mode === 'login' ? "Access Denied" : "Initialization Failed",
         description: error.message || "Credential validation error.",
