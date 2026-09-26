@@ -33,8 +33,6 @@ import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, collection, query, limit } from 'firebase/firestore';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UserProfile, SystemSettings } from '@/lib/types';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { cn } from '@/lib/utils';
 import * as OTPAuth from "otpauth";
@@ -501,7 +499,7 @@ export default function LoginPage() {
           <CardFooter className="pt-0 pb-8 flex flex-col text-center opacity-40">
             <div className="flex items-center justify-center gap-3">
               <div className="h-px w-8 bg-border" />
-              <p className="text-[8px] font-black uppercase tracking-[0.4em]">
+              <p className="text-[8px] font-black uppercase tracking(0.4em]">
                 Multi-Factor Security Active
               </p>
               <div className="h-px w-8 bg-border" />
