@@ -28,7 +28,8 @@ import {
   Trophy,
   ShieldAlert,
   Award,
-  AlertTriangle
+  AlertTriangle,
+  Star
 } from 'lucide-react';
 import { Registration, DailyReport, UserProfile } from '@/lib/types';
 import { format, subDays, eachMonthOfInterval, subMonths, eachDayOfInterval, startOfMonth, endOfMonth, isWithinInterval, isSameDay } from 'date-fns';
@@ -103,6 +104,45 @@ export default function FullPerformancePage() {
 
   const { data: registrations, isLoading: isRegsLoading } = useCollection<Registration>(regsQuery);
   const { data: reports, isLoading: isReportsLoading } = useCollection<DailyReport>(reportsQuery);
+
+  const allTimeHighs = useMemo(() => {
+    if (!registrations || !mounted) return null;
+
+    // Group by Month/Year
+    const monthGroups: Record<string, { total: number; processed: number }> = {};
+    
+    registrations.forEach(r => {
+      const date = new Date(r.submissionDate);
+      const key = format(date, 'MMMM yyyy');
+      
+      if (!monthGroups[key]) {
+        monthGroups[key] = { total: 0, processed: 0 };
+      }
+      
+      monthGroups[key].total += 1;
+      if (r.status === 'Processed') {
+        monthGroups[key].processed += 1;
+      }
+    });
+
+    let bestRate = -1;
+    let bestPeriod = 'No Data';
+
+    Object.entries(monthGroups).forEach(([period, data]) => {
+      if (data.total > 5) { // Minimum threshold for statistical relevance
+        const rate = (data.processed / data.total) * 100;
+        if (rate > bestRate) {
+          bestRate = rate;
+          bestPeriod = period;
+        }
+      }
+    });
+
+    return {
+      rate: bestRate > -1 ? Number(bestRate.toFixed(1)) : 0,
+      period: bestPeriod
+    };
+  }, [registrations, mounted]);
 
   const stats = useMemo(() => {
     if (!registrations || !mounted) return null;
@@ -297,18 +337,18 @@ export default function FullPerformancePage() {
           </section>
 
           {/* Deep Intel Row */}
-          <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <Card className="border border-border bg-card shadow-sm rounded-[2.5rem] p-8 flex flex-col justify-between bg-primary/[0.02] group hover:shadow-xl transition-all">
                <div className="space-y-4">
                   <div className="flex items-center gap-3">
                     <div className="p-3 bg-primary/10 rounded-2xl text-primary"><Award className="h-6 w-6" /></div>
                     <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Daily Pick (Peak)</p>
                   </div>
-                  <h3 className="text-3xl font-black text-foreground uppercase tracking-tight">{temporalTrends?.peakDay}</h3>
+                  <h3 className="text-xl sm:text-2xl font-black text-foreground uppercase tracking-tight">{temporalTrends?.peakDay}</h3>
                   <p className="text-xs text-muted-foreground font-medium">Busiest operational period detected in range.</p>
                </div>
                <div className="mt-8 pt-6 border-t border-border flex items-center justify-between">
-                  <span className="text-4xl font-black text-primary tabular-nums">{temporalTrends?.peakAmount}</span>
+                  <span className="text-3xl font-black text-primary tabular-nums">{temporalTrends?.peakAmount}</span>
                   <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Units Handled</span>
                </div>
             </Card>
@@ -319,11 +359,11 @@ export default function FullPerformancePage() {
                     <div className="p-3 bg-rose-500/10 rounded-2xl text-rose-500"><AlertTriangle className="h-6 w-6" /></div>
                     <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Rejection Frequency</p>
                   </div>
-                  <h3 className="text-2xl font-black text-foreground uppercase tracking-tight line-clamp-2">{stats.topReason}</h3>
+                  <h3 className="text-xl font-black text-foreground uppercase tracking-tight line-clamp-2">{stats.topReason}</h3>
                   <p className="text-xs text-muted-foreground font-medium">Primary cause for registry protocol failure.</p>
                </div>
                <div className="mt-8 pt-6 border-t border-border flex items-center justify-between">
-                  <span className="text-4xl font-black text-rose-600 tabular-nums">{stats.counts.rejected}</span>
+                  <span className="text-3xl font-black text-rose-600 tabular-nums">{stats.counts.rejected}</span>
                   <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Total Rejected</span>
                </div>
             </Card>
@@ -334,12 +374,33 @@ export default function FullPerformancePage() {
                     <div className="p-3 bg-emerald-500/10 rounded-2xl text-emerald-500"><CheckCircle2 className="h-6 w-6" /></div>
                     <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Success Volume</p>
                   </div>
-                  <h3 className="text-3xl font-black text-foreground uppercase tracking-tight">Finalized Archives</h3>
+                  <h3 className="text-xl sm:text-2xl font-black text-foreground uppercase tracking-tight">Finalized Archives</h3>
                   <p className="text-xs text-muted-foreground font-medium">Documents that cleared all protocol gates.</p>
                </div>
                <div className="mt-8 pt-6 border-t border-border flex items-center justify-between">
-                  <span className="text-4xl font-black text-emerald-600 tabular-nums">{stats.counts.processed}</span>
+                  <span className="text-3xl font-black text-emerald-600 tabular-nums">{stats.counts.processed}</span>
                   <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Total Success</span>
+               </div>
+            </Card>
+
+            <Card className="border-none shadow-sm rounded-[2.5rem] p-8 flex flex-col justify-between group hover:shadow-xl transition-all bg-gradient-to-br from-amber-500/10 to-primary/5 ring-1 ring-amber-500/20">
+               <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 bg-amber-500/20 rounded-2xl text-amber-600"><Trophy className="h-6 w-6" /></div>
+                    <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Elite Milestone</p>
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-4xl font-black text-amber-700 tabular-nums">{allTimeHighs?.rate}%</h3>
+                    <p className="text-[11px] font-black text-amber-800 uppercase tracking-widest">{allTimeHighs?.period}</p>
+                  </div>
+                  <p className="text-xs text-amber-700/60 font-medium">Highest success rate recorded across all bureau history.</p>
+               </div>
+               <div className="mt-8 pt-6 border-t border-amber-500/20 flex items-center justify-between">
+                  <div className="flex items-center gap-1">
+                    <Star className="h-3 w-3 text-amber-500 fill-amber-500" />
+                    <span className="text-[9px] font-black text-amber-700 uppercase tracking-widest">All-Time Peak</span>
+                  </div>
+                  <ShieldCheck className="h-4 w-4 text-amber-500 opacity-40" />
                </div>
             </Card>
           </section>
