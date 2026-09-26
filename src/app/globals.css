@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -73,10 +74,17 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground font-body selection:bg-primary/20 selection:text-primary transition-colors duration-300;
+    @apply bg-background text-foreground font-sans selection:bg-primary/20 selection:text-primary transition-colors duration-300;
   }
   h1, h2, h3, h4, h5, h6 {
-    @apply font-headline tracking-tight;
+    @apply font-sans tracking-tight;
+  }
+  /* Enforce mono font for all numbers globally for high-fidelity technical feel */
+  [class*="tabular-nums"], 
+  [class*="font-mono"],
+  input[type="number"],
+  .recharts-cartesian-axis-tick text {
+    @apply font-mono;
   }
 }
 
