@@ -448,15 +448,18 @@ export default function FullPerformancePage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                    <Card className="border border-border bg-card shadow-sm rounded-[2.5rem] p-8 border-l-[6px] group transition-all" style={{ borderLeftColor: COLORS.rejected }}>
-                      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                        <div className="space-y-4">
-                            <div className="space-y-1">
-                              <h3 className="text-xl font-black text-foreground uppercase tracking-tight flex items-center gap-2">
-                                  <ShieldAlert className="h-5 w-5 text-rose-500 group-hover:rotate-12 transition-transform" /> Integrity Audit
-                              </h3>
-                              <p className="text-xs text-muted-foreground font-medium">Monitoring protocol rejections and technical failures.</p>
+                      <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
+                        <div className="space-y-6 flex-1">
+                            <div className="flex items-start gap-4">
+                               <div className="p-3 bg-rose-500/10 rounded-2xl text-rose-500 shrink-0 group-hover:rotate-12 transition-transform">
+                                  <ShieldAlert className="h-6 w-6" />
+                               </div>
+                               <div className="space-y-1">
+                                  <h3 className="text-xl font-black text-foreground uppercase tracking-tight">Integrity Audit</h3>
+                                  <p className="text-xs text-muted-foreground font-medium">Monitoring protocol rejections and technical failures.</p>
+                               </div>
                             </div>
-                            <div className="flex items-center gap-8">
+                            <div className="flex items-center gap-8 pl-1">
                               <div className="space-y-1">
                                   <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Rejections</p>
                                   <p className="text-3xl font-mono font-black text-rose-600 tabular-nums tracking-tighter">{stats.counts.rejected}</p>
@@ -468,27 +471,30 @@ export default function FullPerformancePage() {
                               </div>
                             </div>
                         </div>
-                        <Button variant="outline" className="w-full lg:w-auto h-10 px-6 rounded-xl font-black text-[10px] uppercase tracking-widest border-border hover:bg-rose-500 hover:text-white transition-all shrink-0" asChild>
+                        <Button variant="outline" className="w-full lg:w-auto h-11 px-6 rounded-xl font-black text-[10px] uppercase tracking-widest border-border hover:bg-rose-500 hover:text-white transition-all shrink-0" asChild>
                             <a href="/performance">Detailed Audit</a>
                         </Button>
                       </div>
                    </Card>
 
                    <Card className="border border-border bg-card shadow-sm rounded-[2.5rem] p-8 border-l-[6px] border-l-primary group transition-all">
-                      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                         <div className="space-y-4">
-                            <div className="space-y-1">
-                               <h3 className="text-xl font-black text-foreground uppercase tracking-tight flex items-center gap-2">
-                                  <Trophy className="h-5 w-5 text-amber-500 group-hover:scale-110 transition-transform" /> Elite Output
-                               </h3>
-                               <p className="text-xs text-muted-foreground font-medium">Verified successful registration completions.</p>
+                      <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
+                         <div className="space-y-6 flex-1">
+                            <div className="flex items-start gap-4">
+                               <div className="p-3 bg-primary/10 rounded-2xl text-primary shrink-0 group-hover:scale-110 transition-transform">
+                                  <Trophy className="h-6 w-6" />
+                               </div>
+                               <div className="space-y-1">
+                                  <h3 className="text-xl font-black text-foreground uppercase tracking-tight">Elite Output</h3>
+                                  <p className="text-xs text-muted-foreground font-medium">Verified successful registration completions.</p>
+                               </div>
                             </div>
-                            <div className="space-y-1">
+                            <div className="space-y-1 pl-1">
                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Total Finalized</p>
                                <p className="text-4xl font-mono font-black text-emerald-600 tabular-nums tracking-tighter">{stats.counts.processed}</p>
                             </div>
                          </div>
-                         <Button variant="outline" className="w-full lg:w-auto h-10 px-6 rounded-xl font-black text-[10px] uppercase tracking-widest border-border hover:bg-primary hover:text-white transition-all shrink-0" asChild>
+                         <Button variant="outline" className="w-full lg:w-auto h-11 px-6 rounded-xl font-black text-[10px] uppercase tracking-widest border-border hover:bg-primary hover:text-white transition-all shrink-0" asChild>
                             <a href="/full-registration">View Registry</a>
                          </Button>
                       </div>
@@ -579,3 +585,4 @@ function MetricGauge({ label, value, color, icon: Icon, trend, description }: an
     </Card>
   );
 }
+
