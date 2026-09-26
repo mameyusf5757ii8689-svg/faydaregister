@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState, useEffect, Suspense } from 'react';
@@ -375,7 +374,7 @@ function PerformanceContent() {
     <div className="space-y-10 animate-in fade-in duration-700 pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-1.5 text-center md:text-left">
-          <div className="flex items-center justify-center md:justify-start gap-3">
+          <div className="flex items-center gap-3">
             <div className="bg-primary/10 p-2.5 rounded-xl border border-primary/20"><TrendingUp className="h-6 w-6 md:h-7 md:w-7 text-primary" /></div>
             <div>
               <h1 className="text-3xl md:text-4xl font-black tracking-tight text-foreground font-headline uppercase leading-none">
@@ -576,9 +575,6 @@ function PerformanceContent() {
                           <div className="flex flex-col">
                             <span className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
                               {reg.applicantName}
-                            </span>
-                            <span className="text-[9px] font-bold text-muted-foreground/40 uppercase tracking-widest mt-1">
-                              Official Registry Record
                             </span>
                           </div>
                         </TableCell>
