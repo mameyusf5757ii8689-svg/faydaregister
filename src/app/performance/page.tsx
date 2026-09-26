@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo, useState, useEffect, Suspense } from 'react';
@@ -123,7 +124,7 @@ function MetricGauge({ label, value, color, icon: Icon, trend, description }: an
           </RadialBarChart>
         </ResponsiveContainer>
         <div className="absolute inset-0 flex flex-col items-center justify-center pt-10">
-           <span className="text-4xl font-black text-foreground tracking-tighter tabular-nums">{value}%</span>
+           <span className="text-4xl font-mono font-black text-foreground tracking-tighter tabular-nums">{value}%</span>
            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.2em] mt-1">{label}</p>
         </div>
       </div>
@@ -131,7 +132,7 @@ function MetricGauge({ label, value, color, icon: Icon, trend, description }: an
       <div className="w-full text-center relative z-10 mt-2 space-y-2">
          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{description}</p>
          <div className={cn(
-           "flex items-center justify-center gap-1 text-[9px] font-black uppercase tracking-tighter px-2 py-0.5 rounded-full w-fit mx-auto",
+           "flex items-center justify-center gap-1 text-[9px] font-mono font-black uppercase tracking-tighter px-2 py-0.5 rounded-full w-fit mx-auto",
            isPositive ? "bg-emerald-500/10 text-emerald-600" : "bg-rose-500/10 text-rose-600"
          )}>
            {isPositive ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
@@ -460,14 +461,14 @@ function PerformanceContent() {
             <Card className="border border-border bg-card shadow-sm rounded-[2.5rem] p-8 flex flex-col justify-between group hover:shadow-xl transition-all">
                <div className="space-y-4">
                   <div className="flex items-center gap-3">
-                    <div className="p-3 bg-amber-500/10 rounded-2xl text-amber-500"><Award className="h-6 w-6" /></div>
+                    <div className="p-3 bg-amber-500/10 rounded-2xl text-amber-500 group-hover:scale-110 transition-transform"><Award className="h-6 w-6" /></div>
                     <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Daily Pick (Peak)</p>
                   </div>
                   <h3 className="text-2xl font-black text-foreground uppercase tracking-tight">{stats.peakDay}</h3>
                   <p className="text-xs text-muted-foreground font-medium">Highest throughput identified this month.</p>
                </div>
                <div className="mt-8 pt-6 border-t border-border flex items-center justify-between">
-                  <span className="text-4xl font-black text-amber-600 tabular-nums">{stats.peakAmount}</span>
+                  <span className="text-4xl font-mono font-black text-amber-600 tabular-nums tracking-tighter">{stats.peakAmount}</span>
                   <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Units Handled</span>
                </div>
             </Card>
@@ -475,14 +476,14 @@ function PerformanceContent() {
             <Card className="border border-border bg-card shadow-sm rounded-[2.5rem] p-8 flex flex-col justify-between group hover:shadow-xl transition-all">
                <div className="space-y-4">
                   <div className="flex items-center gap-3">
-                    <div className="p-3 bg-rose-500/10 rounded-2xl text-rose-500"><AlertTriangle className="h-6 w-6" /></div>
+                    <div className="p-3 bg-rose-500/10 rounded-2xl text-rose-500 group-hover:scale-110 transition-transform"><AlertTriangle className="h-6 w-6" /></div>
                     <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Most Rejection Reason</p>
                   </div>
                   <h3 className="text-xl font-black text-foreground uppercase tracking-tight line-clamp-2">{stats.topReason}</h3>
                   <p className="text-xs text-muted-foreground font-medium">Primary cause for protocol failure.</p>
                </div>
                <div className="mt-8 pt-6 border-t border-border flex items-center justify-between">
-                  <span className="text-4xl font-black text-rose-600 tabular-nums">{stats.rejected}</span>
+                  <span className="text-4xl font-mono font-black text-rose-600 tabular-nums tracking-tighter">{stats.rejected}</span>
                   <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Total Purged</span>
                </div>
             </Card>
@@ -490,10 +491,10 @@ function PerformanceContent() {
             <Card className="border border-border bg-card shadow-sm rounded-[2.5rem] p-8 flex flex-col justify-between group hover:shadow-xl transition-all bg-primary/[0.02]">
                <div className="space-y-4">
                   <div className="flex items-center gap-3">
-                    <div className="p-3 bg-primary/10 rounded-2xl text-primary"><Target className="h-6 w-6" /></div>
+                    <div className="p-3 bg-primary/10 rounded-2xl text-primary group-hover:scale-110 transition-transform"><Target className="h-6 w-6" /></div>
                     <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Registry Velocity</p>
                   </div>
-                  <h3 className="text-4xl font-black text-foreground tracking-tighter tabular-nums">{stats.total}</h3>
+                  <h3 className="text-4xl font-mono font-black text-foreground tracking-tighter tabular-nums tracking-tighter">{stats.total}</h3>
                   <p className="text-xs text-muted-foreground font-medium">Consolidated period intake volume.</p>
                </div>
                <div className="mt-8 pt-6 border-t border-border flex items-center justify-between">
@@ -529,8 +530,8 @@ function PerformanceContent() {
                         if (active && payload && payload.length) {
                           return (<div className="bg-card border border-border shadow-2xl p-3 rounded-xl space-y-1">
                             <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{payload[0].payload.date}</p>
-                            <p className="text-xs font-black text-emerald-600">SUCCESS: {payload[0].value}</p>
-                            <p className="text-xs font-black text-rose-600">PURGED: {payload[1].value}</p>
+                            <p className="text-xs font-mono font-black text-emerald-600 tabular-nums">SUCCESS: {payload[0].value}</p>
+                            <p className="text-xs font-mono font-black text-rose-600 tabular-nums">PURGED: {payload[1].value}</p>
                           </div>);
                         }
                         return null;
@@ -554,7 +555,7 @@ function PerformanceContent() {
               <div className="flex flex-col sm:flex-row items-center gap-4">
                 <div className="relative w-full sm:w-80 group">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/30 group-focus-within:text-primary transition-colors" />
-                  <Input placeholder="Filter records..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-11 pl-10 border-border bg-background rounded-xl text-xs" />
+                  <Input placeholder="Filter records..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-11 pl-10 border-border bg-background rounded-xl text-xs font-bold" />
                 </div>
                 <div className="flex items-center gap-2 w-full sm:w-auto">
                   <Button onClick={handleExportExcel} disabled={isExporting} variant="outline" className="flex-1 h-11 px-4 rounded-xl border-emerald-500/20 text-emerald-600 hover:bg-emerald-500/5 font-bold text-[10px] uppercase tracking-widest bg-background">
@@ -581,8 +582,8 @@ function PerformanceContent() {
                   <TableBody>
                     {paginatedRejections.length > 0 ? paginatedRejections.map((reg) => (
                       <TableRow key={reg.id} className="hover:bg-muted/30 border-border group h-20">
-                        <TableCell className="pl-10"><span className="text-sm font-black text-foreground">{reg.applicantName}</span></TableCell>
-                        <TableCell><span className="text-[10px] font-mono text-muted-foreground/40">{reg.id.substring(0, 15)}...</span></TableCell>
+                        <TableCell className="pl-10"><span className="text-sm font-black text-foreground uppercase tracking-tight">{reg.applicantName}</span></TableCell>
+                        <TableCell><span className="text-[10px] font-mono font-black text-muted-foreground/30">{reg.id.substring(0, 15)}...</span></TableCell>
                         <TableCell className="text-center"><StatusBadge status="Rejected" className="scale-75" /></TableCell>
                         <TableCell className="pr-10 text-right"><Button variant="ghost" size="sm" className="h-9 px-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-all" onClick={() => setSelectedRejection(reg)}><Eye className="mr-2 h-4 w-4" /> View</Button></TableCell>
                       </TableRow>
@@ -601,7 +602,7 @@ function PerformanceContent() {
                   <div className="flex items-center gap-2">
                     <Button variant="outline" size="sm" className="h-10 w-10 p-0 rounded-xl border-border bg-background hover:bg-muted" onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} disabled={currentPage === 1}><ChevronLeft className="h-4 w-4" /></Button>
                     <div className="flex items-center justify-center min-w-[120px] h-10 text-[10px] font-black text-foreground bg-muted/50 border border-border rounded-xl uppercase tracking-widest px-4">Page {currentPage} of {totalPages}</div>
-                    <Button variant="outline" size="sm" className="h-10 w-10 p-0 rounded-xl border-border bg-background hover:bg-muted" onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages}><ChevronRight className="h-4 w-4" /></Button>
+                    <Button variant="outline" size="sm" className="h-10 w-10 p-0 rounded-xl border-border bg-background hover:bg-muted" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}><ChevronRight className="h-4 w-4" /></Button>
                   </div>
                 </div>
               )}

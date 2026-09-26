@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -195,7 +196,7 @@ export default function LeaderboardPage() {
             type="date" 
             value={selectedDate} 
             onChange={(e) => setSelectedDate(e.target.value)} 
-            className="h-11 bg-background border-border rounded-xl font-black text-[10px] uppercase tracking-widest w-full sm:w-[160px]" 
+            className="h-11 bg-background border-border rounded-xl font-mono font-black text-[10px] uppercase tracking-widest w-full sm:w-[160px]" 
           />
           <div className="h-8 w-px bg-border mx-1 hidden sm:block" />
           <Button onClick={handleSync} variant="outline" className="flex-1 sm:flex-none h-11 px-6 rounded-xl font-black text-[10px] uppercase tracking-widest border-border bg-background hover:bg-muted">
@@ -205,7 +206,7 @@ export default function LeaderboardPage() {
             <Button onClick={handleExportExcel} disabled={isExporting} variant="outline" className="flex-1 sm:flex-none h-11 px-4 rounded-xl border-emerald-500/20 text-emerald-600 hover:bg-emerald-500/10 font-bold text-[10px] uppercase tracking-widest bg-background">
               <FileSpreadsheet className="h-4 w-4" />
             </Button>
-            <Button onClick={handleExportPDF} disabled={isExporting} variant="outline" className="flex-1 sm:flex-none h-11 px-4 rounded-xl border-rose-500/20 text-rose-500 hover:bg-rose-500/10 font-bold text-[10px] uppercase tracking-widest bg-background">
+            <Button onClick={handleExportPDF} disabled={isExporting} variant="outline" className="flex-1 sm:flex-none h-11 px-4 rounded-xl border-rose-500/20 text-rose-600 hover:bg-rose-500/10 font-bold text-[10px] uppercase tracking-widest bg-background">
               <FileText className="h-4 w-4" />
             </Button>
           </div>
@@ -226,16 +227,16 @@ export default function LeaderboardPage() {
               <div className="flex items-start justify-between mb-8 relative z-10">
                 <div className="flex items-center gap-3">
                   <div className={cn(
-                    "h-10 w-10 sm:h-12 sm:w-12 rounded-2xl flex items-center justify-center border-2",
+                    "h-10 w-10 sm:h-12 sm:w-12 rounded-2xl flex items-center justify-center border-2 group-hover:scale-110 transition-transform",
                     perf.rank === 1 ? "bg-amber-500 border-amber-600 text-white" : 
                     perf.rank === 2 ? "bg-slate-300 border-slate-400 text-slate-700" : "bg-orange-300 border-orange-400 text-orange-700"
                   )}>
                     {perf.rank === 1 ? <Trophy className="h-5 w-5 sm:h-6 sm:w-6" /> : <Medal className="h-5 w-5 sm:h-6 sm:w-6" />}
                   </div>
-                  <span className="text-3xl sm:text-4xl font-black text-foreground tracking-tighter">#{perf.rank}</span>
+                  <span className="text-3xl sm:text-4xl font-mono font-black text-foreground tracking-tighter tabular-nums">#{perf.rank}</span>
                 </div>
                 <div className="text-right">
-                  <span className="text-3xl sm:text-4xl font-black text-foreground tracking-tighter">{perf.registrations.toLocaleString()}</span>
+                  <span className="text-3xl sm:text-4xl font-mono font-black text-foreground tracking-tighter tabular-nums">{perf.registrations.toLocaleString()}</span>
                   <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest -mt-1 opacity-50">Intake</p>
                 </div>
               </div>
@@ -254,11 +255,11 @@ export default function LeaderboardPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="p-4 bg-muted/40 rounded-2xl border border-border shadow-inner">
                     <p className="text-[8px] font-black text-muted-foreground uppercase mb-1 flex items-center gap-1.5"><Phone className="h-2.5 w-2.5 text-emerald-500" /> Ethio</p>
-                    <p className="text-lg font-black text-foreground">{perf.ethio}</p>
+                    <p className="text-lg font-mono font-black text-foreground tabular-nums">{perf.ethio}</p>
                   </div>
                   <div className="p-4 bg-muted/40 rounded-2xl border border-border shadow-inner">
                     <p className="text-[8px] font-black text-muted-foreground uppercase mb-1 flex items-center gap-1.5"><Smartphone className="h-2.5 w-2.5 text-orange-500" /> Safaricom</p>
-                    <p className="text-lg font-black text-foreground">{perf.safaricom}</p>
+                    <p className="text-lg font-mono font-black text-foreground tabular-nums">{perf.safaricom}</p>
                   </div>
                 </div>
               </div>
@@ -298,7 +299,7 @@ export default function LeaderboardPage() {
                         {perf.rank === 1 ? <Trophy className="h-4 w-4 sm:h-5 sm:w-5" /> : 
                          perf.rank <= 3 ? <Medal className="h-4 w-4 sm:h-5 sm:w-5" /> : <User className="h-4 w-4 sm:h-5 sm:w-5 opacity-40" />}
                       </div>
-                      <span className="font-black text-foreground text-base sm:text-lg tracking-tighter">#{perf.rank}</span>
+                      <span className="font-mono font-black text-foreground text-base sm:text-lg tracking-tighter tabular-nums">#{perf.rank}</span>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -316,13 +317,13 @@ export default function LeaderboardPage() {
                     </div>
                   </TableCell>
                   <TableCell className="text-center hidden sm:table-cell">
-                     <span className="text-sm font-black text-emerald-600 tabular-nums">{perf.ethio}</span>
+                     <span className="text-sm font-mono font-black text-emerald-600 tabular-nums">{perf.ethio}</span>
                   </TableCell>
                   <TableCell className="text-center hidden sm:table-cell">
-                     <span className="text-sm font-black text-orange-600 tabular-nums">{perf.safaricom}</span>
+                     <span className="text-sm font-mono font-black text-orange-600 tabular-nums">{perf.safaricom}</span>
                   </TableCell>
                   <TableCell className="text-right pr-6 sm:pr-10">
-                    <div className="inline-flex items-center justify-center h-10 sm:h-12 px-4 sm:px-6 rounded-2xl bg-primary/5 text-base sm:text-lg font-black text-primary ring-1 ring-primary/10 shadow-sm transition-transform group-hover:scale-105">
+                    <div className="inline-flex items-center justify-center h-10 sm:h-12 px-4 sm:px-6 rounded-2xl bg-primary/5 text-base sm:text-lg font-mono font-black text-primary ring-1 ring-primary/10 shadow-sm transition-transform group-hover:scale-105 tabular-nums tracking-tighter">
                       {perf.registrations.toLocaleString()}
                     </div>
                   </TableCell>
@@ -358,10 +359,10 @@ function SummaryCard({ label, value, icon: Icon, color }: any) {
       <CardContent className="p-6 sm:p-8 flex items-center justify-between">
         <div className="space-y-1">
           <div className="flex items-center gap-2 mb-2">
-            <div className="p-2 bg-muted rounded-xl"><Icon className={cn("h-4 w-4", color)} /></div>
+            <div className="p-2 bg-muted rounded-xl transition-colors group-hover:bg-primary/10"><Icon className={cn("h-4 w-4 transition-transform group-hover:rotate-12", color)} /></div>
             <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{label}</p>
           </div>
-          <p className="text-4xl sm:text-5xl font-black text-foreground tracking-tighter">{value}</p>
+          <p className="text-4xl sm:text-5xl font-mono font-black text-foreground tracking-tighter tabular-nums">{value}</p>
         </div>
         <div className="h-16 w-16 sm:h-20 sm:w-20 bg-muted/30 rounded-full flex items-center justify-center border border-border group-hover:scale-110 transition-transform">
            <TrendingUp className={cn("h-6 w-6 sm:h-8 sm:w-8 opacity-10", color)} />

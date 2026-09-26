@@ -79,7 +79,7 @@ export function StatsCards({ stats, showOfficerCount = false }: StatsCardsProps)
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
       {filteredItems.map((item) => (
-        <Card key={item.label} className="border border-border bg-card shadow-sm card-hover-effect overflow-hidden rounded-xl">
+        <Card key={item.label} className="border border-border bg-card shadow-sm card-hover-effect overflow-hidden rounded-xl group">
           <CardContent className="p-6">
             <div className="flex items-start justify-between">
               <div className="space-y-1">
@@ -90,7 +90,10 @@ export function StatsCards({ stats, showOfficerCount = false }: StatsCardsProps)
                   {item.value.toLocaleString()}
                 </div>
               </div>
-              <div className={cn("p-2 rounded-lg bg-muted/50 border border-border", item.color)}>
+              <div className={cn(
+                "p-2.5 rounded-xl bg-muted/50 border border-border group-hover:scale-110 transition-transform duration-300", 
+                item.color
+              )}>
                 <item.icon className="h-4 w-4" />
               </div>
             </div>

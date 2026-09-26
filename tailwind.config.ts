@@ -13,7 +13,8 @@ export default {
       fontFamily: {
         body: ['"Plus Jakarta Sans"', 'sans-serif'],
         headline: ['"Plus Jakarta Sans"', 'sans-serif'],
-        code: ['monospace'],
+        mono: ['"JetBrains Mono"', 'monospace'],
+        code: ['"JetBrains Mono"', 'monospace'],
       },
       colors: {
         background: 'hsl(var(--background))',
