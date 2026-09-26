@@ -31,7 +31,8 @@ import {
   ChevronDown,
   LineChart,
   Wifi,
-  WifiOff
+  WifiOff,
+  MoreHorizontal
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -190,189 +191,240 @@ export function Navbar() {
   const logoUrl = branding?.logoUrl || DEFAULT_LOGO;
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-xl transition-all duration-300">
-      <div className="container mx-auto flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-6">
-          <Link href="/" className="flex items-center space-x-2 group shrink-0">
-            <div className="relative h-8 w-8 overflow-hidden rounded-md transition-all group-hover:scale-105">
-              <Image src={logoUrl} alt="Logo" fill sizes="32px" className="object-cover" unoptimized />
-            </div>
-            <span className="text-xs font-black tracking-widest text-foreground uppercase hidden sm:block">
-              {bureauName.split('Track')[0]}<span className="text-primary italic">{bureauName.includes('Track') ? 'Track' : ''}</span>
-            </span>
-          </Link>
+    <>
+      <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-xl transition-all duration-300">
+        <div className="container mx-auto flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-6">
+            <Link href="/" className="flex items-center space-x-2 group shrink-0">
+              <div className="relative h-8 w-8 overflow-hidden rounded-md transition-all group-hover:scale-105">
+                <Image src={logoUrl} alt="Logo" fill sizes="32px" className="object-cover" unoptimized />
+              </div>
+              <span className="text-xs font-black tracking-widest text-foreground uppercase hidden sm:block">
+                {bureauName.split('Track')[0]}<span className="text-primary italic">{bureauName.includes('Track') ? 'Track' : ''}</span>
+              </span>
+            </Link>
 
-          <nav className="hidden lg:flex items-center space-x-1">
-            {user && primaryItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-md transition-all",
-                  pathname === item.href ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                )}
-              >
-                <item.icon className="mr-2 h-3.5 w-3.5 opacity-60" />
-                {item.name}
-              </Link>
-            ))}
-            
+            <nav className="hidden lg:flex items-center space-x-1">
+              {user && primaryItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "flex items-center px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-md transition-all",
+                    pathname === item.href ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  )}
+                >
+                  <item.icon className="mr-2 h-3.5 w-3.5 opacity-60" />
+                  {item.name}
+                </Link>
+              ))}
+              
+              {user && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-8 px-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground">
+                      Operations <ChevronDown className="ml-1 h-3 w-3" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-56 p-1 rounded-xl shadow-xl border-border bg-popover">
+                    <DropdownMenuLabel className="text-[9px] font-black text-muted-foreground uppercase px-2 py-1.5 tracking-widest">Bureau Terminals</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {secondaryItems.map((item) => (
+                      <DropdownMenuItem key={item.href} onClick={() => router.push(item.href)} className="rounded-lg text-[10px] font-bold uppercase tracking-widest cursor-pointer py-2.5">
+                        <item.icon className="mr-2 h-3.5 w-3.5 opacity-60" /> {item.name}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </nav>
+          </div>
+
+          <div className="flex items-center gap-2">
             {user && (
+              <div className={cn(
+                "flex items-center gap-2.5 px-3 py-1.5 rounded-full border transition-all duration-500 shadow-sm backdrop-blur-sm",
+                isOnline 
+                  ? "bg-emerald-500/[0.03] border-emerald-500/20 text-emerald-600" 
+                  : "bg-rose-500/[0.03] border-rose-500/20 text-rose-600"
+              )}>
+                <div className="relative flex items-center justify-center h-3 w-3">
+                  {isOnline ? (
+                    <>
+                      <Wifi className="h-3 w-3 relative z-10" strokeWidth={3} />
+                      <span className="absolute h-full w-full bg-emerald-500 rounded-full opacity-30 animate-ping" />
+                      <span className="absolute h-1 w-1 bg-emerald-500 rounded-full -top-0.5 -right-0.5 border border-background animate-pulse" />
+                    </>
+                  ) : (
+                    <>
+                      <WifiOff className="h-3 w-3 relative z-10" />
+                      <span className="absolute h-1 w-1 bg-rose-500 rounded-full -top-0.5 -right-0.5 border border-background" />
+                    </>
+                  )}
+                </div>
+                <span className="text-[8px] font-black font-mono uppercase tracking-[0.15em] hidden sm:inline leading-none">
+                  {isOnline ? 'Online' : 'Isolated'}
+                </span>
+              </div>
+            )}
+
+            {mounted && (
+              <Button variant="ghost" size="icon" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground">
+                {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              </Button>
+            )}
+
+            {user && (
+              <Link href="/notifications" className="relative p-2 rounded-md hover:bg-muted transition-colors group">
+                <Bell className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 flex items-center justify-center bg-primary text-primary-foreground text-[9px] font-black rounded-full ring-2 ring-background animate-in zoom-in duration-300">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </Link>
+            )}
+
+            {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 px-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground">
-                    Operations <ChevronDown className="ml-1 h-3 w-3" />
+                  <Button variant="ghost" className="h-9 w-9 p-0 rounded-full border border-border/50 ring-offset-background hover:ring-2 hover:ring-primary/20 transition-all overflow-hidden">
+                    <Avatar className="h-full w-full">
+                      <AvatarImage src={photoUrl || undefined} alt="Official" />
+                      <AvatarFallback className="text-[10px] font-black bg-muted/30 uppercase">{(profile?.fullName || "OFF").substring(0, 2)}</AvatarFallback>
+                    </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-56 p-1 rounded-xl shadow-xl border-border bg-popover">
-                  <DropdownMenuLabel className="text-[9px] font-black text-muted-foreground uppercase px-2 py-1.5 tracking-widest">Bureau Terminals</DropdownMenuLabel>
+                <DropdownMenuContent align="end" className="w-64 p-1 rounded-xl shadow-2xl border-border bg-popover">
+                  <DropdownMenuLabel className="flex items-center gap-3 p-3">
+                    <Avatar className="h-10 w-10 border border-border/50">
+                      <AvatarImage src={photoUrl || undefined} />
+                      <AvatarFallback className="text-xs font-black bg-muted">{(profile?.fullName || "OFF").substring(0, 2)}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col min-0">
+                      <span className="text-xs font-black text-foreground uppercase tracking-tight truncate">{profile?.fullName || 'Official'}</span>
+                      <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest truncate">{profile?.role || 'Personnel'}</span>
+                    </div>
+                  </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  {secondaryItems.map((item) => (
-                    <DropdownMenuItem key={item.href} onClick={() => router.push(item.href)} className="rounded-lg text-[10px] font-bold uppercase tracking-widest cursor-pointer py-2.5">
-                      <item.icon className="mr-2 h-3.5 w-3.5 opacity-60" /> {item.name}
+                  {isAdmin && (
+                    <DropdownMenuItem onClick={() => router.push(pathname.startsWith('/admin') ? '/dashboard' : '/admin')} className="rounded-lg text-[10px] font-bold uppercase tracking-widest cursor-pointer">
+                      <ShieldCheck className="mr-2 h-3.5 w-3.5 opacity-60" /> Switch to {pathname.startsWith('/admin') ? 'Officer' : 'Admin'}
                     </DropdownMenuItem>
-                  ))}
+                  )}
+                  <DropdownMenuItem onClick={() => router.push('/profile')} className="rounded-lg text-[10px] font-bold uppercase tracking-widest cursor-pointer">
+                    <Settings className="mr-2 h-3.5 w-3.5 opacity-60" /> Profile Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="text-destructive focus:text-destructive rounded-lg text-[10px] font-bold uppercase tracking-widest cursor-pointer" onClick={handleLogout}>
+                    <LogOut className="mr-2 h-3.5 w-3.5" /> Sign Out
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-            )}
-          </nav>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {user && (
-            <div className={cn(
-              "flex items-center gap-3 px-3 py-1.5 rounded-full border transition-all duration-500 shadow-sm backdrop-blur-sm",
-              isOnline 
-                ? "bg-emerald-500/[0.03] border-emerald-500/20 text-emerald-600" 
-                : "bg-rose-500/[0.03] border-rose-500/20 text-rose-600"
-            )}>
-              <div className="relative flex items-center justify-center">
-                {isOnline ? (
-                  <>
-                    <Wifi className="h-3.5 w-3.5 relative z-10" />
-                    <span className="absolute h-full w-full bg-emerald-500 rounded-full opacity-20 animate-ping" />
-                    <span className="absolute h-1.5 w-1.5 bg-emerald-500 rounded-full -top-0.5 -right-0.5 border border-background animate-pulse" />
-                  </>
-                ) : (
-                  <>
-                    <WifiOff className="h-3.5 w-3.5 relative z-10" />
-                    <span className="absolute h-1.5 w-1.5 bg-rose-500 rounded-full -top-0.5 -right-0.5 border border-background" />
-                  </>
-                )}
-              </div>
-              <span className="text-[9px] font-black font-mono uppercase tracking-[0.15em] hidden sm:inline leading-none">
-                {isOnline ? 'Online' : 'Isolated'}
-              </span>
-            </div>
-          )}
-
-          {mounted && (
-            <Button variant="ghost" size="icon" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground">
-              {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </Button>
-          )}
-
-          {user && (
-            <Link href="/notifications" className="relative p-2 rounded-md hover:bg-muted transition-colors group">
-              <Bell className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 flex items-center justify-center bg-primary text-primary-foreground text-[9px] font-black rounded-full ring-2 ring-background animate-in zoom-in duration-300">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </span>
-              )}
-            </Link>
-          )}
-
-          {user ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-9 w-9 p-0 rounded-full border border-border/50 ring-offset-background hover:ring-2 hover:ring-primary/20 transition-all overflow-hidden">
-                  <Avatar className="h-full w-full">
-                    <AvatarImage src={photoUrl || undefined} alt="Official" />
-                    <AvatarFallback className="text-[10px] font-black bg-muted/30 uppercase">{profile?.fullName?.substring(0, 2) || "OFF"}</AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64 p-1 rounded-xl shadow-2xl border-border bg-popover">
-                <DropdownMenuLabel className="flex items-center gap-3 p-3">
-                  <Avatar className="h-10 w-10 border border-border/50">
-                    <AvatarImage src={photoUrl || undefined} />
-                    <AvatarFallback className="text-xs font-black bg-muted">{profile?.fullName?.substring(0, 2) || "OFF"}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex flex-col min-0">
-                    <span className="text-xs font-black text-foreground uppercase tracking-tight truncate">{profile?.fullName || 'Official'}</span>
-                    <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest truncate">{profile?.role || 'Personnel'}</span>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {isAdmin && (
-                  <DropdownMenuItem onClick={() => router.push(pathname.startsWith('/admin') ? '/dashboard' : '/admin')} className="rounded-lg text-[10px] font-bold uppercase tracking-widest cursor-pointer">
-                    <ShieldCheck className="mr-2 h-3.5 w-3.5 opacity-60" /> Switch to {pathname.startsWith('/admin') ? 'Officer' : 'Admin'}
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem onClick={() => router.push('/profile')} className="rounded-lg text-[10px] font-bold uppercase tracking-widest cursor-pointer">
-                  <Settings className="mr-2 h-3.5 w-3.5 opacity-60" /> Profile Settings
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-destructive focus:text-destructive rounded-lg text-[10px] font-bold uppercase tracking-widest cursor-pointer" onClick={handleLogout}>
-                  <LogOut className="mr-2 h-3.5 w-3.5" /> Sign Out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <Button variant="default" size="sm" asChild className="rounded-md h-8 text-[10px] font-black uppercase tracking-widest px-4">
-              <Link href="/login">Sign In</Link>
-            </Button>
-          )}
-
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="lg:hidden h-8 w-8">
-                <Menu className="h-4 w-4" />
+            ) : (
+              <Button variant="default" size="sm" asChild className="rounded-md h-8 text-[10px] font-black uppercase tracking-widest px-4">
+                <Link href="/login">Sign In</Link>
               </Button>
-            </SheetTrigger>
-            <SheetContent side="right" className="w-[300px] p-0 border-none bg-background shadow-2xl">
-              <SheetHeader className="p-6 border-b text-left bg-muted/20">
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-10 w-10 border border-border/50">
-                    <AvatarImage src={photoUrl || undefined} />
-                    <AvatarFallback className="text-xs font-black">{(profile?.fullName || "OFF").substring(0,2).toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <SheetTitle className="text-sm font-black uppercase tracking-tight">{profile?.fullName || 'Official'}</SheetTitle>
-                    <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">{profile?.role}</p>
-                  </div>
-                </div>
-              </SheetHeader>
-              <div className="p-2 space-y-1">
-                <p className="text-[9px] font-black text-muted-foreground uppercase px-4 py-3 tracking-widest">Navigation</p>
-                {user && allItemsForMobile.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      "flex items-center justify-between px-4 py-3 text-[10px] font-bold uppercase tracking-widest rounded-md transition-all",
-                      pathname === item.href ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                    )}
-                  >
-                    <div className="flex items-center gap-3">
-                      <item.icon className="h-4 w-4" />
-                      {item.name}
-                    </div>
-                    <ChevronRight className="h-3 w-3 opacity-30" />
-                  </Link>
-                ))}
-                <div className="my-2 border-t border-border/50" />
-                <button onClick={handleLogout} className="w-full flex items-center justify-between px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-destructive hover:bg-destructive/5 rounded-md transition-all">
-                  <div className="flex items-center gap-3">
-                    <LogOut className="h-4 w-4" /> Terminate Session
-                  </div>
-                </button>
-              </div>
-            </SheetContent>
-          </Sheet>
+            )}
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
+
+      {/* MOBILE BOTTOM NAVIGATION - PREMIUM TACTICAL BAR */}
+      {user && (
+        <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-t border-border px-2 pb-safe shadow-[0_-8px_30px_rgba(0,0,0,0.04)]">
+          <div className="container mx-auto flex items-center justify-around h-16 max-w-lg">
+            <MobileTabItem 
+              href={isAdmin ? "/admin" : "/dashboard"} 
+              icon={LayoutDashboard} 
+              label="Home" 
+              active={pathname === (isAdmin ? "/admin" : "/dashboard")} 
+            />
+            <MobileTabItem 
+              href="/full-registration" 
+              icon={Activity} 
+              label="Registry" 
+              active={pathname === "/full-registration"} 
+            />
+            <MobileTabItem 
+              href="/full-performance" 
+              icon={LineChart} 
+              label="Intel" 
+              active={pathname === "/full-performance"} 
+            />
+            <MobileTabItem 
+              href="/communication" 
+              icon={MessageSquare} 
+              label="Comms" 
+              active={pathname === "/communication"} 
+            />
+            
+            <Sheet>
+              <SheetTrigger asChild>
+                <button className="flex flex-col items-center justify-center gap-1.5 min-w-[64px] h-full transition-all active:scale-90 text-muted-foreground hover:text-primary">
+                  <MoreHorizontal className="h-5 w-5" />
+                  <span className="text-[8px] font-black uppercase tracking-tighter">Menu</span>
+                </button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-[300px] p-0 border-none bg-background shadow-2xl">
+                <SheetHeader className="p-6 border-b text-left bg-muted/20">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-10 w-10 border border-border/50">
+                      <AvatarImage src={photoUrl || undefined} />
+                      <AvatarFallback className="text-xs font-black">{(profile?.fullName || "OFF").substring(0,2).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <SheetTitle className="text-sm font-black uppercase tracking-tight">{profile?.fullName || 'Official'}</SheetTitle>
+                      <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">{profile?.role}</p>
+                    </div>
+                  </div>
+                </SheetHeader>
+                <div className="p-2 space-y-1">
+                  <p className="text-[9px] font-black text-muted-foreground uppercase px-4 py-3 tracking-widest">Navigation</p>
+                  {allItemsForMobile.map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={cn(
+                        "flex items-center justify-between px-4 py-3 text-[10px] font-bold uppercase tracking-widest rounded-md transition-all",
+                        pathname === item.href ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <item.icon className="h-4 w-4" />
+                        {item.name}
+                      </div>
+                      <ChevronRight className="h-3 w-3 opacity-30" />
+                    </Link>
+                  ))}
+                  <div className="my-2 border-t border-border/50" />
+                  <button onClick={handleLogout} className="w-full flex items-center justify-between px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-destructive hover:bg-destructive/5 rounded-md transition-all">
+                    <div className="flex items-center gap-3">
+                      <LogOut className="h-4 w-4" /> Terminate Session
+                    </div>
+                  </button>
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
+        </nav>
+      )}
+    </>
   );
 }
+
+function MobileTabItem({ href, icon: Icon, label, active }: { href: string, icon: any, label: string, active: boolean }) {
+  return (
+    <Link 
+      href={href} 
+      className={cn(
+        "flex flex-col items-center justify-center gap-1.5 min-w-[64px] h-full transition-all active:scale-90 border-t-2",
+        active ? "text-primary border-primary" : "text-muted-foreground border-transparent"
+      )}
+    >
+      <Icon className={cn("h-5 w-5", active && "animate-in zoom-in-75 duration-300")} strokeWidth={active ? 2.5 : 2} />
+      <span className="text-[8px] font-black uppercase tracking-tighter">{label}</span>
+    </Link>
+  );
+}
+

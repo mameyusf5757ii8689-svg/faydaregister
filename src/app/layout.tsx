@@ -59,7 +59,7 @@ export default function RootLayout({
           <FirebaseClientProvider>
             <MfaGuard>
               <Navbar />
-              <main className="flex-1 container mx-auto py-8 px-4 sm:px-6 lg:px-8">
+              <main className="flex-1 container mx-auto pt-8 pb-24 lg:pb-8 px-4 sm:px-6 lg:px-8">
                 {children}
               </main>
             </MfaGuard>
@@ -70,3 +70,4 @@ export default function RootLayout({
     </html>
   );
 }
+
