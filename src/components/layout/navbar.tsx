@@ -1,3 +1,4 @@
+
 "use client"
 
 import Link from 'next/link';
@@ -103,7 +104,6 @@ export function Navbar() {
 
   useEffect(() => {
     setMounted(true);
-    // Offline status monitoring
     setIsOnline(navigator.onLine);
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
@@ -180,6 +180,7 @@ export function Navbar() {
   const allItemsForMobile = [...primaryItems, ...secondaryItems];
 
   const handleLogout = async () => {
+    sessionStorage.removeItem('fayda_mfa_verified');
     await signOut(auth);
     router.push('/login');
   };
@@ -238,7 +239,6 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Connectivity Badge */}
           {user && (
             <div className={cn(
               "flex items-center gap-1.5 px-2 py-1 rounded-full border transition-all duration-500",

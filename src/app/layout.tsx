@@ -5,6 +5,7 @@ import { Navbar } from '@/components/layout/navbar';
 import { Toaster } from '@/components/ui/toaster';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { ThemeProvider } from '@/components/theme-provider';
+import { MfaGuard } from '@/components/auth/mfa-guard';
 
 const INSTITUTIONAL_ICON = "https://services.eaes.et/NID-Logos/Fayda%20For%20Ethiopia%20logo-%20english-2-01.png";
 
@@ -56,10 +57,12 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <FirebaseClientProvider>
-            <Navbar />
-            <main className="flex-1 container mx-auto py-8 px-4 sm:px-6 lg:px-8">
-              {children}
-            </main>
+            <MfaGuard>
+              <Navbar />
+              <main className="flex-1 container mx-auto py-8 px-4 sm:px-6 lg:px-8">
+                {children}
+              </main>
+            </MfaGuard>
             <Toaster />
           </FirebaseClientProvider>
         </ThemeProvider>

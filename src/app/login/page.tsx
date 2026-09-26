@@ -91,19 +91,25 @@ export default function LoginPage() {
     }
   }, [adminDocs, adminsExist, mode]);
 
+  // Check for existing session verification
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const verified = sessionStorage.getItem('fayda_mfa_verified') === 'true';
+      if (verified) setIsOtpVerified(true);
+    }
+  }, []);
+
   // MANDATORY SECURITY GATE EFFECT
   useEffect(() => {
     if (isUserLoading || isProfileLoading || !user || !profile) return;
 
-    // MANDATORY MFA FOR ALL USERS (ADMIN & REVIEWER)
+    // MANDATORY MFA FOR ALL USERS
     const isMfaRequired = true; 
 
     if (isMfaRequired && !isOtpVerified) {
       if (profile.twoFactorSecret) {
-        // Protocol A: Known Secret -> Challenge Mode
         if (mode !== 'otp') setMode('otp');
       } else {
-        // Protocol B: No Secret -> Setup Mode
         if (mode !== 'otp-setup') setMode('otp-setup');
         if (!generatedSecret) {
           const secret = new OTPAuth.Secret({ size: 20 }).base32;
@@ -113,7 +119,7 @@ export default function LoginPage() {
       return; // HALT REDIRECTION
     }
 
-    // Clear to proceed to authorized dashboard
+    // Access granted - redirect based on role
     if (profile.role === 'admin') {
       router.push('/admin');
     } else {
@@ -122,6 +128,7 @@ export default function LoginPage() {
   }, [user, profile, isUserLoading, isProfileLoading, router, isOtpVerified, generatedSecret, mode]);
 
   const handleLogout = async () => {
+    sessionStorage.removeItem('fayda_mfa_verified');
     await signOut(auth);
     window.location.reload();
   };
@@ -146,8 +153,8 @@ export default function LoginPage() {
         toast({ 
           title: "Identity Verified", 
           description: "MFA protocol satisfied. Accessing terminal...",
-          className: "bg-emerald-50 border-emerald-200 text-emerald-800"
         });
+        sessionStorage.setItem('fayda_mfa_verified', 'true');
         setIsOtpVerified(true);
       } else {
         toast({ title: "Verification Failed", description: "Invalid OTP code. Please try again.", variant: "destructive" });
@@ -185,8 +192,8 @@ export default function LoginPage() {
         toast({ 
           title: "MFA Active", 
           description: "MFA handshake established. Your account is now secured.",
-          className: "bg-emerald-50 border-emerald-200 text-emerald-800"
         });
+        sessionStorage.setItem('fayda_mfa_verified', 'true');
         setIsOtpVerified(true);
       } else {
         toast({ title: "Setup Failed", description: "Invalid code. Ensure your device clock is synced.", variant: "destructive" });
@@ -250,24 +257,17 @@ export default function LoginPage() {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-6">
-          <div className="relative">
-            <div className="absolute inset-0 bg-primary/20 rounded-full blur-2xl animate-pulse" />
-            <Loader2 className="h-12 w-12 animate-spin text-primary relative z-10 opacity-40" />
-          </div>
+          <Loader2 className="h-12 w-12 animate-spin text-primary opacity-40" />
           <p className="text-[10px] font-black uppercase tracking-[0.5em] text-muted-foreground">Gateway Handshake...</p>
         </div>
       </div>
     );
   }
 
-  // OTP SETUP VIEW
   if (mode === 'otp-setup') {
     const totpSetup = new OTPAuth.TOTP({
       issuer: bureauName,
       label: email || profile?.email || 'official',
-      algorithm: "SHA1",
-      digits: 6,
-      period: 30,
       secret: generatedSecret,
     });
     const otpauthUrl = totpSetup.toString();
@@ -321,7 +321,6 @@ export default function LoginPage() {
     );
   }
 
-  // OTP CHALLENGE VIEW
   if (mode === 'otp') {
     return (
       <div className="relative flex min-h-screen items-center justify-center bg-background px-4">
@@ -362,11 +361,9 @@ export default function LoginPage() {
     );
   }
 
-  const isStuck = user && !profile && !isProfileLoading && !isAdminCheckLoading;
-
   return (
     <div className="relative flex min-h-screen items-center justify-center bg-background px-4 overflow-hidden">
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:32px_32px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)]" />
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:32px_32px]" />
 
       <div className="relative z-10 w-full max-w-[420px] animate-in fade-in slide-in-from-bottom-4 duration-1000">
         <Card className="border border-border shadow-2xl bg-card rounded-[32px] overflow-hidden">
@@ -374,7 +371,7 @@ export default function LoginPage() {
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20 p-4">
               <Image 
                 src={logoUrl}
-                alt={`${bureauName} Logo`}
+                alt="Bureau Logo"
                 width={48}
                 height={48}
                 className="object-contain"
@@ -386,127 +383,95 @@ export default function LoginPage() {
               <CardTitle className="text-3xl font-black tracking-tighter text-foreground uppercase leading-none">
                 {bureauName.split('Track')[0]} <span className="text-primary italic">Terminal</span>
               </CardTitle>
-              <div className="flex items-center justify-center gap-2">
-                <Shield className="h-3 w-3 text-muted-foreground/40" />
-                <CardDescription className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/60">
-                  Authorized Personnel Entry
-                </CardDescription>
-              </div>
+              <CardDescription className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/60">
+                Authorized Personnel Entry
+              </CardDescription>
             </div>
             
-            {!isStuck && adminsExist === false && (
+            {adminsExist === false && (
               <Tabs value={mode} onValueChange={(v: any) => setMode(v)} className="w-full">
                 <TabsList className="grid grid-cols-2 w-full h-11 bg-muted/50 rounded-xl p-1 border border-border">
-                  <TabsTrigger value="login" className="text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-card data-[state=active]:shadow-sm">Sign In</TabsTrigger>
-                  <TabsTrigger value="register" className="text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-card data-[state=active]:shadow-sm">Bootstrap</TabsTrigger>
+                  <TabsTrigger value="login" className="text-[10px] font-black uppercase tracking-widest">Sign In</TabsTrigger>
+                  <TabsTrigger value="register" className="text-[10px] font-black uppercase tracking-widest">Bootstrap</TabsTrigger>
                 </TabsList>
               </Tabs>
             )}
           </CardHeader>
           
           <CardContent className="px-8 pb-10">
-            {isStuck ? (
-              <div className="space-y-6">
-                <div className="p-5 bg-amber-500/5 rounded-2xl border border-amber-500/10 text-center space-y-2">
-                  <p className="text-[11px] text-amber-600/80 font-black uppercase tracking-widest leading-relaxed">
-                    Identity Synchronized: <br/> {user.email}
-                  </p>
-                  <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-tighter italic">
-                    Waiting for Administrative Clearance
-                  </p>
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {mode === 'register' && (
+                <div className="space-y-1.5">
+                  <Label className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-1">Official Designation</Label>
+                  <div className="relative group">
+                    <UserCircle className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/30 group-focus-within:text-primary transition-colors" />
+                    <Input 
+                      placeholder="Full Official Name" 
+                      className="h-14 pl-12 bg-muted/20 border border-border focus:border-primary/30 rounded-2xl text-xs font-bold"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      required
+                    />
+                  </div>
                 </div>
-                <div className="flex flex-col gap-3">
-                  <Button className="w-full h-14 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em]" onClick={() => window.location.reload()}>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Retry Link
-                  </Button>
-                  <Button variant="ghost" className="w-full h-12 rounded-2xl font-black uppercase text-[10px] tracking-widest text-muted-foreground" onClick={handleLogout}>
-                    Reset Session
-                  </Button>
+              )}
+              
+              <div className="space-y-1.5">
+                <Label className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-1">Terminal Address</Label>
+                <div className="relative group">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/30 group-focus-within:text-primary transition-colors" />
+                  <Input 
+                    type="email" 
+                    placeholder="official@bureau.gov" 
+                    className="h-14 pl-12 bg-muted/20 border border-border focus:border-primary/30 rounded-2xl text-xs font-bold"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
                 </div>
               </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-5">
-                {mode === 'register' && (
-                  <div className="space-y-1.5 animate-in slide-in-from-top-2 duration-500">
-                    <Label className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-1">Official Designation</Label>
-                    <div className="relative group">
-                      <UserCircle className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/30 group-focus-within:text-primary transition-colors" />
-                      <Input 
-                        placeholder="Full Official Name" 
-                        className="h-14 pl-12 bg-muted/20 border border-border focus:border-primary/30 rounded-2xl text-xs font-bold"
-                        value={fullName}
-                        onChange={(e) => setFullName(e.target.value)}
-                        required
-                      />
-                    </div>
-                  </div>
+              
+              <div className="space-y-1.5">
+                <Label className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-1">Terminal Access Key</Label>
+                <div className="relative group">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/30 group-focus-within:text-primary transition-colors" />
+                  <Input 
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••" 
+                    className="h-14 pl-12 pr-12 bg-muted/20 border border-border focus:border-primary/30 rounded-2xl text-xs font-bold"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 hover:text-primary transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+              
+              <Button 
+                type="submit" 
+                className="w-full h-14 bg-primary hover:bg-primary/90 text-primary-foreground font-black uppercase tracking-[0.3em] rounded-2xl shadow-2xl shadow-primary/20 mt-4"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : mode === 'login' ? (
+                  "Initialize Session"
+                ) : (
+                  "Register Admin"
                 )}
-                
-                <div className="space-y-1.5">
-                  <Label className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-1">Terminal Address</Label>
-                  <div className="relative group">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/30 group-focus-within:text-primary transition-colors" />
-                    <Input 
-                      type="email" 
-                      placeholder="official@bureau.gov" 
-                      className="h-14 pl-12 bg-muted/20 border border-border focus:border-primary/30 rounded-2xl text-xs font-bold"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                    />
-                  </div>
-                </div>
-                
-                <div className="space-y-1.5">
-                  <Label className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-1">Terminal Access Key</Label>
-                  <div className="relative group">
-                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/30 group-focus-within:text-primary transition-colors" />
-                    <Input 
-                      type={showPassword ? "text" : "password"}
-                      placeholder="••••••••" 
-                      className="h-14 pl-12 pr-12 bg-muted/20 border border-border focus:border-primary/30 rounded-2xl text-xs font-bold"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 hover:text-primary transition-colors"
-                    >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                </div>
-                
-                <Button 
-                  type="submit" 
-                  className="w-full h-14 bg-primary hover:bg-primary/90 text-primary-foreground font-black uppercase tracking-[0.3em] rounded-2xl shadow-2xl shadow-primary/20 transition-all active:scale-95 mt-4 text-[11px]"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : mode === 'login' ? (
-                    "Initialize Session"
-                  ) : (
-                    "Register Admin"
-                  )}
-                </Button>
-              </form>
-            )}
+              </Button>
+            </form>
           </CardContent>
           
           <CardFooter className="pt-0 pb-8 flex flex-col text-center opacity-40">
-            <div className="flex items-center justify-center gap-3">
-              <div className="h-px w-8 bg-border" />
-              <p className="text-[8px] font-black uppercase tracking(0.4em]">
-                Multi-Factor Security Active
-              </p>
-              <div className="h-px w-8 bg-border" />
-            </div>
-            <p className="text-[7px] font-bold text-muted-foreground uppercase mt-2 tracking-widest">
-              Google Authenticator Protocol Enabled
-            </p>
+            <p className="text-[8px] font-black uppercase tracking-[0.4em]">Multi-Factor Security Active</p>
+            <p className="text-[7px] font-bold text-muted-foreground uppercase mt-2 tracking-widest">Google Authenticator Protocol Enabled</p>
           </CardFooter>
         </Card>
       </div>
