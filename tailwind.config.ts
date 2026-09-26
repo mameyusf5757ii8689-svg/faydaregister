@@ -11,8 +11,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
-        headline: ['"Plus Jakarta Sans"', 'sans-serif'],
+        sans: ['"Manrope"', 'sans-serif'],
+        headline: ['"Manrope"', 'sans-serif'],
         mono: ['"JetBrains Mono"', 'monospace'],
       },
       colors: {
