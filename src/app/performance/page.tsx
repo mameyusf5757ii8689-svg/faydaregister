@@ -574,7 +574,7 @@ function PerformanceContent() {
                       <TableRow key={reg.id} className="hover:bg-muted/30 border-border group h-20 transition-colors">
                         <TableCell className="pl-10">
                           <div className="flex flex-col">
-                            <span className="text-base font-semibold text-foreground group-hover:text-primary transition-colors">
+                            <span className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
                               {reg.applicantName}
                             </span>
                             <span className="text-[9px] font-bold text-muted-foreground/40 uppercase tracking-widest mt-1">
