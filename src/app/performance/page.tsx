@@ -456,7 +456,7 @@ function PerformanceContent() {
             />
           </section>
 
-          {/* New Advanced Analytics Row */}
+          {/* Advanced Analytics Row */}
           <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Card className="border border-border bg-card shadow-sm rounded-[2.5rem] p-8 flex flex-col justify-between group hover:shadow-xl transition-all">
                <div className="space-y-4">
@@ -561,7 +561,7 @@ function PerformanceContent() {
                   <Button onClick={handleExportExcel} disabled={isExporting} variant="outline" className="flex-1 h-11 px-4 rounded-xl border-emerald-500/20 text-emerald-600 hover:bg-emerald-500/5 font-bold text-[10px] uppercase tracking-widest bg-background">
                     {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'XLS'}
                   </Button>
-                  <Button onClick={handleExportPDF} disabled={isExporting} variant="outline" className="flex-1 h-11 px-4 rounded-xl border-rose-500/20 text-rose-600 hover:bg-rose-500/5 font-bold text-[10px] uppercase tracking-widest bg-background">
+                  <Button onClick={handleExportPDF} disabled={isExporting} variant="outline" className="h-11 px-4 rounded-xl border-rose-500/20 text-rose-600 hover:bg-rose-500/5 font-bold text-[10px] uppercase tracking-widest bg-background">
                     {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'PDF'}
                   </Button>
                 </div>
@@ -573,7 +573,7 @@ function PerformanceContent() {
                 <Table>
                   <TableHeader className="bg-muted/30">
                     <TableRow className="border-border">
-                      <TableHead className="py-5 pl-10">Applicant</TableHead>
+                      <TableHead className="py-5 pl-10">Applicant Registry</TableHead>
                       <TableHead className="py-5">ID</TableHead>
                       <TableHead className="py-5 text-center">Status</TableHead>
                       <TableHead className="py-5 pr-10 text-right">Action</TableHead>
@@ -581,8 +581,17 @@ function PerformanceContent() {
                   </TableHeader>
                   <TableBody>
                     {paginatedRejections.length > 0 ? paginatedRejections.map((reg) => (
-                      <TableRow key={reg.id} className="hover:bg-muted/30 border-border group h-20">
-                        <TableCell className="pl-10"><span className="text-sm font-black text-foreground uppercase tracking-tight">{reg.applicantName}</span></TableCell>
+                      <TableRow key={reg.id} className="hover:bg-muted/30 border-border group h-20 transition-colors">
+                        <TableCell className="pl-10">
+                          <div className="flex flex-col">
+                            <span className="text-base font-black text-foreground uppercase tracking-tighter group-hover:text-primary transition-colors">
+                              {reg.applicantName}
+                            </span>
+                            <span className="text-[9px] font-bold text-muted-foreground/40 uppercase tracking-widest mt-1">
+                              Official Signature
+                            </span>
+                          </div>
+                        </TableCell>
                         <TableCell><span className="text-[10px] font-mono font-black text-muted-foreground/30">{reg.id.substring(0, 15)}...</span></TableCell>
                         <TableCell className="text-center"><StatusBadge status="Rejected" className="scale-75" /></TableCell>
                         <TableCell className="pr-10 text-right"><Button variant="ghost" size="sm" className="h-9 px-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-all" onClick={() => setSelectedRejection(reg)}><Eye className="mr-2 h-4 w-4" /> View</Button></TableCell>
@@ -653,4 +662,3 @@ export default function PerformancePage() {
     </Suspense>
   );
 }
-

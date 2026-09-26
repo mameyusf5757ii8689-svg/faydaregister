@@ -291,14 +291,14 @@ export function Navbar() {
       {user && (
         <nav className="lg:hidden fixed bottom-6 left-4 right-4 z-50">
           <div className="relative h-20 w-full bg-card rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.2)] flex items-center justify-around px-2 border border-white/5">
-            {/* The Dynamic Notch */}
+            {/* Dynamic Notch Indicator */}
             {activeIndex !== -1 && (
               <div 
                 className="absolute top-[-1px] h-10 w-[20%] transition-all duration-500 ease-in-out pointer-events-none"
                 style={{ left: `${activeIndex * 20}%` }}
               >
                 <div className="relative h-full w-full flex justify-center">
-                  {/* Background Notch Mask */}
+                  {/* Notch Curve SVG Mask */}
                   <svg 
                     width="100" 
                     height="40" 
@@ -307,7 +307,7 @@ export function Navbar() {
                   >
                     <path d="M0 0 Q 25 0 35 15 A 15 15 0 0 0 65 15 Q 75 0 100 0 L 100 40 L 0 40 Z" />
                   </svg>
-                  {/* Floating Dot */}
+                  {/* Tactical Indicator Dot */}
                   <div className="absolute top-[-8px] h-2 w-2 bg-primary rounded-full shadow-[0_0_15px_rgba(var(--primary),0.5)] animate-bounce" />
                 </div>
               </div>
