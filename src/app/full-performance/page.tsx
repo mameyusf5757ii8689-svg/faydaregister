@@ -22,10 +22,7 @@ import {
   ArrowDownRight,
   History,
   PieChart as PieChartIcon,
-  BarChart3,
-  LineChart,
   Layers,
-  Sparkles,
   Trophy,
   ShieldAlert,
   Award,
@@ -50,7 +47,7 @@ import {
   PolarAngleAxis
 } from 'recharts';
 import { cn } from '@/lib/utils';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 // Institutional Status Color Protocol
 const COLORS = {
@@ -450,8 +447,8 @@ export default function FullPerformancePage() {
                 </Card>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                   <Card className="border border-border bg-card shadow-sm rounded-[2.5rem] p-8 border-l-[6px] group" style={{ borderLeftColor: COLORS.rejected }}>
-                      <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-6">
+                   <Card className="border border-border bg-card shadow-sm rounded-[2.5rem] p-8 border-l-[6px] group transition-all" style={{ borderLeftColor: COLORS.rejected }}>
+                      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                         <div className="space-y-4">
                             <div className="space-y-1">
                               <h3 className="text-xl font-black text-foreground uppercase tracking-tight flex items-center gap-2">
@@ -471,14 +468,14 @@ export default function FullPerformancePage() {
                               </div>
                             </div>
                         </div>
-                        <Button variant="outline" className="w-full xl:w-auto h-10 px-6 rounded-xl font-black text-[10px] uppercase tracking-widest border-border hover:bg-rose-500 hover:text-white transition-all shrink-0" asChild>
+                        <Button variant="outline" className="w-full lg:w-auto h-10 px-6 rounded-xl font-black text-[10px] uppercase tracking-widest border-border hover:bg-rose-500 hover:text-white transition-all shrink-0" asChild>
                             <a href="/performance">Detailed Audit</a>
                         </Button>
                       </div>
                    </Card>
 
-                   <Card className="border border-border bg-card shadow-sm rounded-[2.5rem] p-8 border-l-[6px] border-l-primary group">
-                      <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-6">
+                   <Card className="border border-border bg-card shadow-sm rounded-[2.5rem] p-8 border-l-[6px] border-l-primary group transition-all">
+                      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                          <div className="space-y-4">
                             <div className="space-y-1">
                                <h3 className="text-xl font-black text-foreground uppercase tracking-tight flex items-center gap-2">
@@ -491,7 +488,7 @@ export default function FullPerformancePage() {
                                <p className="text-4xl font-mono font-black text-emerald-600 tabular-nums tracking-tighter">{stats.counts.processed}</p>
                             </div>
                          </div>
-                         <Button variant="outline" className="w-full xl:w-auto h-10 px-6 rounded-xl font-black text-[10px] uppercase tracking-widest border-border hover:bg-primary hover:text-white transition-all shrink-0" asChild>
+                         <Button variant="outline" className="w-full lg:w-auto h-10 px-6 rounded-xl font-black text-[10px] uppercase tracking-widest border-border hover:bg-primary hover:text-white transition-all shrink-0" asChild>
                             <a href="/full-registration">View Registry</a>
                          </Button>
                       </div>
