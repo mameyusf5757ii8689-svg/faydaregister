@@ -45,7 +45,7 @@ import {
   Pie, 
   Cell, 
   ResponsiveContainer, 
-  Tooltip as ChartTooltip,
+  ChartTooltip,
   AreaChart,
   Area,
   XAxis,
@@ -94,12 +94,6 @@ const COLORS = {
   failed: '#64748b',
 };
 
-/**
- * Institutional Performance Color Protocol
- * 85%+ : Green
- * 80-84% : Yellow
- * <80% : Red
- */
 const getThresholdColor = (value: number) => {
   if (value >= 85) return '#10b981';
   if (value >= 80) return '#f59e0b';
@@ -156,7 +150,6 @@ function PerformanceContent() {
   const [isExporting, setIsExporting] = useState(false);
   const [mounted, setMounted] = useState(false);
 
-  // Pagination for Rejection Audit
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
@@ -230,7 +223,6 @@ function PerformanceContent() {
 
       const calculateRate = (count: number, t: number) => Number(((count / t) * 100).toFixed(1));
 
-      // Rejection Reason Analytics
       const reasons: Record<string, number> = {};
       items.filter(r => r.status === 'Rejected').forEach(r => {
         const reason = r.rejectionReason || 'Unknown Protocol Error';
@@ -420,7 +412,6 @@ function PerformanceContent() {
         </div>
       ) : (
         <div className="space-y-10">
-          {/* Quadratic Gauge Matrix */}
           <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <MetricGauge 
               label="Success Rate" 
@@ -456,7 +447,6 @@ function PerformanceContent() {
             />
           </section>
 
-          {/* Advanced Analytics Row */}
           <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Card className="border border-border bg-card shadow-sm rounded-[2.5rem] p-8 flex flex-col justify-between group hover:shadow-xl transition-all">
                <div className="space-y-4">
@@ -584,11 +574,11 @@ function PerformanceContent() {
                       <TableRow key={reg.id} className="hover:bg-muted/30 border-border group h-20 transition-colors">
                         <TableCell className="pl-10">
                           <div className="flex flex-col">
-                            <span className="text-base font-black text-foreground uppercase tracking-tighter group-hover:text-primary transition-colors">
+                            <span className="text-base font-semibold text-foreground group-hover:text-primary transition-colors">
                               {reg.applicantName}
                             </span>
                             <span className="text-[9px] font-bold text-muted-foreground/40 uppercase tracking-widest mt-1">
-                              Official Signature
+                              Official Registry Record
                             </span>
                           </div>
                         </TableCell>
